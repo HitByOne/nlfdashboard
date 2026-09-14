@@ -71,6 +71,47 @@
   }
   .hero-meta b{color:var(--chalk);font-family:var(--cond);font-weight:600;}
 
+  /* ---- Ticker ---- */
+  .ticker-bar{
+    display:flex;align-items:stretch;
+    background:var(--field-deep);
+    border-bottom:1px solid var(--panel-border);
+  }
+  .ticker-label{
+    flex:0 0 auto;
+    display:flex;align-items:center;gap:6px;
+    padding:0 16px;
+    font-family:var(--cond);font-weight:700;font-size:13px;
+    color:var(--gold);
+    background:var(--panel);
+    border-right:1px solid var(--panel-border);
+    white-space:nowrap;
+  }
+  .ticker-track{
+    flex:1 1 auto;
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:thin;
+  }
+  .ticker-item{
+    flex:0 0 auto;
+    display:flex;flex-direction:column;justify-content:center;gap:3px;
+    padding:8px 18px;
+    border-right:1px solid var(--panel-border);
+    min-width:120px;
+  }
+  .ticker-time{
+    font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
+    text-transform:uppercase;letter-spacing:0.4px;
+  }
+  .ticker-teams{
+    display:flex;align-items:baseline;gap:5px;
+    font-family:var(--cond);font-weight:700;font-size:14px;
+    color:var(--chalk);
+  }
+  .ticker-at{color:var(--chalk-dim);font-weight:500;font-size:11px;}
+  .ticker-empty{padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);}
+
   /* ---- Tabs ---- */
   nav.tabs{
     display:flex;
@@ -222,6 +263,11 @@
   </div>
 </header>
 
+<div class="ticker-bar">
+  <div class="ticker-label">WK <span id="ticker-week">-</span></div>
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
 <div class="wrap">
   <nav class="tabs" id="tabs">
     <button data-tab="overview" class="active">Overview</button>
@@ -281,6 +327,46 @@ function renderHero(){
   $('#hero-meta').innerHTML = `
     <div><b>${DATA.teamSummary.length}</b> teams tracked &middot; <b>${DATA.playerGame.length}</b> player logs</div>
     <div>Built from your uploaded weekly data exports</div>`;
+}
+
+function renderTicker(){
+  const track = $('#ticker-track');
+  if(!track) return;
+  if(!DATA.week2 || !DATA.week2.length){
+    track.innerHTML = '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
+    return;
+  }
+  // One row per team per game in the source data -- collapse to one entry per game.
+  const seen = new Set();
+  const games = [];
+  DATA.week2.forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid || seen.has(gid)) return;
+    seen.add(gid);
+    const isHome = r['Home/Away'] === 'Home';
+    games.push({
+      date: r.Date,
+      home: isHome ? r.Team : r.Opponent,
+      away: isHome ? r.Opponent : r.Team,
+    });
+  });
+  games.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  $('#ticker-week').textContent = PREVIEW_WEEK || '-';
+  track.innerHTML = games.map(g=>{
+    const dt = new Date(g.date);
+    const dayStr = isNaN(dt) ? '' : dt.toLocaleDateString('en-US',{weekday:'short'});
+    const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    return `
+    <div class="ticker-item">
+      <div class="ticker-time">${dayStr}${timeStr ? ' &middot; ' + timeStr : ''}</div>
+      <div class="ticker-teams">
+        <span title="${teamName(g.away)}">${g.away}</span>
+        <span class="ticker-at">@</span>
+        <span title="${teamName(g.home)}">${g.home}</span>
+      </div>
+    </div>`;
+  }).join('') || '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
 }
 
 // ---------- helpers ----------
@@ -841,6 +927,7 @@ async function init(){
 
   $$('#tabs button').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
   renderHero();
+  renderTicker();
   showTab('overview');
 }
 init();
