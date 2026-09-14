@@ -71,35 +71,36 @@
   }
   .hero-meta b{color:var(--chalk);font-family:var(--cond);font-weight:600;}
 
-  /* ---- Ticker ---- */
-  .ticker-bar{
-    display:flex;align-items:stretch;
-    background:var(--field-deep);
-    border-bottom:1px solid var(--panel-border);
+  /* ---- Ticker (fixed left-side panel, floats in the page margin, never
+     affects the main layout's flow or width) ---- */
+  .ticker-side{
+    position:fixed;
+    top:140px;
+    left:24px;
+    width:190px;
+    max-height:calc(100vh - 180px);
+    overflow-y:auto;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:4px;
+    z-index:20;
   }
+  /* Only show it where there's actual empty margin next to the centered
+     .wrap content to float in -- otherwise it would overlap real content. */
+  @media (max-width:1560px){ .ticker-side{ display:none; } }
   .ticker-label{
-    flex:0 0 auto;
-    display:flex;align-items:center;gap:6px;
-    padding:0 16px;
     font-family:var(--cond);font-weight:700;font-size:13px;
     color:var(--gold);
-    background:var(--panel);
-    border-right:1px solid var(--panel-border);
-    white-space:nowrap;
+    padding:10px 14px;
+    border-bottom:1px solid var(--panel-border);
   }
-  .ticker-track{
-    flex:1 1 auto;
-    display:flex;
-    overflow-x:auto;
-    scrollbar-width:thin;
-  }
+  .ticker-track{display:flex;flex-direction:column;}
   .ticker-item{
-    flex:0 0 auto;
-    display:flex;flex-direction:column;justify-content:center;gap:3px;
-    padding:8px 18px;
-    border-right:1px solid var(--panel-border);
-    min-width:120px;
+    padding:9px 14px;
+    border-bottom:1px solid var(--hash-line);
+    display:flex;flex-direction:column;gap:3px;
   }
+  .ticker-item:last-child{border-bottom:none;}
   .ticker-time{
     font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
     text-transform:uppercase;letter-spacing:0.4px;
@@ -110,7 +111,8 @@
     color:var(--chalk);
   }
   .ticker-at{color:var(--chalk-dim);font-weight:500;font-size:11px;}
-  .ticker-empty{padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);}
+  .ticker-score{color:var(--gold);font-family:var(--mono);}
+  .ticker-empty{padding:10px 14px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);}
 
   /* ---- Tabs ---- */
   nav.tabs{
@@ -263,8 +265,8 @@
   </div>
 </header>
 
-<div class="ticker-bar">
-  <div class="ticker-label">WK <span id="ticker-week">-</span></div>
+<div class="ticker-side">
+  <div class="ticker-label">WEEK <span id="ticker-week">-</span></div>
   <div class="ticker-track" id="ticker-track"></div>
 </div>
 
@@ -329,7 +331,75 @@ function renderHero(){
     <div>Built from your uploaded weekly data exports</div>`;
 }
 
+const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+let liveScoreboardTimer = null;
+let liveScoreboardWorked = false;
+
+async function fetchLiveScoreboard(){
+  const res = await fetch(ESPN_SCOREBOARD_URL);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  return (data.events || []).map(ev=>{
+    const comp = (ev.competitions || [])[0] || {};
+    const competitors = comp.competitors || [];
+    const home = competitors.find(c=>c.homeAway==='home') || {};
+    const away = competitors.find(c=>c.homeAway==='away') || {};
+    const statusType = (ev.status || {}).type || {};
+    return {
+      date: ev.date,
+      homeAbbr: (home.team || {}).abbreviation || '?',
+      awayAbbr: (away.team || {}).abbreviation || '?',
+      homeScore: home.score,
+      awayScore: away.score,
+      state: statusType.state,           // 'pre' | 'in' | 'post'
+      detail: statusType.shortDetail,     // e.g. "Sun 1:00 PM", "Final", "Q3 4:15"
+    };
+  });
+}
+
 function renderTicker(){
+  fetchLiveScoreboard().then(games=>{
+    liveScoreboardWorked = true;
+    renderTickerGames(games, {live:true});
+    if(!liveScoreboardTimer){
+      // Re-poll every 60s so in-progress games actually update while the page is open.
+      liveScoreboardTimer = setInterval(()=>{
+        fetchLiveScoreboard().then(g=>renderTickerGames(g, {live:true})).catch(()=>{});
+      }, 60000);
+    }
+  }).catch(err=>{
+    // Browser blocked the cross-origin call (or it's offline) -- fall back
+    // to the static CSV matchups so the panel still shows something useful.
+    console.warn('Live ESPN scoreboard unavailable, falling back to CSV data:', err);
+    renderTickerFromCSV();
+  });
+}
+
+function renderTickerGames(games, opts={}){
+  const track = $('#ticker-track');
+  if(!track) return;
+  $('#ticker-week').textContent = opts.live ? 'LIVE' : (PREVIEW_WEEK || '-');
+  if(!games.length){
+    track.innerHTML = '<div class="ticker-empty">No games found.</div>';
+    return;
+  }
+  track.innerHTML = games.map(g=>{
+    const label = g.state === 'in' ? (g.detail || 'LIVE')
+                : g.state === 'post' ? 'Final'
+                : (g.detail || '');
+    const scoreLine = g.state === 'pre'
+      ? `<span>${g.awayAbbr}</span><span class="ticker-at">@</span><span>${g.homeAbbr}</span>`
+      : `<span title="${teamName(g.awayAbbr)}">${g.awayAbbr}</span><span class="ticker-score">${g.awayScore}</span>
+         <span class="ticker-score">${g.homeScore}</span><span title="${teamName(g.homeAbbr)}">${g.homeAbbr}</span>`;
+    return `
+    <div class="ticker-item">
+      <div class="ticker-time">${label}</div>
+      <div class="ticker-teams">${scoreLine}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTickerFromCSV(){
   const track = $('#ticker-track');
   if(!track) return;
   if(!DATA.week2 || !DATA.week2.length){
