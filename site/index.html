@@ -118,6 +118,8 @@
   }
   .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
   @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+  .mu-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+  @media (max-width:900px){.mu-grid{grid-template-columns:1fr;}}
 
   /* ---- Controls ---- */
   .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
@@ -693,7 +695,7 @@ function renderMatchup(){
       </div>
     </div>
     <div id="mu-rank"></div>
-    <div class="grid-2" style="grid-template-columns:1fr 1fr;align-items:start;">
+    <div class="mu-grid">
       <div>
         <div class="panel-title" id="mu-off-title" style="font-size:16px;"></div>
         <div id="mu-off-table"></div>
@@ -711,8 +713,8 @@ const MATCHUP_COLS = {
     {key:'Week', label:'Week', numeric:true},
     {key:'Player', label:'Player'},
     {key:'Position', label:'Pos'},
-    {key:'Team', label:'Team', render:teamChip},
-    {key:'Opponent', label:'Opp', render:teamChip},
+    {key:'Team', label:'Team', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
+    {key:'Opponent', label:'Opp', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
   ],
   QB: [
     {key:'Pass Completions', label:'Cmp', numeric:true},
