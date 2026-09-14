@@ -681,7 +681,7 @@ function renderMatchup(){
   return `
   <div class="panel">
     <div class="panel-title">Matchup Explorer</div>
-    <div class="panel-note">Pick an offense, a defense, and a position. Left table is that offense's players game-by-game. Right table is every player at that position who has actually played against the selected defense.</div>
+    <div class="panel-note">Pick an offense, a defense, and a position. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
     <div class="controls">
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
       <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
@@ -755,7 +755,11 @@ function mountMatchup(){
     const cols = [...MATCHUP_COLS.base, ...MATCHUP_COLS[pos]];
 
     const offRows = DATA.playerGame.filter(r=>r.Team===off && r.Position===pos);
-    const defRows = DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos);
+    // Exclude the offense's own team here -- the point of this table is to
+    // show OTHER teams' performances against the defense, for comparison.
+    // Without this, a team that already played this defense sees its own
+    // game mirrored back in both tables.
+    const defRows = DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off);
 
     $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
     $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
