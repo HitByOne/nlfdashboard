@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gridiron Ledger — NFL 2026 Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --field:#0B0F19;
+    --field-deep:#070A12;
+    --chalk:#EDEFF7;
+    --chalk-dim:#8B93AC;
+    --hash:#2A3348;
+    --hash-line:#1B2233;
+    --gold:#4C8DFF;
+    --gold-deep:#3568CC;
+    --red:#FF5C6C;
+    --mint:#33D6A6;
+    --panel:#121826;
+    --panel-border:#232B3E;
+    --mono:'IBM Plex Mono', monospace;
+    --cond:'Barlow Condensed', sans-serif;
+    --display:'Archivo Black', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--field);
+    color:var(--chalk);
+    font-family:var(--cond);
+    min-height:100vh;
+  }
+  a{color:inherit;}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 20px 60px;}
+
+  /* ---- Header ---- */
+  header.hero{
+    border-bottom:3px solid var(--gold);
+    background:linear-gradient(180deg, var(--field-deep), var(--field) 80%);
+    padding:34px 0 22px;
+    margin-bottom:26px;
+  }
+  .hero-inner{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;}
+  .hero-title{
+    font-family:var(--display);
+    font-size:clamp(28px, 4vw, 46px);
+    letter-spacing:0.5px;
+    line-height:1;
+    margin:0;
+    color:var(--chalk);
+  }
+  .hero-title span{color:var(--gold);}
+  .hero-sub{
+    font-family:var(--mono);
+    color:var(--chalk-dim);
+    font-size:13px;
+    margin-top:10px;
+    letter-spacing:0.3px;
+  }
+  .hero-meta{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--gold);
+    text-align:right;
+    line-height:1.6;
+  }
+  .hero-meta b{color:var(--chalk);font-family:var(--cond);font-weight:600;}
+
+  /* ---- Tabs ---- */
+  nav.tabs{
+    display:flex;
+    gap:2px;
+    overflow-x:auto;
+    border-bottom:1px solid var(--panel-border);
+    margin-bottom:22px;
+  }
+  nav.tabs button{
+    background:transparent;
+    border:none;
+    color:var(--chalk-dim);
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:16px;
+    padding:12px 18px;
+    cursor:pointer;
+    white-space:nowrap;
+    border-bottom:3px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  nav.tabs button:hover{color:var(--chalk);}
+  nav.tabs button.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+  /* ---- Panels ---- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:4px;
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .panel-title{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:19px;
+    margin:0 0 4px;
+    color:var(--chalk);
+  }
+  .panel-note{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--chalk-dim);
+    margin:0 0 16px;
+  }
+  .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+
+  /* ---- Controls ---- */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+  select, input[type="text"]{
+    background:var(--field-deep);
+    border:1px solid var(--hash);
+    color:var(--chalk);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:3px;
+  }
+  select:focus, input:focus{outline:1px solid var(--gold);}
+  .pill-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill{
+    background:var(--field-deep);
+    border:1px solid var(--hash);
+    color:var(--chalk-dim);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .12s;
+  }
+  .pill.active{background:var(--gold);border-color:var(--gold);color:var(--field-deep);font-weight:600;}
+  .pill:hover:not(.active){border-color:var(--gold);color:var(--chalk);}
+
+  /* ---- Table ---- */
+  .table-scroll{overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px;}
+  thead th{
+    text-align:left;
+    padding:8px 10px;
+    color:var(--gold);
+    border-bottom:2px solid var(--hash);
+    white-space:nowrap;
+    cursor:pointer;
+    user-select:none;
+    position:sticky;top:0;background:var(--panel);
+  }
+  thead th:hover{color:var(--chalk);}
+  thead th.sorted::after{content:' ▾';font-size:10px;}
+  thead th.sorted-asc::after{content:' ▴';font-size:10px;}
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--hash-line);white-space:nowrap;color:var(--chalk);}
+  tbody tr:hover{background:rgba(227,169,59,0.06);}
+  tbody tr:nth-child(even){background:rgba(255,255,255,0.015);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .rank-badge{
+    display:inline-block;min-width:22px;text-align:center;
+    background:var(--field-deep);border:1px solid var(--hash);
+    border-radius:3px;padding:2px 5px;color:var(--gold);font-size:11px;
+  }
+  .team-chip{
+    font-family:var(--cond);font-weight:700;letter-spacing:0.5px;
+    background:var(--field-deep);border:1px solid var(--gold-deep);
+    color:var(--gold);padding:2px 8px;border-radius:3px;font-size:12px;
+  }
+  .heat{border-radius:2px;padding:3px 8px;display:inline-block;min-width:48px;text-align:center;font-weight:600;}
+
+  /* ---- Matchup cards (Week 2) ---- */
+  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .matchup-card{
+    background:var(--field-deep);border:1px solid var(--panel-border);
+    border-radius:4px;padding:14px 16px;
+  }
+  .matchup-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:1px solid var(--hash-line);padding-bottom:8px;}
+  .matchup-teams{font-family:var(--cond);font-weight:700;font-size:17px;}
+  .matchup-teams .vs{color:var(--chalk-dim);font-weight:500;font-size:13px;margin:0 6px;}
+  .matchup-tag{font-family:var(--mono);font-size:10px;color:var(--chalk-dim);}
+  .pos-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-family:var(--mono);font-size:12px;}
+  .pos-label{color:var(--chalk-dim);width:30px;}
+
+  /* ---- Stat cards ---- */
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .stat-card{
+    flex:1;min-width:150px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-left:3px solid var(--gold);
+    padding:14px 16px;border-radius:4px;
+  }
+  .stat-card .label{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:0.5px;}
+  .stat-card .value{font-family:var(--display);font-size:24px;color:var(--chalk);margin-top:6px;}
+  .stat-card .value span{color:var(--gold);font-size:14px;font-family:var(--cond);}
+
+  canvas{max-width:100%;}
+  .empty{color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center;}
+  footer{text-align:center;padding:30px 0 10px;font-family:var(--mono);font-size:11px;color:var(--hash);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <h1 class="hero-title">GRIDIRON <span>LEDGER</span></h1>
+      <div class="hero-sub" id="hero-sub"></div>
+    </div>
+    <div class="hero-meta" id="hero-meta">
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="matchup">Matchup Explorer</button>
+    <button data-tab="teams">Team Summary</button>
+    <button data-tab="teamweek">Team Game Log</button>
+    <button data-tab="players">Player Stats</button>
+    <button data-tab="defense">Defense vs Position</button>
+    <button data-tab="sos">Strength of Schedule</button>
+    <button data-tab="week2">Upcoming Matchups</button>
+  </nav>
+
+  <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
+</div>
+
+<footer>GRIDIRON LEDGER &mdash; generated from CSV data uploaded by user &middot; not affiliated with the NFL</footer>
+
+<script>
+let DATA = { teamSummary:[], teamWeek:[], playerGame:[], defVsPos:[], sos:[], week2:[] };
+
+// Every week's data -- including week 1 -- comes from the same place: these
+// CSVs, fetched fresh on every page load. Nothing is embedded/baked into
+// this file. Re-run the pipeline to refresh the CSVs and just reload the
+// page; there is no separate "build the dashboard" step anymore.
+const CSV_FILES = {
+  teamSummary: 'data/nfl_2026_team_summary.csv',
+  teamWeek:    'data/nfl_2026_team_week_stats.csv',
+  playerGame:  'data/nfl_2026_player_game_stats.csv',
+  defVsPos:    'data/nfl_2026_defense_vs_position.csv',
+  sos:         'data/nfl_2026_strength_of_schedule.csv',
+  week2:       'data/nfl_2026_upcoming_matchups.csv',
+};
+
+const TEAM_NAMES = {
+  ARI:'Arizona Cardinals', ATL:'Atlanta Falcons', BAL:'Baltimore Ravens', BUF:'Buffalo Bills',
+  CAR:'Carolina Panthers', CHI:'Chicago Bears', CIN:'Cincinnati Bengals', CLE:'Cleveland Browns',
+  DAL:'Dallas Cowboys', DEN:'Denver Broncos', DET:'Detroit Lions', GB:'Green Bay Packers',
+  HOU:'Houston Texans', IND:'Indianapolis Colts', JAX:'Jacksonville Jaguars', KC:'Kansas City Chiefs',
+  LAC:'Los Angeles Chargers', LAR:'Los Angeles Rams', LV:'Las Vegas Raiders', MIA:'Miami Dolphins',
+  MIN:'Minnesota Vikings', NE:'New England Patriots', NO:'New Orleans Saints', NYG:'New York Giants',
+  NYJ:'New York Jets', PHI:'Philadelphia Eagles', PIT:'Pittsburgh Steelers', SEA:'Seattle Seahawks',
+  SF:'San Francisco 49ers', TB:'Tampa Bay Buccaneers', TEN:'Tennessee Titans', WSH:'Washington Commanders'
+};
+function teamName(abbr){ return TEAM_NAMES[abbr] || abbr; }
+
+// Derive "what week are we on" straight from the data instead of hardcoding
+// it, so the header text stays correct all season without editing the template.
+function num_(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+let LATEST_RESULTS_WEEK = null;
+let PREVIEW_WEEK = null;
+
+function renderHero(){
+  const parts = [];
+  if(LATEST_RESULTS_WEEK) parts.push(`WEEK ${LATEST_RESULTS_WEEK} RESULTS`);
+  if(PREVIEW_WEEK) parts.push(`WEEK ${PREVIEW_WEEK} MATCHUP PREP`);
+  $('#hero-sub').textContent = `2026 SEASON${parts.length ? ' \u00b7 ' + parts.join(' + ') : ''}`;
+  $('#hero-meta').innerHTML = `
+    <div><b>${DATA.teamSummary.length}</b> teams tracked &middot; <b>${DATA.playerGame.length}</b> player logs</div>
+    <div>Built from your uploaded weekly data exports</div>`;
+}
+
+// ---------- helpers ----------
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function fmt(v, d=1){ const n = num(v); return Number.isInteger(n) ? n.toString() : n.toFixed(d); }
+function teamChip(t){ return `<span class="team-chip">${teamName(t)}</span>`; }
+function heatColor(rank, max){
+  // rank 1 = best matchup (most points allowed) -> mint green, rank max = tough matchup -> coral
+  const pct = 1 - ((rank-1)/(max-1||1));
+  const good = [51,214,166];   // mint
+  const bad  = [255,92,108];   // coral
+  const r = Math.round(bad[0] + (good[0]-bad[0])*pct);
+  const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
+  const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
+  return `background:rgba(${r},${g},${b},0.22);border:1px solid rgba(${r},${g},${b},0.6);color:var(--chalk);`;
+}
+
+let charts = {};
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+// generic sortable table builder
+function buildTable(container, columns, rows, opts={}){
+  const state = container._sortState || {key: opts.defaultSort || columns[0].key, dir: opts.defaultDir || 'desc'};
+  container._sortState = state;
+  let sorted = [...rows].sort((a,b)=>{
+    let av = a[state.key], bv = b[state.key];
+    const an = parseFloat(av), bn = parseFloat(bv);
+    const isNum = !isNaN(an) && !isNaN(bn) && av !== '' && bv !== '';
+    let cmp;
+    if(isNum) cmp = an - bn; else cmp = String(av).localeCompare(String(bv));
+    return state.dir === 'asc' ? cmp : -cmp;
+  });
+  if(opts.limit) sorted = sorted.slice(0, opts.limit);
+
+  const thead = columns.map(c=>{
+    let cls = '';
+    if(c.key === state.key) cls = state.dir === 'asc' ? 'sorted-asc' : 'sorted';
+    return `<th class="${cls}" data-key="${c.key}" style="${c.numeric?'text-align:right':''}">${c.label}</th>`;
+  }).join('');
+
+  const tbody = sorted.map(row=>{
+    return '<tr>' + columns.map(c=>{
+      const raw = row[c.key];
+      const val = c.render ? c.render(raw, row) : raw;
+      return `<td class="${c.numeric?'num':''}">${val}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  container.innerHTML = `<div class="table-scroll"><table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${columns.length}" class="empty">No rows match your filters.</td></tr>`}</tbody></table></div>`;
+
+  $$('th', container).forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(state.key === key){ state.dir = state.dir === 'asc' ? 'desc' : 'asc'; }
+      else { state.key = key; state.dir = 'desc'; }
+      buildTable(container, columns, rows, opts);
+    });
+  });
+}
+
+// ---------- TAB: OVERVIEW ----------
+function renderOverview(){
+  const ts = DATA.teamSummary;
+  const totalPts = ts.reduce((s,r)=>s+num(r['PPR Points']),0);
+  const topOff = [...ts].sort((a,b)=>num(b['Offensive Yards Per Game'])-num(a['Offensive Yards Per Game']))[0];
+  const topDef = [...ts].sort((a,b)=>num(a['Offensive Yards Allowed Per Game'])-num(b['Offensive Yards Allowed Per Game']))[0];
+  const topScorer = [...DATA.playerGame].sort((a,b)=>num(b['PPR Points'])-num(a['PPR Points']))[0];
+
+  return `
+  <div class="stat-row">
+    <div class="stat-card"><div class="label">Top Offense (Yds/G)</div><div class="value">${teamName(topOff.Team)} <span>${fmt(topOff['Offensive Yards Per Game'])}</span></div></div>
+    <div class="stat-card"><div class="label">Stingiest Defense (Yds Allowed/G)</div><div class="value">${teamName(topDef.Team)} <span>${fmt(topDef['Offensive Yards Allowed Per Game'])}</span></div></div>
+    <div class="stat-card"><div class="label">Best Single-Game Scorer</div><div class="value">${topScorer.Player} <span>${fmt(topScorer['PPR Points'])} pts</span></div></div>
+    <div class="stat-card"><div class="label">League PPR Points Logged</div><div class="value">${Math.round(totalPts).toLocaleString()}</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Offense vs Defense — Yards Per Game</div>
+      <div class="panel-note">Each dot is a team. Bottom-right = explosive offense facing a leaky defense.</div>
+      <canvas id="chart-overview-scatter" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top 10 Single-Game PPR Performances</div>
+      <div class="panel-note">Fantasy points across all positions.</div>
+      <canvas id="chart-overview-top" height="260"></canvas>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">League Snapshot</div>
+    <div class="panel-note">Click any column header to sort.</div>
+    <div id="overview-table"></div>
+  </div>
+  `;
+}
+function mountOverview(){
+  const ts = DATA.teamSummary;
+  destroyChart('scatter'); destroyChart('top');
+  const ctx1 = $('#chart-overview-scatter');
+  charts.scatter = new Chart(ctx1, {
+    type:'scatter',
+    data:{ datasets:[{
+      label:'Teams',
+      data: ts.map(r=>({x:num(r['Offensive Yards Per Game']), y:num(r['Offensive Yards Allowed Per Game']), team:r.Team})),
+      backgroundColor:'#4C8DFF',
+      pointRadius:5,
+    }]},
+    options:{
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label:(c)=> `${c.raw.team}: ${c.raw.x} off yds/g, ${c.raw.y} allowed yds/g` } } },
+      scales:{
+        x:{ title:{display:true,text:'Offensive Yards / Game', color:'#8B93AC'}, ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} },
+        y:{ title:{display:true,text:'Yards Allowed / Game', color:'#8B93AC'}, ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }
+      }
+    }
+  });
+  const top10 = [...DATA.playerGame].sort((a,b)=>num(b['PPR Points'])-num(a['PPR Points'])).slice(0,10);
+  const ctx2 = $('#chart-overview-top');
+  charts.top = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels: top10.map(r=>r.Player), datasets:[{ label:'PPR Points', data: top10.map(r=>num(r['PPR Points'])), backgroundColor:'#FFB020' }]},
+    options:{ indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }, y:{ ticks:{color:'#EDEFF7', font:{size:11}}, grid:{display:false} } }
+    }
+  });
+  buildTable($('#overview-table'), [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'PPR Points Per Game', label:'PPR/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Made Per Game', label:'TD/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Allowed Per Game', label:'Def Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Allowed Per Game', label:'TD Allowed/G', numeric:true, render:v=>fmt(v)},
+  ], ts, {defaultSort:'PPR Points Per Game'});
+}
+
+// ---------- TAB: TEAM SUMMARY ----------
+function renderTeams(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Team Summary — Season Totals & Per-Game Averages</div>
+    <div class="panel-note">Offense and defense in one row. Sort by any column.</div>
+    <div class="controls">
+      <input type="text" id="team-search" placeholder="Filter team (e.g. Bills or BUF)">
+    </div>
+    <div id="teams-table"></div>
+  </div>`;
+}
+function mountTeams(){
+  const cols = [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Games Played', label:'GP', numeric:true},
+    {key:'PPR Points Per Game', label:'PPR/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Pass Yards Per Game', label:'Pass Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Rush Yards Per Game', label:'Rush Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Made Per Game', label:'TD/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Allowed Per Game', label:'Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Pass Yards Allowed Per Game', label:'Pass Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Rush Yards Allowed Per Game', label:'Rush Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Allowed Per Game', label:'TD Allowed/G', numeric:true, render:v=>fmt(v)},
+  ];
+  function apply(){
+    const q = $('#team-search').value.trim().toUpperCase();
+    const rows = DATA.teamSummary.filter(r=> !q || r.Team.toUpperCase().includes(q) || teamName(r.Team).toUpperCase().includes(q));
+    buildTable($('#teams-table'), cols, rows, {defaultSort:'PPR Points Per Game'});
+  }
+  $('#team-search').addEventListener('input', apply);
+  apply();
+}
+
+// ---------- TAB: TEAM WEEK STATS ----------
+function renderTeamWeek(){
+  const teams = [...new Set(DATA.teamWeek.map(r=>r.Team))].sort();
+  return `
+  <div class="panel">
+    <div class="panel-title">Team Game Log</div>
+    <div class="panel-note">Every team's game-by-game offensive and defensive output.</div>
+    <div class="controls">
+      <select id="tw-team"><option value="">All teams</option>${teams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('')}</select>
+    </div>
+    <div id="tw-table"></div>
+  </div>`;
+}
+function mountTeamWeek(){
+  const cols = [
+    {key:'Week', label:'Wk', numeric:true},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponent', label:'Opp', render:teamChip},
+    {key:'Offensive Yards', label:'Off Yds', numeric:true},
+    {key:'Total TD Made', label:'TD', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Allowed', label:'Yds Allowed', numeric:true},
+    {key:'Total TD Allowed', label:'TD Allowed', numeric:true},
+  ];
+  function apply(){
+    const t = $('#tw-team').value;
+    const rows = DATA.teamWeek.filter(r=> !t || r.Team === t);
+    buildTable($('#tw-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc'});
+  }
+  $('#tw-team').addEventListener('change', apply);
+  apply();
+}
+
+// ---------- TAB: PLAYER STATS ----------
+function renderPlayers(){
+  const teams = [...new Set(DATA.playerGame.map(r=>r.Team))].sort();
+  const positions = [...new Set(DATA.playerGame.map(r=>r.Position))].sort();
+  return `
+  <div class="panel">
+    <div class="panel-title">Player Game Stats</div>
+    <div class="panel-note">Box scores across every game logged so far this season.</div>
+    <div class="controls">
+      <input type="text" id="pl-search" placeholder="Search player...">
+      <select id="pl-team"><option value="">All teams</option>${teams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('')}</select>
+      <div class="pill-group" id="pl-pos-pills">
+        <span class="pill active" data-pos="">ALL</span>
+        ${positions.map(p=>`<span class="pill" data-pos="${p}">${p}</span>`).join('')}
+      </div>
+    </div>
+    <div id="pl-table"></div>
+  </div>`;
+}
+function mountPlayers(){
+  const cols = [
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponent', label:'Opp', render:teamChip},
+    {key:'Position', label:'Pos'},
+    {key:'Pass Yards', label:'PassYd', numeric:true},
+    {key:'Pass TD', label:'PassTD', numeric:true},
+    {key:'Rush Yards', label:'RushYd', numeric:true},
+    {key:'Rush TD', label:'RushTD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'RecYd', numeric:true},
+    {key:'Receiving TD', label:'RecTD', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+  ];
+  let pos = '';
+  function apply(){
+    const q = $('#pl-search').value.trim().toLowerCase();
+    const t = $('#pl-team').value;
+    const rows = DATA.playerGame.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!t || r.Team === t) &&
+      (!pos || r.Position === pos)
+    );
+    buildTable($('#pl-table'), cols, rows, {defaultSort:'PPR Points', limit:150});
+  }
+  $('#pl-search').addEventListener('input', apply);
+  $('#pl-team').addEventListener('change', apply);
+  $$('#pl-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#pl-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: DEFENSE VS POSITION ----------
+function renderDefense(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Defense vs Position</div>
+    <div class="panel-note">PPR points allowed per game, by defense and position. Gold = juicy fantasy matchup, red = tough matchup. Rank 1 is most exploitable.</div>
+    <div class="controls">
+      <div class="pill-group" id="def-pos-pills">
+        <span class="pill active" data-pos="QB">QB</span>
+        <span class="pill" data-pos="RB">RB</span>
+        <span class="pill" data-pos="TE">TE</span>
+        <span class="pill" data-pos="WR">WR</span>
+      </div>
+    </div>
+    <div id="def-table"></div>
+  </div>`;
+}
+function mountDefense(){
+  let pos = 'QB';
+  function apply(){
+    const rows = DATA.defVsPos.filter(r=>r.Position===pos);
+    const maxRank = Math.max(...rows.map(r=>num(r['PPR Points Allowed Rank'])));
+    const cols = [
+      {key:'PPR Points Allowed Rank', label:'Rank', numeric:true, render:(v)=>`<span class="heat" style="${heatColor(num(v), maxRank)}">#${v}</span>`},
+      {key:'Defense', label:'Defense', render:teamChip},
+      {key:'PPR Points Allowed Per Game', label:'PPR Allowed/G', numeric:true, render:v=>fmt(v)},
+      {key:'Pass Yards Allowed Per Game', label:'Pass Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+      {key:'Pass TD Allowed Per Game', label:'Pass TD Allowed/G', numeric:true, render:v=>fmt(v)},
+      {key:'Rush Yards Allowed Per Game', label:'Rush Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+      {key:'Receiving Yards Allowed Per Game', label:'Rec Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+      {key:'Interceptions Forced Per Game', label:'INT/G', numeric:true, render:v=>fmt(v)},
+    ];
+    buildTable($('#def-table'), cols, rows, {defaultSort:'PPR Points Allowed Rank', defaultDir:'asc'});
+  }
+  $$('#def-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#def-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: STRENGTH OF SCHEDULE ----------
+function renderSOS(){
+  return `
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Strength of Schedule Played</div>
+      <div class="panel-note">Based on combined win-loss record of opponents faced so far.</div>
+      <div id="sos-table"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Toughest vs Easiest Schedules</div>
+      <canvas id="chart-sos" height="320"></canvas>
+    </div>
+  </div>`;
+}
+function mountSOS(){
+  const cols = [
+    {key:'Played SOS Rank', label:'Rank', numeric:true, render:v=>`<span class="rank-badge">${v}</span>`},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponents Played', label:'Opponent(s)'},
+    {key:'Opponent Combined Record', label:'Opp Record'},
+    {key:'Played SOS', label:'SOS', numeric:true, render:v=>fmt(v,3)},
+    {key:'Opponent TD Made Per Game', label:'Opp TD/G', numeric:true, render:v=>fmt(v)},
+  ];
+  buildTable($('#sos-table'), cols, DATA.sos, {defaultSort:'Played SOS Rank', defaultDir:'asc'});
+
+  const sorted = [...DATA.sos].sort((a,b)=>num(b['Played SOS'])-num(a['Played SOS']));
+  destroyChart('sos');
+  charts.sos = new Chart($('#chart-sos'), {
+    type:'bar',
+    data:{ labels: sorted.map(r=>r.Team), datasets:[{ label:'SOS', data: sorted.map(r=>num(r['Played SOS'])), backgroundColor: sorted.map(r=> num(r['Played SOS'])>=0.5 ? '#FF5C6C' : '#33D6A6') }]},
+    options:{ plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:'#8B93AC', maxRotation:90, minRotation:90, font:{size:9}}, grid:{display:false} },
+               y:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} } }
+    }
+  });
+}
+
+// ---------- TAB: WEEK 2 MATCHUPS ----------
+function renderWeek2(){
+  const wk = DATA.week2 && DATA.week2.length ? DATA.week2[0].Week : null;
+  return `
+  <div class="panel">
+    <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'} — Fantasy Prep</div>
+    <div class="panel-note">Each card shows how the opponent's defense has performed against the position so far this season (PPR points allowed per game).</div>
+    <div class="controls">
+      <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
+    </div>
+    <div class="matchup-grid" id="wk2-grid"></div>
+  </div>`;
+}
+function mountWeek2(){
+  function apply(){
+    const q = $('#wk2-search').value.trim().toUpperCase();
+    const rows = DATA.week2.filter(r=> !q || r.Team.includes(q) || r.Opponent.includes(q) || teamName(r.Team).toUpperCase().includes(q) || teamName(r.Opponent).toUpperCase().includes(q));
+    const positions = ['QB','RB','TE','WR'];
+    // compute max for heat scaling per position across the week2 set
+    const maxByPos = {};
+    positions.forEach(p=>{
+      maxByPos[p] = Math.max(...DATA.week2.map(r=>num(r[`PPR Points Allowed Per Game vs ${p}`])));
+    });
+    $('#wk2-grid').innerHTML = rows.map(r=>{
+      const dt = new Date(r.Date);
+      const dateStr = isNaN(dt) ? r.Date : dt.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+      const posRows = positions.map(p=>{
+        const val = num(r[`PPR Points Allowed Per Game vs ${p}`]);
+        const pct = maxByPos[p] ? val / maxByPos[p] : 0;
+        const rr = Math.round(35 + (51-35)*pct), gg = Math.round(42+(214-42)*pct), bb = Math.round(62+(166-62)*pct);
+        return `<div class="pos-row"><span class="pos-label">${p}</span><span class="heat" style="background:rgba(${rr},${gg},${bb},0.3);border:1px solid rgba(${rr},${gg},${bb},0.7);">${fmt(val)} pts/g allowed by ${teamName(r.Opponent)}</span></div>`;
+      }).join('');
+      return `
+      <div class="matchup-card">
+        <div class="matchup-head">
+          <div class="matchup-teams">${teamName(r.Team)}<span class="vs">${r['Home/Away']==='Home'?'vs':'@'}</span>${teamName(r.Opponent)}</div>
+          <div class="matchup-tag">${dateStr}</div>
+        </div>
+        ${posRows}
+      </div>`;
+    }).join('') || '<div class="empty">No matchups match your filter.</div>';
+  }
+  $('#wk2-search').addEventListener('input', apply);
+  apply();
+}
+
+// ---------- TAB: MATCHUP EXPLORER ----------
+const MATCHUP_POSITIONS = ['QB','RB','TE','WR'];
+function renderMatchup(){
+  const teams = [...new Set(DATA.teamSummary.map(r=>r.Team))].sort();
+  const defaultOff = teams.includes('DAL') ? 'DAL' : teams[0];
+  const defaultDef = teams.includes('NYG') ? 'NYG' : teams[1];
+  return `
+  <div class="panel">
+    <div class="panel-title">Matchup Explorer</div>
+    <div class="panel-note">Pick an offense, a defense, and a position. Left table is that offense's players game-by-game. Right table is every player at that position who has actually played against the selected defense.</div>
+    <div class="controls">
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
+      <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
+      <span style="color:var(--gold);font-family:var(--display);font-size:14px;">VS</span>
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">DEFENSE</label>
+      <select id="mu-def">${teams.map(t=>`<option value="${t}" ${t===defaultDef?'selected':''}>${teamName(t)}</option>`).join('')}</select>
+      <div class="pill-group" id="mu-pos-pills">
+        ${MATCHUP_POSITIONS.map((p,i)=>`<span class="pill ${i===0?'active':''}" data-pos="${p}">${p}</span>`).join('')}
+      </div>
+    </div>
+    <div id="mu-rank"></div>
+    <div class="grid-2" style="grid-template-columns:1fr 1fr;align-items:start;">
+      <div>
+        <div class="panel-title" id="mu-off-title" style="font-size:16px;"></div>
+        <div id="mu-off-table"></div>
+      </div>
+      <div>
+        <div class="panel-title" id="mu-def-title" style="font-size:16px;"></div>
+        <div id="mu-def-table"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+const MATCHUP_COLS = {
+  base: [
+    {key:'Week', label:'Week', numeric:true},
+    {key:'Player', label:'Player'},
+    {key:'Position', label:'Pos'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponent', label:'Opp', render:teamChip},
+  ],
+  QB: [
+    {key:'Pass Completions', label:'Cmp', numeric:true},
+    {key:'Pass Attempts', label:'Att', numeric:true},
+    {key:'Pass Yards', label:'Pass Yds', numeric:true},
+    {key:'Pass TD', label:'Pass TD', numeric:true},
+    {key:'Interceptions', label:'INT', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+  ],
+  RB: [
+    {key:'Rush Attempts', label:'Rush Att', numeric:true},
+    {key:'Rush Yards', label:'Rush Yds', numeric:true},
+    {key:'Rush TD', label:'Rush TD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+  ],
+  TE: [
+    {key:'Targets', label:'Tgt', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+  ],
+  WR: [
+    {key:'Targets', label:'Tgt', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
+  ],
+};
+
+function mountMatchup(){
+  let pos = MATCHUP_POSITIONS[0];
+  function apply(){
+    const off = $('#mu-off').value;
+    const def = $('#mu-def').value;
+    const cols = [...MATCHUP_COLS.base, ...MATCHUP_COLS[pos]];
+
+    const offRows = DATA.playerGame.filter(r=>r.Team===off && r.Position===pos);
+    const defRows = DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos);
+
+    $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
+    $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
+
+    buildTable($('#mu-off-table'), cols, offRows, {defaultSort:'Week', defaultDir:'asc'});
+    buildTable($('#mu-def-table'), cols, defRows, {defaultSort:'Week', defaultDir:'asc'});
+
+    const defVs = DATA.defVsPos.find(r=>r.Defense===def && r.Position===pos);
+    const allAtPos = DATA.defVsPos.filter(r=>r.Position===pos);
+    const maxRank = Math.max(...allAtPos.map(r=>num(r['PPR Points Allowed Rank'])));
+    if(defVs){
+      const rank = num(defVs['PPR Points Allowed Rank']);
+      $('#mu-rank').innerHTML = `<div style="margin-bottom:14px;"><span class="heat" style="${heatColor(rank, maxRank)}">${teamChip(def)} ranks #${rank} of ${maxRank} vs ${pos} &middot; ${fmt(defVs['PPR Points Allowed Per Game'])} PPR pts/g allowed</span></div>`;
+    } else {
+      $('#mu-rank').innerHTML = '';
+    }
+  }
+  $('#mu-off').addEventListener('change', apply);
+  $('#mu-def').addEventListener('change', apply);
+  $$('#mu-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#mu-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- ROUTER ----------
+const renderers = {
+  overview: {render: renderOverview, mount: mountOverview},
+  matchup: {render: renderMatchup, mount: mountMatchup},
+  teams: {render: renderTeams, mount: mountTeams},
+  teamweek: {render: renderTeamWeek, mount: mountTeamWeek},
+  players: {render: renderPlayers, mount: mountPlayers},
+  defense: {render: renderDefense, mount: mountDefense},
+  sos: {render: renderSOS, mount: mountSOS},
+  week2: {render: renderWeek2, mount: mountWeek2},
+};
+function showTab(tab){
+  $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  const r = renderers[tab];
+  $('#content').innerHTML = r.render();
+  r.mount();
+}
+async function loadCSV(path){
+  const res = await fetch(path, {cache: 'no-store'});
+  if(!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
+  const text = await res.text();
+  const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
+  return parsed.data;
+}
+
+async function init(){
+  try {
+    const entries = await Promise.all(
+      Object.entries(CSV_FILES).map(async ([key, path]) => [key, await loadCSV(path)])
+    );
+    DATA = Object.fromEntries(entries);
+  } catch(err){
+    console.error(err);
+    $('#content').innerHTML = `<div class="empty" style="padding:60px 20px;">
+      Couldn't load data (${err.message}).<br><br>
+      This page fetches its CSVs from a <code>data/</code> folder next to it, so it needs
+      to be served over http(s) -- opening the file directly (file://) won't work in most
+      browsers. Run a local server (e.g. <code>python3 -m http.server</code> in this folder)
+      or view it via its hosted URL, and make sure <code>data/</code> contains the 6 CSVs.
+    </div>`;
+    return;
+  }
+
+  LATEST_RESULTS_WEEK = DATA.teamWeek && DATA.teamWeek.length
+    ? Math.max(...DATA.teamWeek.map(r=>num_(r.Week)))
+    : (DATA.playerGame && DATA.playerGame.length ? Math.max(...DATA.playerGame.map(r=>num_(r.Week))) : null);
+  PREVIEW_WEEK = DATA.week2 && DATA.week2.length ? num_(DATA.week2[0].Week) : (LATEST_RESULTS_WEEK ? LATEST_RESULTS_WEEK + 1 : null);
+
+  $$('#tabs button').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+  renderHero();
+  showTab('overview');
+}
+init();
+</script>
+</body>
+</html>
