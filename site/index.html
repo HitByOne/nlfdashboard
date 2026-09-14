@@ -116,9 +116,9 @@
     color:var(--chalk-dim);
     margin:0 0 16px;
   }
-  .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;}
   @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
-  .mu-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+  .mu-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;}
   @media (max-width:900px){.mu-grid{grid-template-columns:1fr;}}
 
   /* ---- Controls ---- */
