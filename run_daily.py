@@ -16,7 +16,7 @@ the CSVs *is* refreshing the dashboard -- same mechanism for every week,
 including week 1.
 
 Schedule this with cron or a GitHub Actions workflow, e.g. daily at 6am:
-    0 6 * * *  cd /path/to/repo && python3 run_daily.py
+    0 6 * * *  cd /path/to/pipeline && python3 run_daily.py
 """
 import subprocess
 import sys
@@ -27,12 +27,15 @@ from nfl_common import PLAYER_FILE
 PIPELINE_DIR = Path(__file__).resolve().parent
 
 
-def run(script_name: str) -> None:
+def run(script_name: str, critical: bool = True) -> None:
     script_path = PIPELINE_DIR / script_name
     print(f"\n=== Running {script_name} ===")
     result = subprocess.run([sys.executable, str(script_path)], cwd=PIPELINE_DIR)
     if result.returncode != 0:
-        raise RuntimeError(f"{script_name} failed with exit code {result.returncode}")
+        if critical:
+            raise RuntimeError(f"{script_name} failed with exit code {result.returncode}")
+        print(f"WARNING: {script_name} failed (exit {result.returncode}) -- continuing, "
+              f"this step is not required for the core dashboard.")
 
 
 def main():
@@ -48,6 +51,11 @@ def main():
     run("04_strength_of_schedule.py")
     run("05_defense_vs_position.py")
     run("06_matchup_preview.py")
+
+    # Milestone Watch is a nice-to-have layered on top of everything else --
+    # an empty watchlist or a flaky ESPN lookup shouldn't block the core
+    # weekly refresh, so this one is non-critical.
+    run("07_milestone_watch.py", critical=False)
 
     print("\nPipeline complete. site/data/*.csv is up to date --")
     print("reload the dashboard page to see the refresh.")
