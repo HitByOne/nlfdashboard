@@ -5,7 +5,7 @@ from time import sleep
 import pandas as pd
 import requests
 
-from nfl_common import SEASON, PLAYER_FILE, BASE_URL, get_next_pull_week
+from nfl_common import SEASON, PLAYER_FILE, BASE_URL, get_next_pull_week, extract_position
 
 CSV_FILE = PLAYER_FILE
 
@@ -118,10 +118,7 @@ for event in completed_events:
                         "Opponent": opponent,
                         "Player": athlete.get("displayName"),
                         "Player ID": player_id,
-                        "Position": athlete.get(
-                            "position",
-                            {},
-                        ).get("abbreviation"),
+                        "Position": extract_position(athlete),
                         "Pass Completions": 0,
                         "Pass Attempts": 0,
                         "Pass Yards": 0,
