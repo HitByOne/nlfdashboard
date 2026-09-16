@@ -3,7 +3,7 @@ from time import sleep
 import pandas as pd
 import requests
 
-from nfl_common import SEASON, PLAYER_FILE, BASE_URL, extract_position
+from nfl_common import SEASON, PLAYER_FILE, BASE_URL, build_player_position_map
 from datetime import date
 
 START_DATE = f"{SEASON}0901"
@@ -35,6 +35,9 @@ if not completed_events:
     )
 
 print(f"Completed games found: {len(completed_events)}")
+
+print("Building player-position lookup from team rosters...")
+POSITION_MAP = build_player_position_map(SEASON)
 
 all_rows = []
 
@@ -97,7 +100,7 @@ for event in completed_events:
                         "Opponent": opponent,
                         "Player": athlete.get("displayName"),
                         "Player ID": player_id,
-                        "Position": extract_position(athlete),
+                        "Position": POSITION_MAP.get(str(player_id), ""),
                         "Pass Completions": 0,
                         "Pass Attempts": 0,
                         "Pass Yards": 0,
