@@ -3,7 +3,7 @@ from time import sleep
 import pandas as pd
 import requests
 
-from nfl_common import SEASON, PLAYER_FILE, BASE_URL
+from nfl_common import SEASON, PLAYER_FILE, BASE_URL, extract_position
 from datetime import date
 
 START_DATE = f"{SEASON}0901"
@@ -97,10 +97,7 @@ for event in completed_events:
                         "Opponent": opponent,
                         "Player": athlete.get("displayName"),
                         "Player ID": player_id,
-                        "Position": athlete.get(
-                            "position",
-                            {},
-                        ).get("abbreviation"),
+                        "Position": extract_position(athlete),
                         "Pass Completions": 0,
                         "Pass Attempts": 0,
                         "Pass Yards": 0,
