@@ -230,7 +230,7 @@
     color:var(--gold);text-transform:uppercase;letter-spacing:0.8px;
     margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--panel-border);
   }
-  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;}
+  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;}
   .matchup-card{
     background:var(--field-deep);border:1px solid var(--panel-border);
     border-radius:6px;overflow:hidden;
@@ -252,10 +252,11 @@
   .matchup-side{padding:12px 14px;}
   .matchup-side + .matchup-side{border-left:1px solid var(--panel-border);}
   .matchup-side-label{
-    font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
-    text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;
+    font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-bottom:10px;
   }
-  .matchup-side-label b{color:var(--chalk);font-family:var(--cond);font-size:12px;text-transform:none;}
+  .matchup-side-label b{color:var(--gold);font-weight:700;}
   .pos-meter{margin-bottom:7px;}
   .pos-meter:last-child{margin-bottom:0;}
   .pos-meter-top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10.5px;margin-bottom:3px;}
@@ -915,7 +916,9 @@ function mountWeek2(){
 
     function sideHtml(offenseRow, defenseTeam){
       return `
-        <div class="matchup-side-label">${teamChip(offenseRow.Team)} offense <span style="color:var(--chalk-dim);">vs</span> ${teamChip(defenseTeam)} D</div>
+        <div class="matchup-side-label" title="${teamName(offenseRow.Team)} offense vs ${teamName(defenseTeam)} defense">
+          <b>${offenseRow.Team}</b> offense vs <b>${defenseTeam}</b> D
+        </div>
         ${POSITIONS.map(p=>{
           const val = num(offenseRow[`PPR Points Allowed Per Game vs ${p}`]);
           const pct = maxByPos[p] ? Math.min(1, val / maxByPos[p]) : 0;
