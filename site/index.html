@@ -222,18 +222,47 @@
   }
   .heat{border-radius:2px;padding:3px 8px;display:inline-block;min-width:48px;text-align:center;font-weight:600;}
 
-  /* ---- Matchup cards (Week 2) ---- */
-  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  /* ---- Upcoming Matchups ---- */
+  .day-group{margin-bottom:28px;}
+  .day-group:last-child{margin-bottom:0;}
+  .day-header{
+    font-family:var(--cond);font-weight:700;font-size:14px;
+    color:var(--gold);text-transform:uppercase;letter-spacing:0.8px;
+    margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--panel-border);
+  }
+  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;}
   .matchup-card{
     background:var(--field-deep);border:1px solid var(--panel-border);
-    border-radius:4px;padding:14px 16px;
+    border-radius:6px;overflow:hidden;
   }
-  .matchup-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;border-bottom:1px solid var(--hash-line);padding-bottom:8px;}
-  .matchup-teams{font-family:var(--cond);font-weight:700;font-size:17px;}
-  .matchup-teams .vs{color:var(--chalk-dim);font-weight:500;font-size:13px;margin:0 6px;}
-  .matchup-tag{font-family:var(--mono);font-size:10px;color:var(--chalk-dim);}
-  .pos-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-family:var(--mono);font-size:12px;}
-  .pos-label{color:var(--chalk-dim);width:30px;}
+  .matchup-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--panel-border);
+  }
+  .matchup-teams{
+    font-family:var(--cond);font-weight:700;font-size:18px;color:var(--chalk);
+    display:flex;align-items:baseline;gap:8px;
+  }
+  .matchup-teams .at{color:var(--chalk-dim);font-weight:500;font-size:13px;}
+  .matchup-time{
+    font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
+    text-align:right;line-height:1.5;
+  }
+  .matchup-body{display:grid;grid-template-columns:1fr 1fr;}
+  .matchup-side{padding:12px 14px;}
+  .matchup-side + .matchup-side{border-left:1px solid var(--panel-border);}
+  .matchup-side-label{
+    font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
+    text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;
+  }
+  .matchup-side-label b{color:var(--chalk);font-family:var(--cond);font-size:12px;text-transform:none;}
+  .pos-meter{margin-bottom:7px;}
+  .pos-meter:last-child{margin-bottom:0;}
+  .pos-meter-top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10.5px;margin-bottom:3px;}
+  .pos-meter-label{color:var(--chalk-dim);font-weight:600;}
+  .pos-meter-value{color:var(--chalk);}
+  .pos-meter-bar{height:5px;border-radius:3px;background:var(--hash-line);overflow:hidden;}
+  .pos-meter-fill{height:100%;border-radius:3px;}
 
   /* ---- Stat cards ---- */
   .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
@@ -820,42 +849,111 @@ function renderWeek2(){
   return `
   <div class="panel">
     <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'} — Fantasy Prep</div>
-    <div class="panel-note">Each card shows how the opponent's defense has performed against the position so far this season (PPR points allowed per game).</div>
+    <div class="panel-note">Each game shows both offenses against the opposing defense's season-long performance at that position (PPR points allowed per game). Longer, brighter bars are better matchups.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
     </div>
-    <div class="matchup-grid" id="wk2-grid"></div>
+    <div id="wk2-days"></div>
   </div>`;
 }
+
 function mountWeek2(){
+  const POSITIONS = ['QB','RB','WR','TE'];
+
   function apply(){
     const q = $('#wk2-search').value.trim().toUpperCase();
-    const rows = DATA.week2.filter(r=> !q || r.Team.includes(q) || r.Opponent.includes(q) || teamName(r.Team).toUpperCase().includes(q) || teamName(r.Opponent).toUpperCase().includes(q));
-    const positions = ['QB','RB','TE','WR'];
-    // compute max for heat scaling per position across the week2 set
-    const maxByPos = {};
-    positions.forEach(p=>{
-      maxByPos[p] = Math.max(...DATA.week2.map(r=>num(r[`PPR Points Allowed Per Game vs ${p}`])));
+
+    // Collapse the two team-perspective rows ESPN/the pipeline produces per
+    // game into one row per actual game, keeping both sides' data.
+    const games = new Map();
+    (DATA.week2 || []).forEach(r=>{
+      const gid = r['Game ID'];
+      if(!gid) return;
+      if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+      const isHome = r['Home/Away'] === 'Home';
+      games.get(gid).sides[isHome ? 'home' : 'away'] = r;
     });
-    $('#wk2-grid').innerHTML = rows.map(r=>{
-      const dt = new Date(r.Date);
-      const dateStr = isNaN(dt) ? r.Date : dt.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
-      const posRows = positions.map(p=>{
-        const val = num(r[`PPR Points Allowed Per Game vs ${p}`]);
-        const pct = maxByPos[p] ? val / maxByPos[p] : 0;
-        const rr = Math.round(35 + (51-35)*pct), gg = Math.round(42+(214-42)*pct), bb = Math.round(62+(166-62)*pct);
-        return `<div class="pos-row"><span class="pos-label">${p}</span><span class="heat" style="background:rgba(${rr},${gg},${bb},0.3);border:1px solid rgba(${rr},${gg},${bb},0.7);">${fmt(val)} pts/g allowed by ${teamName(r.Opponent)}</span></div>`;
-      }).join('');
+
+    let gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away);
+
+    if(q){
+      gameList = gameList.filter(g=>{
+        const home = g.sides.home, away = g.sides.away;
+        return [home.Team, home.Opponent, away.Team, away.Opponent].some(t=>
+          t.toUpperCase().includes(q) || teamName(t).toUpperCase().includes(q)
+        );
+      });
+    }
+
+    gameList.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+    // Max value per position across the whole slate, for scaling meter bars.
+    const maxByPos = {};
+    POSITIONS.forEach(p=>{
+      maxByPos[p] = Math.max(1, ...(DATA.week2 || []).map(r=>num(r[`PPR Points Allowed Per Game vs ${p}`])));
+    });
+
+    // Group into day-of-week sections, in date order.
+    const dayGroups = [];
+    gameList.forEach(g=>{
+      const dt = new Date(g.date);
+      const dayKey = isNaN(dt) ? 'TBD' : dt.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
+      let group = dayGroups.find(d=>d.key === dayKey);
+      if(!group){ group = {key: dayKey, games: []}; dayGroups.push(group); }
+      group.games.push(g);
+    });
+
+    function meterColor(pct){
+      // Same mint-to-coral scale used everywhere else: high value (defense
+      // allows a lot) = good matchup = mint; low value = coral.
+      const good = [51,214,166], bad = [255,92,108];
+      const r = Math.round(bad[0] + (good[0]-bad[0])*pct);
+      const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
+      const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function sideHtml(offenseRow, defenseTeam){
       return `
-      <div class="matchup-card">
-        <div class="matchup-head">
-          <div class="matchup-teams">${teamName(r.Team)}<span class="vs">${r['Home/Away']==='Home'?'vs':'@'}</span>${teamName(r.Opponent)}</div>
-          <div class="matchup-tag">${dateStr}</div>
+        <div class="matchup-side-label">${teamChip(offenseRow.Team)} offense <span style="color:var(--chalk-dim);">vs</span> ${teamChip(defenseTeam)} D</div>
+        ${POSITIONS.map(p=>{
+          const val = num(offenseRow[`PPR Points Allowed Per Game vs ${p}`]);
+          const pct = maxByPos[p] ? Math.min(1, val / maxByPos[p]) : 0;
+          const color = meterColor(pct);
+          return `
+          <div class="pos-meter">
+            <div class="pos-meter-top"><span class="pos-meter-label">${p}</span><span class="pos-meter-value">${fmt(val)} pts/g</span></div>
+            <div class="pos-meter-bar"><div class="pos-meter-fill" style="width:${Math.round(pct*100)}%;background:${color};"></div></div>
+          </div>`;
+        }).join('')}
+      `;
+    }
+
+    $('#wk2-days').innerHTML = dayGroups.length ? dayGroups.map(group=>`
+      <div class="day-group">
+        <div class="day-header">${group.key}</div>
+        <div class="matchup-grid">
+          ${group.games.map(g=>{
+            const home = g.sides.home, away = g.sides.away;
+            const dt = new Date(g.date);
+            const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+            return `
+            <div class="matchup-card">
+              <div class="matchup-head">
+                <div class="matchup-teams">${teamName(away.Team)}<span class="at">@</span>${teamName(home.Team)}</div>
+                <div class="matchup-time">${timeStr}</div>
+              </div>
+              <div class="matchup-body">
+                <div class="matchup-side">${sideHtml(away, home.Team)}</div>
+                <div class="matchup-side">${sideHtml(home, away.Team)}</div>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
-        ${posRows}
-      </div>`;
-    }).join('') || '<div class="empty">No matchups match your filter.</div>';
+      </div>
+    `).join('') : '<div class="empty">No matchups match your filter.</div>';
   }
+
   $('#wk2-search').addEventListener('input', apply);
   apply();
 }
