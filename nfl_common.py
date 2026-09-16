@@ -30,38 +30,60 @@ PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
 
-_position_debug_logged = False
+_position_map_cache: dict[str, str] | None = None
 
 
-def extract_position(athlete: dict) -> str:
+def get_teams(season: int = SEASON) -> list[tuple[str, str]]:
+    """Returns list of (team_id, abbreviation) for all 32 teams."""
+    url = f"{BASE_URL}/teams?limit=32"
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+
+    teams = []
+    for league in data.get("sports", [{}])[0].get("leagues", [{}]):
+        for entry in league.get("teams", []):
+            team = entry.get("team", {})
+            tid, abbr = team.get("id"), team.get("abbreviation")
+            if tid and abbr:
+                teams.append((tid, abbr))
+    return teams
+
+
+def build_player_position_map(season: int = SEASON) -> dict[str, str]:
     """
-    Best-effort extraction of a position abbreviation from ESPN's per-athlete
-    boxscore data. Confirmed to sometimes be empty using the originally
-    assumed shape (athlete['position']['abbreviation']) -- this tries a
-    couple of plausible variants, and if none work, prints the raw athlete
-    object once per run (the first time it happens) so the actual shape
-    ESPN returned is visible in the log, letting the extraction be fixed
-    with certainty instead of guessed at again.
+    Builds a {player_id: position_abbreviation} lookup by fetching every
+    team's roster (32 calls, done once per script run and cached in-memory
+    for the rest of that run).
+
+    IMPORTANT: ESPN's boxscore/statistics endpoint -- the one used to pull
+    per-game player stats -- does NOT include position info on its athlete
+    objects. This was confirmed directly: a raw athlete object from that
+    endpoint contained only id/uid/guid/firstName/lastName/displayName/
+    links/headshot/jersey, no position field at all, in any shape. Roster
+    data is the reliable source for it instead.
     """
-    global _position_debug_logged
+    global _position_map_cache
+    if _position_map_cache is not None:
+        return _position_map_cache
 
-    pos = athlete.get("position")
-    if isinstance(pos, dict):
-        abbr = pos.get("abbreviation") or pos.get("abbrev") or pos.get("name")
-        if abbr:
-            return abbr
-    elif isinstance(pos, str) and pos:
-        return pos
+    position_map: dict[str, str] = {}
+    for team_id, team_abbr in get_teams(season):
+        try:
+            resp = requests.get(f"{BASE_URL}/teams/{team_id}/roster", timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            for group in data.get("athletes", []):
+                for athlete in group.get("items", []):
+                    pid = str(athlete.get("id", ""))
+                    pos = (athlete.get("position") or {}).get("abbreviation")
+                    if pid and pos:
+                        position_map[pid] = pos
+        except Exception as exc:
+            print(f"    WARNING: couldn't fetch roster for {team_abbr}: {exc}")
 
-    abbr = athlete.get("positionAbbreviation") or athlete.get("posAbbreviation")
-    if abbr:
-        return abbr
-
-    if not _position_debug_logged:
-        print(f"    DEBUG: could not find a position for an athlete. Raw athlete object: {athlete}")
-        _position_debug_logged = True
-
-    return ""
+    _position_map_cache = position_map
+    return position_map
 
 PLAYER_FILE = PROCESSED_DIR / f"nfl_{SEASON}_player_game_stats.csv"
 TEAM_WEEK_FILE = PROCESSED_DIR / f"nfl_{SEASON}_team_week_stats.csv"
