@@ -79,3 +79,5 @@ if __name__ == "__main__":
     try:
         main(force_week=cli_args.week)
     except RuntimeError as exc:
+        print(f"\nPIPELINE FAILED: {exc}", file=sys.stderr)
+        sys.exit(1)
