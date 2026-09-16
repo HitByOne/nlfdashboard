@@ -30,6 +30,39 @@ PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
 
+_position_debug_logged = False
+
+
+def extract_position(athlete: dict) -> str:
+    """
+    Best-effort extraction of a position abbreviation from ESPN's per-athlete
+    boxscore data. Confirmed to sometimes be empty using the originally
+    assumed shape (athlete['position']['abbreviation']) -- this tries a
+    couple of plausible variants, and if none work, prints the raw athlete
+    object once per run (the first time it happens) so the actual shape
+    ESPN returned is visible in the log, letting the extraction be fixed
+    with certainty instead of guessed at again.
+    """
+    global _position_debug_logged
+
+    pos = athlete.get("position")
+    if isinstance(pos, dict):
+        abbr = pos.get("abbreviation") or pos.get("abbrev") or pos.get("name")
+        if abbr:
+            return abbr
+    elif isinstance(pos, str) and pos:
+        return pos
+
+    abbr = athlete.get("positionAbbreviation") or athlete.get("posAbbreviation")
+    if abbr:
+        return abbr
+
+    if not _position_debug_logged:
+        print(f"    DEBUG: could not find a position for an athlete. Raw athlete object: {athlete}")
+        _position_debug_logged = True
+
+    return ""
+
 PLAYER_FILE = PROCESSED_DIR / f"nfl_{SEASON}_player_game_stats.csv"
 TEAM_WEEK_FILE = PROCESSED_DIR / f"nfl_{SEASON}_team_week_stats.csv"
 TEAM_SUMMARY_FILE = PROCESSED_DIR / f"nfl_{SEASON}_team_summary.csv"
