@@ -5,7 +5,7 @@ from time import sleep
 import pandas as pd
 import requests
 
-from nfl_common import SEASON, PLAYER_FILE, BASE_URL, get_next_pull_week, extract_position
+from nfl_common import SEASON, PLAYER_FILE, BASE_URL, get_next_pull_week, build_player_position_map
 
 CSV_FILE = PLAYER_FILE
 
@@ -34,6 +34,9 @@ else:
     print(f"Pulling Week {WEEK_TO_ADD}...")
 
 existing_stats = pd.read_csv(CSV_FILE)
+
+print("Building player-position lookup from team rosters...")
+POSITION_MAP = build_player_position_map(SEASON)
 
 scoreboard_url = (
     f"{BASE_URL}/scoreboard"
@@ -118,7 +121,7 @@ for event in completed_events:
                         "Opponent": opponent,
                         "Player": athlete.get("displayName"),
                         "Player ID": player_id,
-                        "Position": extract_position(athlete),
+                        "Position": POSITION_MAP.get(str(player_id), ""),
                         "Pass Completions": 0,
                         "Pass Attempts": 0,
                         "Pass Yards": 0,
