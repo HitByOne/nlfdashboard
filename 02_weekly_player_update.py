@@ -1,3 +1,4 @@
+import argparse
 import sys
 from time import sleep
 
@@ -8,17 +9,29 @@ from nfl_common import SEASON, PLAYER_FILE, BASE_URL, get_next_pull_week
 
 CSV_FILE = PLAYER_FILE
 
-# Ask ESPN what the next not-yet-pulled completed week is, instead of a
-# hardcoded WEEK_TO_ADD. Returns None if there's nothing new to pull yet
-# (e.g. this week's games haven't finished) -- that's not an error for a
-# daily job, just "nothing to do today."
-WEEK_TO_ADD = get_next_pull_week(CSV_FILE, SEASON)
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--week", type=int, default=None,
+    help="Force-refresh this specific week (overwrites any existing rows for it), "
+         "instead of auto-detecting the next new week. Use this to re-pull a week "
+         "whose stats ESPN corrected after the fact, or to redo a week that was "
+         "pulled incorrectly the first time.",
+)
+args = parser.parse_args()
 
-if WEEK_TO_ADD is None:
-    print("No new completed week to pull yet. Nothing to do.")
-    sys.exit(0)
-
-print(f"Pulling Week {WEEK_TO_ADD}...")
+if args.week is not None:
+    WEEK_TO_ADD = args.week
+    print(f"Forcing refresh of Week {WEEK_TO_ADD} (overriding auto-detection)...")
+else:
+    # Ask ESPN what the next not-yet-pulled completed week is, instead of a
+    # hardcoded WEEK_TO_ADD. Returns None if there's nothing new to pull yet
+    # (e.g. this week's games haven't finished) -- that's not an error for a
+    # daily job, just "nothing to do today."
+    WEEK_TO_ADD = get_next_pull_week(CSV_FILE, SEASON)
+    if WEEK_TO_ADD is None:
+        print("No new completed week to pull yet. Nothing to do.")
+        sys.exit(0)
+    print(f"Pulling Week {WEEK_TO_ADD}...")
 
 existing_stats = pd.read_csv(CSV_FILE)
 
