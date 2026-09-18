@@ -11,6 +11,11 @@ on:
         description: 'Force-refresh a specific week (leave blank for normal auto-refresh)'
         required: false
         type: string
+      run_backfill:
+        description: 'Also backfill last season''s stats (one-time/occasional -- closes the nflverse data gap for Milestone Watch)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # needed to commit the refreshed CSVs back to the repo
@@ -31,6 +36,10 @@ jobs:
 
       - name: Install dependencies
         run: pip install pandas requests pyarrow
+
+      - name: Backfill prior season (if requested)
+        if: ${{ github.event.inputs.run_backfill == 'true' }}
+        run: python3 backfill_prior_season.py
 
       - name: Run pipeline
         # All pipeline scripts + site/ live at the repo root.
