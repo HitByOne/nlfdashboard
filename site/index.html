@@ -906,19 +906,31 @@ function mountWeek2(){
       return `rgb(${r},${g},${b})`;
     }
 
-    // Top producers this season for a team, by total PPR points, grouped
-    // across all their games so a stat line reflects the full season (not
-    // just one game) once more weeks are logged.
-    function getTopPlayers(team, n=4){
+    // A real lineup breakdown per team: 1 QB, 2 RB, 3 WR, 2 TE, each the
+    // top producer(s) at that position this season (ranked internally by
+    // total PPR just as a single number to sort mixed stat lines by --
+    // never shown to the user, since this isn't a fantasy display).
+    const LINEUP_SLOTS = {QB:1, RB:2, WR:3, TE:2};
+
+    function getTopPlayers(team){
       const byPlayer = {};
       (DATA.playerGame || []).filter(r=>r.Team===team).forEach(r=>{
         if(!byPlayer[r.Player]) byPlayer[r.Player] = {Player:r.Player, Position:r.Position, games:[]};
         byPlayer[r.Player].games.push(r);
       });
-      return Object.values(byPlayer)
-        .map(p=>({...p, totalPPR: p.games.reduce((s,g)=>s+num(g['PPR Points']),0)}))
-        .sort((a,b)=>b.totalPPR - a.totalPPR)
-        .slice(0, n);
+      const summarized = Object.values(byPlayer).map(p=>({
+        ...p, totalPPR: p.games.reduce((s,g)=>s+num(g['PPR Points']),0)
+      }));
+
+      const lineup = [];
+      Object.entries(LINEUP_SLOTS).forEach(([pos, count])=>{
+        const atPos = summarized
+          .filter(p=>p.Position===pos)
+          .sort((a,b)=>b.totalPPR - a.totalPPR)
+          .slice(0, count);
+        lineup.push(...atPos);
+      });
+      return lineup;
     }
 
     // Real box-score line summed across their games, formatted by what's
@@ -947,7 +959,7 @@ function mountWeek2(){
     };
 
     function sideHtml(team, defenseTeam){
-      const topPlayers = getTopPlayers(team, 4);
+      const topPlayers = getTopPlayers(team);
       return `
         <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
