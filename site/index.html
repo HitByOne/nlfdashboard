@@ -257,13 +257,13 @@
     margin-bottom:10px;
   }
   .matchup-side-label b{color:var(--gold);font-weight:700;}
-  .pos-meter{margin-bottom:7px;}
-  .pos-meter:last-child{margin-bottom:0;}
-  .pos-meter-top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10.5px;margin-bottom:3px;}
-  .pos-meter-label{color:var(--chalk-dim);font-weight:600;}
-  .pos-meter-value{color:var(--chalk);}
-  .pos-meter-bar{height:5px;border-radius:3px;background:var(--hash-line);overflow:hidden;}
-  .pos-meter-fill{height:100%;border-radius:3px;}
+  .player-preview{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--hash-line);}
+  .player-preview:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+  .player-preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .player-preview-name{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .player-preview-pos{font-family:var(--mono);font-size:10px;color:var(--gold);flex:0 0 auto;}
+  .player-preview-stats{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-top:2px;}
+  .player-preview-matchup{display:block;font-family:var(--mono);font-size:10.5px;margin-top:3px;font-weight:600;}
 
   /* ---- Stat cards ---- */
   .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
@@ -850,7 +850,7 @@ function renderWeek2(){
   return `
   <div class="panel">
     <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'} — Fantasy Prep</div>
-    <div class="panel-note">Each game shows both offenses against the opposing defense's season-long performance at that position (PPR points allowed per game). Longer, brighter bars are better matchups.</div>
+    <div class="panel-note">For each game, each team's top producers this season with their real stat line, plus how the opposing defense has performed against that position -- built for gauging matchups, not just fantasy points.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
     </div>
@@ -859,8 +859,6 @@ function renderWeek2(){
 }
 
 function mountWeek2(){
-  const POSITIONS = ['QB','RB','WR','TE'];
-
   function apply(){
     const q = $('#wk2-search').value.trim().toUpperCase();
 
@@ -888,12 +886,6 @@ function mountWeek2(){
 
     gameList.sort((a,b)=> new Date(a.date) - new Date(b.date));
 
-    // Max value per position across the whole slate, for scaling meter bars.
-    const maxByPos = {};
-    POSITIONS.forEach(p=>{
-      maxByPos[p] = Math.max(1, ...(DATA.week2 || []).map(r=>num(r[`PPR Points Allowed Per Game vs ${p}`])));
-    });
-
     // Group into day-of-week sections, in date order.
     const dayGroups = [];
     gameList.forEach(g=>{
@@ -914,21 +906,63 @@ function mountWeek2(){
       return `rgb(${r},${g},${b})`;
     }
 
-    function sideHtml(offenseRow, defenseTeam){
+    // Top producers this season for a team, by total PPR points, grouped
+    // across all their games so a stat line reflects the full season (not
+    // just one game) once more weeks are logged.
+    function getTopPlayers(team, n=4){
+      const byPlayer = {};
+      (DATA.playerGame || []).filter(r=>r.Team===team).forEach(r=>{
+        if(!byPlayer[r.Player]) byPlayer[r.Player] = {Player:r.Player, Position:r.Position, games:[]};
+        byPlayer[r.Player].games.push(r);
+      });
+      return Object.values(byPlayer)
+        .map(p=>({...p, totalPPR: p.games.reduce((s,g)=>s+num(g['PPR Points']),0)}))
+        .sort((a,b)=>b.totalPPR - a.totalPPR)
+        .slice(0, n);
+    }
+
+    // Real box-score line summed across their games, formatted by what's
+    // actually relevant to their position rather than a generic PPG number.
+    function statLine(player){
+      const sum = key => player.games.reduce((s,g)=>s+num(g[key]),0);
+      const passAtt=sum('Pass Attempts'), passCmp=sum('Pass Completions'), passYds=sum('Pass Yards'), passTD=sum('Pass TD'), int=sum('Interceptions');
+      const rushAtt=sum('Rush Attempts'), rushYds=sum('Rush Yards'), rushTD=sum('Rush TD');
+      const rec=sum('Receptions'), recYds=sum('Receiving Yards'), recTD=sum('Receiving TD');
+
+      const parts = [];
+      if(passAtt > 0) parts.push(`${Math.round(passCmp)}/${Math.round(passAtt)}, ${Math.round(passYds)} yds, ${Math.round(passTD)} TD${int>0?`, ${Math.round(int)} INT`:''}`);
+      if(rushAtt > 0) parts.push(`${Math.round(rushAtt)} car, ${Math.round(rushYds)} yds${rushTD>0?`, ${Math.round(rushTD)} TD`:''}`);
+      if(rec > 0 || recYds > 0) parts.push(`${Math.round(rec)} rec, ${Math.round(recYds)} yds${recTD>0?`, ${Math.round(recTD)} TD`:''}`);
+      return parts.join(' &middot; ') || 'No stats yet';
+    }
+
+    function sideHtml(team, defenseTeam){
+      const topPlayers = getTopPlayers(team, 4);
       return `
-        <div class="matchup-side-label" title="${teamName(offenseRow.Team)} offense vs ${teamName(defenseTeam)} defense">
-          <b>${offenseRow.Team}</b> offense vs <b>${defenseTeam}</b> D
+        <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
+          <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
-        ${POSITIONS.map(p=>{
-          const val = num(offenseRow[`PPR Points Allowed Per Game vs ${p}`]);
-          const pct = maxByPos[p] ? Math.min(1, val / maxByPos[p]) : 0;
-          const color = meterColor(pct);
+        ${topPlayers.length ? topPlayers.map(p=>{
+          const dvp = (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position);
+          let matchupTag = '';
+          if(dvp){
+            const rank = num(dvp['PPR Points Allowed Rank']);
+            const allAtPos = (DATA.defVsPos || []).filter(d=>d.Position===p.Position);
+            const maxRank = Math.max(1, ...allAtPos.map(d=>num(d['PPR Points Allowed Rank'])));
+            const pct = maxRank > 1 ? 1 - ((rank-1)/(maxRank-1)) : 0.5;
+            const color = meterColor(pct);
+            matchupTag = `<span class="player-preview-matchup" style="color:${color};">${defenseTeam} allows #${rank} vs ${p.Position} (${fmt(dvp['PPR Points Allowed Per Game'])} pts/g)</span>`;
+          }
           return `
-          <div class="pos-meter">
-            <div class="pos-meter-top"><span class="pos-meter-label">${p}</span><span class="pos-meter-value">${fmt(val)} pts/g</span></div>
-            <div class="pos-meter-bar"><div class="pos-meter-fill" style="width:${Math.round(pct*100)}%;background:${color};"></div></div>
+          <div class="player-preview">
+            <div class="player-preview-head">
+              <span class="player-preview-name">${p.Player}</span>
+              <span class="player-preview-pos">${p.Position}</span>
+            </div>
+            <div class="player-preview-stats">${statLine(p)}</div>
+            ${matchupTag}
           </div>`;
-        }).join('')}
+        }).join('') : '<div class="empty" style="padding:8px 0;">No player stats logged yet.</div>'}
       `;
     }
 
@@ -947,8 +981,8 @@ function mountWeek2(){
                 <div class="matchup-time">${timeStr}</div>
               </div>
               <div class="matchup-body">
-                <div class="matchup-side">${sideHtml(away, home.Team)}</div>
-                <div class="matchup-side">${sideHtml(home, away.Team)}</div>
+                <div class="matchup-side">${sideHtml(away.Team, home.Team)}</div>
+                <div class="matchup-side">${sideHtml(home.Team, away.Team)}</div>
               </div>
             </div>`;
           }).join('')}
