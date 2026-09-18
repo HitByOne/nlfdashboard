@@ -58,6 +58,11 @@ def main(force_week: int | None = None):
     run("05_defense_vs_position.py")
     run("06_matchup_preview.py")
 
+    # Milestone Watch is a nice-to-have layered on top of everything else --
+    # a flaky nflverse download shouldn't block the core weekly refresh, so
+    # this one is non-critical.
+    run("07_milestone_watch.py", critical=False)
+
     print("\nPipeline complete. site/data/*.csv is up to date --")
     print("reload the dashboard page to see the refresh.")
 
