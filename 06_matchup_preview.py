@@ -15,6 +15,46 @@ from nfl_common import (
 WEEK = get_preview_week(SEASON)
 OUTPUT_FILE = UPCOMING_MATCHUPS_FILE  # stable name, no week number in it
 
+_odds_debug_logged = False
+
+
+def extract_odds(comp: dict) -> dict:
+    """
+    Best-effort extraction of betting odds from a competition's 'odds' list,
+    present whenever a sportsbook has posted a line for that game. This is
+    an undocumented part of ESPN's API, same caveat as the rest of this
+    pipeline -- if odds are present but nothing recognizable comes out, the
+    raw shape is printed once so the extraction can be fixed with certainty
+    instead of guessed at.
+    """
+    global _odds_debug_logged
+    odds_list = comp.get("odds") or []
+    if not odds_list:
+        return {}
+
+    o = odds_list[0]  # first/featured provider's line
+    result = {}
+    if o.get("details"):
+        result["Spread"] = o.get("details")
+    if o.get("overUnder") is not None:
+        result["Over/Under"] = o.get("overUnder")
+    provider_name = (o.get("provider") or {}).get("name")
+    if provider_name:
+        result["Odds Provider"] = provider_name
+    home_ml = (o.get("homeTeamOdds") or {}).get("moneyLine")
+    away_ml = (o.get("awayTeamOdds") or {}).get("moneyLine")
+    if home_ml is not None:
+        result["Home Moneyline"] = home_ml
+    if away_ml is not None:
+        result["Away Moneyline"] = away_ml
+
+    if not result and not _odds_debug_logged:
+        print(f"    DEBUG: odds present but nothing recognized. Raw odds[0]: {o}")
+        _odds_debug_logged = True
+
+    return result
+
+
 # Step 1: Fetch the schedule from ESPN
 print(f"Fetching Week {WEEK} schedule from ESPN...")
 
@@ -30,6 +70,7 @@ schedule_data = response.json()
 events = schedule_data.get("events", [])
 
 matchups = []
+games_with_odds = 0
 
 for event in events:
     competitions = event.get("competitions", [])
@@ -54,6 +95,10 @@ for event in events:
         else:
             away_team = team_abbr
 
+    odds = extract_odds(comp)
+    if odds:
+        games_with_odds += 1
+
     if home_team and away_team:
         matchups.append(
             {
@@ -62,12 +107,18 @@ for event in events:
                 "Week": WEEK,
                 "Away Team": away_team,
                 "Home Team": home_team,
+                "Spread": odds.get("Spread", ""),
+                "Over/Under": odds.get("Over/Under", ""),
+                "Odds Provider": odds.get("Odds Provider", ""),
+                "Home Moneyline": odds.get("Home Moneyline", ""),
+                "Away Moneyline": odds.get("Away Moneyline", ""),
             }
         )
 
 schedule_df = pd.DataFrame(matchups)
 
 print(f"Games found: {len(schedule_df)}")
+print(f"Games with betting odds posted: {games_with_odds}")
 
 if schedule_df.empty:
     raise ValueError(
@@ -75,21 +126,28 @@ if schedule_df.empty:
         "schedule may not be posted yet."
     )
 
-# Build team -> opponent mapping (each team's next opponent)
+# Build team -> opponent mapping (each team's next opponent). Spread and
+# Over/Under are shared per game; moneyline is specific to each team's side.
 away_rows = schedule_df.rename(
     columns={
         "Away Team": "Team",
         "Home Team": "Opponent",
+        "Away Moneyline": "Team Moneyline",
     }
-)[["Game ID", "Date", "Week", "Team", "Opponent"]]
+).drop(columns=["Home Moneyline"])[
+    ["Game ID", "Date", "Week", "Team", "Opponent", "Spread", "Over/Under", "Odds Provider", "Team Moneyline"]
+]
 away_rows["Home/Away"] = "Away"
 
 home_rows = schedule_df.rename(
     columns={
         "Home Team": "Team",
         "Away Team": "Opponent",
+        "Home Moneyline": "Team Moneyline",
     }
-)[["Game ID", "Date", "Week", "Team", "Opponent"]]
+).drop(columns=["Away Moneyline"])[
+    ["Game ID", "Date", "Week", "Team", "Opponent", "Spread", "Over/Under", "Odds Provider", "Team Moneyline"]
+]
 home_rows["Home/Away"] = "Home"
 
 team_matchups = pd.concat(
