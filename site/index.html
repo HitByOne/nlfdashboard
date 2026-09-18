@@ -244,9 +244,19 @@
     display:flex;align-items:baseline;gap:8px;
   }
   .matchup-teams .at{color:var(--chalk-dim);font-weight:500;font-size:13px;}
+  .ml-badge{font-family:var(--mono);font-size:10px;color:var(--mint);font-weight:600;margin:0 2px;}
   .matchup-time{
     font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
     text-align:right;line-height:1.5;
+  }
+  .odds-strip{
+    display:flex;gap:8px;padding:8px 16px;
+    background:var(--field-deep);border-bottom:1px solid var(--panel-border);
+  }
+  .odds-chip{
+    font-family:var(--mono);font-size:11px;color:var(--chalk);
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:3px;padding:3px 9px;
   }
   .matchup-body{display:grid;grid-template-columns:1fr 1fr;}
   .matchup-side{padding:12px 14px;}
@@ -999,12 +1009,20 @@ function mountWeek2(){
             const home = g.sides.home, away = g.sides.away;
             const dt = new Date(g.date);
             const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+            const mlBadge = ml => (ml !== '' && ml != null && !isNaN(num(ml))) ? `<span class="ml-badge">${num(ml)>0?'+':''}${Math.round(num(ml))}</span>` : '';
+            const spread = home.Spread || away.Spread || '';
+            const overUnder = home['Over/Under'] || away['Over/Under'] || '';
             return `
             <div class="matchup-card">
               <div class="matchup-head">
-                <div class="matchup-teams">${teamName(away.Team)}<span class="at">@</span>${teamName(home.Team)}</div>
+                <div class="matchup-teams">${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}</div>
                 <div class="matchup-time">${timeStr}</div>
               </div>
+              ${(spread || overUnder) ? `
+              <div class="odds-strip">
+                ${spread ? `<span class="odds-chip">${spread}</span>` : ''}
+                ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
+              </div>` : ''}
               <div class="matchup-body">
                 <div class="matchup-side">${sideHtml(away.Team, home.Team)}</div>
                 <div class="matchup-side">${sideHtml(home.Team, away.Team)}</div>
