@@ -101,6 +101,22 @@ def main():
         .set_index("player_display_name")
     )
 
+    # Fold in a manual backfill of the gap season, if one was generated via
+    # backfill_prior_season.py, instead of waiting on nflverse to publish it.
+    backfill_file = PROCESSED_DIR / f"nfl_{SEASON - 1}_player_season_totals.csv"
+    if backfill_file.exists():
+        print(f"Found backfilled {SEASON - 1} season data -- folding it into the baseline.")
+        backfill = pd.read_csv(backfill_file)
+        backfill = backfill[backfill["Position"].isin(TRACKED_POSITIONS)].copy()
+        backfill = backfill.rename(columns={our: nv for our, nv in NFLVERSE_STAT_MAP.items()})
+        for col in nv_cols:
+            backfill[col] = pd.to_numeric(backfill[col], errors="coerce").fillna(0)
+        backfill_indexed = backfill.groupby("Player")[nv_cols].sum()
+        baseline = baseline.add(backfill_indexed, fill_value=0)
+    else:
+        print(f"No backfilled {SEASON - 1} season data found (optional) -- "
+              f"run backfill_prior_season.py once to close the nflverse gap.")
+
     if not PLAYER_FILE.exists():
         print(f"No current-season player file found at {PLAYER_FILE} -- run the main pipeline first.")
         sys.exit(1)
