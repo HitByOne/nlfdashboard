@@ -310,6 +310,7 @@
     <button data-tab="defense">Defense vs Position</button>
     <button data-tab="sos">Strength of Schedule</button>
     <button data-tab="week2">Upcoming Matchups</button>
+    <button data-tab="streaks">Streaks</button>
   </nav>
 
   <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -1137,6 +1138,123 @@ function mountMatchup(){
   apply();
 }
 
+// ---------- TAB: STREAKS ----------
+// Consecutive-game streaks by position -- the kind of trend line betting
+// props are built on ("hit the over in N straight games"). "Any TD" is
+// tracked for every position since anytime-TD is the single most-bet
+// streak of all.
+const STREAK_DEFS = {
+  QB: [
+    {key:'passTD2', label:'2+ Pass TD', check:r=>num(r['Pass TD'])>=2},
+    {key:'pass250', label:'250+ Pass Yds', check:r=>num(r['Pass Yards'])>=250},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Pass TD'])>=1 || num(r['Rush TD'])>=1},
+  ],
+  RB: [
+    {key:'rush100', label:'100+ Rush Yds', check:r=>num(r['Rush Yards'])>=100},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Rush TD'])>=1 || num(r['Receiving TD'])>=1},
+  ],
+  WR: [
+    {key:'rec75', label:'75+ Rec Yds', check:r=>num(r['Receiving Yards'])>=75},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Receiving TD'])>=1 || num(r['Rush TD'])>=1},
+  ],
+  TE: [
+    {key:'rec50', label:'50+ Rec Yds', check:r=>num(r['Receiving Yards'])>=50},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Receiving TD'])>=1},
+  ],
+};
+
+function computeStreaks(){
+  const byPlayer = {};
+  (DATA.playerGame || []).forEach(r=>{
+    const key = r.Player + '|' + r.Team;
+    if(!byPlayer[key]) byPlayer[key] = {Player:r.Player, Team:r.Team, Position:r.Position, games:[]};
+    byPlayer[key].games.push(r);
+  });
+
+  const results = [];
+  Object.values(byPlayer).forEach(p=>{
+    const defs = STREAK_DEFS[p.Position];
+    if(!defs) return;
+    const sortedGames = [...p.games].sort((a,b)=>num(a.Week) - num(b.Week));
+
+    defs.forEach(def=>{
+      // Walk backward from the most recent game; streak breaks the first
+      // time a game fails the condition.
+      let streak = 0;
+      for(let i = sortedGames.length - 1; i >= 0; i--){
+        if(def.check(sortedGames[i])) streak++;
+        else break;
+      }
+      if(streak >= 2){
+        results.push({
+          Player: p.Player, Team: p.Team, Position: p.Position,
+          StreakType: def.label, StreakLength: streak, highlight: !!def.highlight,
+        });
+      }
+    });
+  });
+
+  return results.sort((a,b)=> b.StreakLength - a.StreakLength);
+}
+
+function renderStreaks(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Active Streaks</div>
+    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are Any-TD streaks.</div>
+    <div class="controls">
+      <input type="text" id="streak-search" placeholder="Search player...">
+      <div class="pill-group" id="streak-pos-pills">
+        <span class="pill active" data-pos="">ALL</span>
+        <span class="pill" data-pos="QB">QB</span>
+        <span class="pill" data-pos="RB">RB</span>
+        <span class="pill" data-pos="WR">WR</span>
+        <span class="pill" data-pos="TE">TE</span>
+      </div>
+    </div>
+    <div id="streaks-table"></div>
+  </div>`;
+}
+
+function mountStreaks(){
+  const allStreaks = computeStreaks();
+  const container = $('#streaks-table');
+
+  const cols = [
+    {key:'StreakLength', label:'Streak', numeric:true, render:(v, row)=>
+      `<span class="heat" style="${row.highlight ? 'background:rgba(227,169,59,0.22);border:1px solid rgba(227,169,59,0.6);' : 'background:rgba(51,214,166,0.18);border:1px solid rgba(51,214,166,0.5);'}">${v} games</span>`
+    },
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Position', label:'Pos'},
+    {key:'StreakType', label:'Streak Type'},
+  ];
+
+  let pos = '';
+  function apply(){
+    const q = $('#streak-search').value.trim().toLowerCase();
+    const filtered = allStreaks.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!pos || r.Position === pos)
+    );
+    buildTable(container, cols, filtered, {defaultSort:'StreakLength', defaultDir:'desc'});
+    if(!filtered.length){
+      container.innerHTML = '<div class="empty">No active 2+ game streaks yet -- check back as more weeks get logged.</div>';
+    }
+  }
+
+  $('#streak-search').addEventListener('input', apply);
+  $$('#streak-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#streak-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -1147,6 +1265,7 @@ const renderers = {
   defense: {render: renderDefense, mount: mountDefense},
   sos: {render: renderSOS, mount: mountSOS},
   week2: {render: renderWeek2, mount: mountWeek2},
+  streaks: {render: renderStreaks, mount: mountStreaks},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
