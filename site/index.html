@@ -849,7 +849,7 @@ function renderWeek2(){
   const wk = DATA.week2 && DATA.week2.length ? DATA.week2[0].Week : null;
   return `
   <div class="panel">
-    <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'} — Fantasy Prep</div>
+    <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
     <div class="panel-note">For each game, each team's top producers this season with their real stat line, plus how the opposing defense has performed against that position -- built for gauging matchups, not just fantasy points.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
@@ -936,6 +936,16 @@ function mountWeek2(){
       return parts.join(' &middot; ') || 'No stats yet';
     }
 
+    // Raw stat that actually matters for each position -- yards and
+    // touchdowns allowed, the kind of thing a betting line is built on --
+    // instead of a fantasy-points conversion.
+    const MATCHUP_STAT_BY_POS = {
+      QB: {primary:'Pass Yards Allowed Per Game', primaryLabel:'pass yds/g', secondary:'Pass TD Allowed Per Game', secondaryLabel:'pass TD/g'},
+      RB: {primary:'Rush Yards Allowed Per Game', primaryLabel:'rush yds/g', secondary:'Rush TD Allowed Per Game', secondaryLabel:'rush TD/g'},
+      WR: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
+      TE: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
+    };
+
     function sideHtml(team, defenseTeam){
       const topPlayers = getTopPlayers(team, 4);
       return `
@@ -943,15 +953,17 @@ function mountWeek2(){
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
         ${topPlayers.length ? topPlayers.map(p=>{
-          const dvp = (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position);
+          const cfg = MATCHUP_STAT_BY_POS[p.Position];
+          const dvp = cfg ? (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position) : null;
           let matchupTag = '';
           if(dvp){
-            const rank = num(dvp['PPR Points Allowed Rank']);
             const allAtPos = (DATA.defVsPos || []).filter(d=>d.Position===p.Position);
-            const maxRank = Math.max(1, ...allAtPos.map(d=>num(d['PPR Points Allowed Rank'])));
-            const pct = maxRank > 1 ? 1 - ((rank-1)/(maxRank-1)) : 0.5;
+            const primaryVal = num(dvp[cfg.primary]);
+            const maxPrimary = Math.max(1, ...allAtPos.map(d=>num(d[cfg.primary])));
+            const pct = Math.min(1, primaryVal / maxPrimary);
             const color = meterColor(pct);
-            matchupTag = `<span class="player-preview-matchup" style="color:${color};">${defenseTeam} allows #${rank} vs ${p.Position} (${fmt(dvp['PPR Points Allowed Per Game'])} pts/g)</span>`;
+            const secondaryVal = fmt(num(dvp[cfg.secondary]));
+            matchupTag = `<span class="player-preview-matchup" style="color:${color};">${defenseTeam} allows ${fmt(primaryVal)} ${cfg.primaryLabel}, ${secondaryVal} ${cfg.secondaryLabel}</span>`;
           }
           return `
           <div class="player-preview">
