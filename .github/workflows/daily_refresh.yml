@@ -30,7 +30,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pandas requests
+        run: pip install pandas requests pyarrow
 
       - name: Run pipeline
         # All pipeline scripts + site/ live at the repo root.
