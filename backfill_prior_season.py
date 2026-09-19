@@ -105,19 +105,42 @@ def parse_event_player_rows(event: dict, position_map: dict) -> list[dict]:
     return list(players_in_game.values())
 
 
+def fetch_completed_events_for_range(season: int) -> list[dict]:
+    """
+    Fetches all completed games across a full season by querying in smaller
+    date chunks and combining them. A single ~7-month-wide date range was
+    tried first and ESPN's scoreboard endpoint returned 400 Bad Request --
+    that span is apparently too wide for this endpoint in one request (the
+    original single-week-at-a-time usage elsewhere in this pipeline never
+    hit this because it only ever spans a couple of weeks). Monthly chunks
+    stay comfortably under whatever the real limit is.
+    """
+    from datetime import date, timedelta
+
+    start = date(season, 8, 1)
+    end = date(season + 1, 2, 28)
+
+    all_events = {}
+    chunk_start = start
+    while chunk_start < end:
+        chunk_end = min(chunk_start + timedelta(days=30), end)
+        date_str = f"{chunk_start.strftime('%Y%m%d')}-{chunk_end.strftime('%Y%m%d')}"
+        url = f"{BASE_URL}/scoreboard?limit=1000&dates={date_str}&seasontype=2"
+        print(f"  Fetching {date_str}...")
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        for event in resp.json().get("events", []):
+            all_events[event.get("id")] = event  # de-dupe by game id across overlapping chunk edges
+        chunk_start = chunk_end
+
+    return list(all_events.values())
+
+
 def main(season: int):
     output_file = PROCESSED_DIR / f"nfl_{season}_player_season_totals.csv"
 
-    # Date range covering that season's full regular season, generous on
-    # both ends (seasontype=2 below excludes preseason/playoffs regardless).
-    start_date = f"{season}0801"
-    end_date = f"{season + 1}0228"
-
-    print(f"Fetching {season} season schedule (dates {start_date}-{end_date})...")
-    scoreboard_url = f"{BASE_URL}/scoreboard?limit=1000&dates={start_date}-{end_date}&seasontype=2"
-    resp = requests.get(scoreboard_url, timeout=30)
-    resp.raise_for_status()
-    events = resp.json().get("events", [])
+    print(f"Fetching {season} season schedule in monthly chunks...")
+    events = fetch_completed_events_for_range(season)
 
     completed = [e for e in events if e.get("status", {}).get("type", {}).get("completed", False)]
     print(f"Completed games found: {len(completed)}")
