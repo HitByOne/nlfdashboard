@@ -7,14 +7,18 @@ up. This exists specifically to close the gap 07_milestone_watch.py flags:
 nflverse's public dataset currently stops at 2024, so career totals miss
 whatever happened in SEASON - 1 (e.g. 2025) until nflverse publishes it.
 
-This pulls every completed game across all weeks of SEASON - 1 directly
-from ESPN (same extraction logic as 01/02, kept self-contained here rather
-than shared, so this backfill can't accidentally destabilize the daily
-pipeline scripts), aggregates to one row per player for that whole season,
-and saves it as nfl_{SEASON-1}_player_season_totals.csv.
+This pulls every completed game of SEASON - 1 directly from ESPN by DATE
+RANGE (the same proven approach 01_initial_player_pull.py already uses
+successfully) rather than a week + season parameter combo, which turned
+out to be unreliable for historical seasons -- ESPN's scoreboard endpoint
+silently ignored an explicit past `season=` value and returned the current
+season's data instead when combined with `week=`. Querying by calendar
+date range avoids that entirely.
 
-07_milestone_watch.py automatically picks this file up if present and adds
-it into the career baseline alongside nflverse's data.
+Aggregates to one row per player for that whole season, and saves it as
+nfl_{SEASON-1}_player_season_totals.csv. 07_milestone_watch.py
+automatically picks this file up if present and adds it into the career
+baseline alongside nflverse's data.
 
 This is NOT part of the daily run_daily.py pipeline -- it's meant to be
 triggered manually, once, since a completed season's stats don't change.
@@ -35,7 +39,6 @@ import requests
 from nfl_common import SEASON, PROCESSED_DIR, BASE_URL, build_player_position_map
 
 TRACKED_POSITIONS = {"QB", "RB", "WR", "TE"}
-MAX_WEEKS = 18  # standard NFL regular-season length
 
 
 def to_num(v):
@@ -105,34 +108,42 @@ def parse_event_player_rows(event: dict, position_map: dict) -> list[dict]:
 def main(season: int):
     output_file = PROCESSED_DIR / f"nfl_{season}_player_season_totals.csv"
 
-    print(f"Building player-position lookup from current team rosters...")
+    # Date range covering that season's full regular season, generous on
+    # both ends (seasontype=2 below excludes preseason/playoffs regardless).
+    start_date = f"{season}0801"
+    end_date = f"{season + 1}0228"
+
+    print(f"Fetching {season} season schedule (dates {start_date}-{end_date})...")
+    scoreboard_url = f"{BASE_URL}/scoreboard?limit=1000&dates={start_date}-{end_date}&seasontype=2"
+    resp = requests.get(scoreboard_url, timeout=30)
+    resp.raise_for_status()
+    events = resp.json().get("events", [])
+
+    completed = [e for e in events if e.get("status", {}).get("type", {}).get("completed", False)]
+    print(f"Completed games found: {len(completed)}")
+
+    if not completed:
+        print(f"No completed games found for {season} in that date range -- nothing to backfill.")
+        sys.exit(1)
+
+    # Sanity check: these should be genuinely different games from the
+    # current season, not a repeat of it. If every single game ID here also
+    # shows up in the current season's player file, something's still wrong.
+    sample_names = [e.get("name", "") for e in completed[:3]]
+    print(f"Sample games: {sample_names}")
+
+    print("\nBuilding player-position lookup from current team rosters...")
     position_map = build_player_position_map(SEASON)  # position rarely changes; today's rosters are fine
 
     all_rows = []
-    for week in range(1, MAX_WEEKS + 1):
-        print(f"\nWeek {week}...")
-        url = f"{BASE_URL}/scoreboard?seasontype=2&week={week}&season={season}"
+    for event in completed:
         try:
-            resp = requests.get(url, timeout=30)
-            resp.raise_for_status()
+            rows = parse_event_player_rows(event, position_map)
+            all_rows.extend(rows)
+            print(f"    Loaded: {event.get('name', event.get('id'))}")
         except Exception as exc:
-            print(f"    Failed to fetch Week {week} schedule: {exc}")
-            continue
-
-        events = resp.json().get("events", [])
-        completed = [e for e in events if e.get("status", {}).get("type", {}).get("completed", False)]
-        if not completed:
-            print(f"    No completed games found for Week {week} -- skipping.")
-            continue
-
-        for event in completed:
-            try:
-                rows = parse_event_player_rows(event, position_map)
-                all_rows.extend(rows)
-                print(f"    Loaded: {event.get('name', event.get('id'))}")
-            except Exception as exc:
-                print(f"    Failed to parse {event.get('name', event.get('id'))}: {exc}")
-            time.sleep(0.2)
+            print(f"    Failed to parse {event.get('name', event.get('id'))}: {exc}")
+        time.sleep(0.2)
 
     if not all_rows:
         print("\nNo player rows collected -- nothing to save.")
