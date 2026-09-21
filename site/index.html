@@ -245,6 +245,19 @@
   }
   .matchup-teams .at{color:var(--chalk-dim);font-weight:500;font-size:13px;}
   .ml-badge{font-family:var(--mono);font-size:10px;color:var(--mint);font-weight:600;margin:0 2px;}
+  .div-badge{
+    font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.5px;
+    color:var(--gold);border:1px solid var(--gold-deep);border-radius:3px;
+    padding:1px 5px;margin-left:6px;vertical-align:middle;
+  }
+  .context-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .context-chip{
+    font-family:var(--mono);font-size:9.5px;color:var(--chalk-dim);
+    background:var(--field-deep);border:1px solid var(--hash);
+    border-radius:10px;padding:2px 7px;
+  }
+  .rest-short{color:var(--red);}
+  .rest-bye{color:var(--mint);}
   .matchup-time{
     font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
     text-align:right;line-height:1.5;
@@ -344,6 +357,7 @@ const CSV_FILES = {
   sos:         'data/nfl_2026_strength_of_schedule.csv',
   week2:       'data/nfl_2026_upcoming_matchups.csv',
   milestones:  'data/nfl_2026_milestones.csv',
+  injuries:    'data/nfl_2026_injury_report.csv',
 };
 
 const TEAM_NAMES = {
@@ -748,7 +762,7 @@ function renderDefense(){
   return `
   <div class="panel">
     <div class="panel-title">Defense vs Position</div>
-    <div class="panel-note">Total and per-game production allowed, by defense and position. Mint = weak defense (good matchup), coral = tough matchup. Rank 1 allows the most.</div>
+    <div class="panel-note">Total and per-game production allowed, by defense and position. "Last 3" shows recent form next to the season rate -- click a row to see the actual game-by-game log behind the numbers, since an average can hide a single blowout game. Mint = weak defense (good matchup), coral = tough matchup.</div>
     <div class="controls">
       <div class="pill-group" id="def-pos-pills">
         <span class="pill active" data-pos="QB">QB</span>
@@ -764,15 +778,13 @@ function renderDefense(){
 // Position-specific columns for Defense vs Position -- what a defense
 // allows is only meaningful for the stats that position actually produces.
 // Each column shows the season TOTAL with the per-game rate alongside it
-// (e.g. "875 (125.0/g)"), sorted/ranked by the per-game rate.
+// (e.g. "875 (125.0/g)").
 function totalPerGameCol(totalKey, perGameKey, label){
-  return {
-    key: perGameKey, label, numeric: true,
-    render: (v, row) => `${Math.round(num(row[totalKey])).toLocaleString()} <span style="color:var(--chalk-dim);">(${fmt(v)}/g)</span>`,
-  };
+  return {key: perGameKey, totalKey, label};
 }
 
-// Primary stat used to rank each position (also drives the color scale).
+// Primary stat used to rank each position (also drives the color scale and
+// the "Last 3" recent-form column).
 const DEFENSE_RANK_STAT = {
   QB: 'Pass Yards Allowed Per Game',
   RB: 'Rush Yards Allowed Per Game',
@@ -810,36 +822,103 @@ const DEFENSE_COLS_BY_POS = {
   ],
 };
 
+// Maps a defense-vs-position stat name (as used above) to the raw column
+// name on individual player-game rows, so a per-week breakdown can be
+// rebuilt by summing every opposing player's game that week.
+const DEFENSE_STAT_RAW_MAP = {
+  'Pass Yards Allowed': 'Pass Yards', 'Pass TD Allowed': 'Pass TD', 'Interceptions Forced': 'Interceptions',
+  'Rush Attempts Allowed': 'Rush Attempts', 'Rush Yards Allowed': 'Rush Yards', 'Rush TD Allowed': 'Rush TD',
+  'Receptions Allowed': 'Receptions', 'Receiving Yards Allowed': 'Receiving Yards', 'Receiving TD Allowed': 'Receiving TD',
+  'Targets Allowed': 'Targets',
+};
+
+function getDefenseWeeklyLog(defense, position){
+  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position===position);
+  const byWeek = {};
+  rows.forEach(r=>{
+    const wk = num(r.Week);
+    if(!byWeek[wk]){
+      byWeek[wk] = {Week: wk};
+      Object.values(DEFENSE_STAT_RAW_MAP).forEach(raw=>{ byWeek[wk][raw] = 0; });
+    }
+    Object.values(DEFENSE_STAT_RAW_MAP).forEach(raw=>{ byWeek[wk][raw] += num(r[raw]); });
+  });
+  return Object.values(byWeek).sort((a,b)=>a.Week - b.Week);
+}
+
 function mountDefense(){
   let pos = 'QB';
+  const expanded = new Set();
+
   function apply(){
+    const container = $('#def-table');
     const rows = DATA.defVsPos.filter(r=>r.Position===pos);
     const rankStat = DEFENSE_RANK_STAT[pos];
+    const rankTotalKey = rankStat.replace(' Per Game', '');
+    const rankRawKey = DEFENSE_STAT_RAW_MAP[rankTotalKey];
+    const posCols = DEFENSE_COLS_BY_POS[pos] || [];
 
-    // Rank teams by the primary allowed stat for this position -- highest
-    // (weakest defense) = rank 1 = best matchup, same convention used
-    // everywhere else in the app.
+    // Rank teams by the primary allowed stat -- highest (weakest defense) =
+    // rank 1 = best matchup, same convention used everywhere else.
     const sorted = [...rows].sort((a,b)=> num(b[rankStat]) - num(a[rankStat]));
-    const rankByDefense = {};
-    sorted.forEach((r,i)=>{ rankByDefense[r.Defense] = i+1; });
     const maxRank = sorted.length;
 
-    const rankCol = {
-      key: rankStat, label: 'Rank', numeric: true,
-      render: (v, row) => {
-        const rank = rankByDefense[row.Defense];
-        return `<span class="heat" style="${heatColor(rank, maxRank)}">#${rank}</span>`;
-      },
-    };
-    const defenseCol = {key:'Defense', label:'Defense', render:teamChip};
-    const cols = [rankCol, defenseCol, ...(DEFENSE_COLS_BY_POS[pos] || [])];
-    buildTable($('#def-table'), cols, rows, {defaultSort: rankStat, defaultDir:'desc'});
+    const headCells = ['', '#', 'Defense', 'Last 3', ...posCols.map(c=>c.label)];
+    const theadHtml = `<tr>${headCells.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+
+    const bodyHtml = sorted.map((row, i)=>{
+      const rank = i + 1;
+      const defense = row.Defense;
+      const log = getDefenseWeeklyLog(defense, pos);
+      const last3 = log.slice(-3);
+      const last3Avg = last3.length ? last3.reduce((s,w)=>s + num(w[rankRawKey]), 0) / last3.length : null;
+      const seasonAvg = num(row[rankStat]);
+      const trend = last3Avg === null ? '' :
+        last3Avg > seasonAvg * 1.15 ? '<span style="color:var(--mint);">&#9650;</span>' :
+        last3Avg < seasonAvg * 0.85 ? '<span style="color:var(--red);">&#9660;</span>' : '';
+      const isOpen = expanded.has(defense);
+
+      const rowHtml = `
+        <tr class="def-row" data-defense="${defense}" style="cursor:pointer;">
+          <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
+          <td class="num"><span class="heat" style="${heatColor(rank, maxRank)}">#${rank}</span></td>
+          <td>${teamChip(defense)}</td>
+          <td class="num">${last3Avg === null ? '&mdash;' : fmt(last3Avg) + '/g'} ${trend}</td>
+          ${posCols.map(c=>`<td class="num">${Math.round(num(row[c.totalKey])).toLocaleString()} <span style="color:var(--chalk-dim);">(${fmt(num(row[c.key]))}/g)</span></td>`).join('')}
+        </tr>`;
+
+      const detailHtml = isOpen ? `
+        <tr class="def-detail-row">
+          <td colspan="${headCells.length}" style="background:var(--field-deep);padding:10px 16px;">
+            ${log.length ? `
+            <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">Week-by-week vs ${pos} (${DEFENSE_STAT_RAW_MAP[rankTotalKey]}):</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${log.map(w=>`<span class="odds-chip">Wk ${w.Week}: ${fmt(num(w[rankRawKey]))}</span>`).join('')}
+            </div>` : `<div class="empty" style="padding:0;">No games logged yet.</div>`}
+          </td>
+        </tr>` : '';
+
+      return rowHtml + detailHtml;
+    }).join('');
+
+    container.innerHTML = `<div class="table-scroll"><table><thead>${theadHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+
+    $$('.def-row', container).forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        const defense = tr.dataset.defense;
+        if(expanded.has(defense)) expanded.delete(defense);
+        else expanded.add(defense);
+        apply();
+      });
+    });
   }
+
   $$('#def-pos-pills .pill').forEach(p=>{
     p.addEventListener('click', ()=>{
       $$('#def-pos-pills .pill').forEach(x=>x.classList.remove('active'));
       p.classList.add('active');
       pos = p.dataset.pos;
+      expanded.clear();
       apply();
     });
   });
@@ -890,7 +969,7 @@ function renderWeek2(){
   return `
   <div class="panel">
     <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
-    <div class="panel-note">For each game, each team's top producers this season with their real stat line, plus how the opposing defense has performed against that position -- built for gauging matchups, not just fantasy points.</div>
+    <div class="panel-note">For each game, each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, and INT margin so far (interceptions only -- fumbles aren't tracked yet). DIV badge marks divisional matchups.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
     </div>
@@ -944,6 +1023,62 @@ function mountWeek2(){
       const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
       const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
       return `rgb(${r},${g},${b})`;
+    }
+
+    // Rest & schedule context: days since a team's last completed game.
+    function getTeamRestInfo(team, gameDate){
+      const weeks = (DATA.teamWeek || []).filter(r=>r.Team===team);
+      if(!weeks.length) return null;
+      let lastGame = null;
+      weeks.forEach(r=>{
+        const d = new Date(r.Date);
+        if(!isNaN(d) && (!lastGame || d > lastGame)) lastGame = d;
+      });
+      if(!lastGame) return null;
+      const gd = new Date(gameDate);
+      if(isNaN(gd)) return null;
+      const days = Math.round((gd - lastGame) / (1000*60*60*24));
+      if(days <= 0) return null;
+      let label, cls;
+      if(days <= 4){ label = `Short week &middot; ${days}d rest`; cls='rest-short'; }
+      else if(days >= 12){ label = `Off bye &middot; ${days}d rest`; cls='rest-bye'; }
+      else { label = `${days}d rest`; cls='rest-normal'; }
+      return {days, label, cls};
+    }
+
+    // Static division map -- doesn't change during a season.
+    const TEAM_DIVISIONS = {
+      ARI:'NFC West', ATL:'NFC South', BAL:'AFC North', BUF:'AFC East',
+      CAR:'NFC South', CHI:'NFC North', CIN:'AFC North', CLE:'AFC North',
+      DAL:'NFC East', DEN:'AFC West', DET:'NFC North', GB:'NFC North',
+      HOU:'AFC South', IND:'AFC South', JAX:'AFC South', KC:'AFC West',
+      LAC:'AFC West', LAR:'NFC West', LV:'AFC West', MIA:'AFC East',
+      MIN:'NFC North', NE:'AFC East', NO:'NFC South', NYG:'NFC East',
+      NYJ:'AFC East', PHI:'NFC East', PIT:'AFC North', SEA:'NFC West',
+      SF:'NFC West', TB:'NFC South', TEN:'AFC South', WSH:'NFC East',
+    };
+
+    // INT margin (takeaways - giveaways) from data already loaded. NOTE:
+    // this is interceptions only -- fumbles aren't tracked in the pipeline
+    // yet, so this is a partial turnover picture, not the full thing.
+    function getTeamIntMargin(team){
+      const forced = (DATA.playerGame || []).filter(r=>r.Opponent===team).reduce((s,r)=>s+num(r['Interceptions']),0);
+      const thrown = (DATA.playerGame || []).filter(r=>r.Team===team).reduce((s,r)=>s+num(r['Interceptions']),0);
+      return forced - thrown;
+    }
+    function intMarginBadge(team){
+      const margin = getTeamIntMargin(team);
+      if(margin === 0) return `<span class="context-chip">INT margin: even</span>`;
+      const color = margin > 0 ? 'var(--mint)' : 'var(--red)';
+      return `<span class="context-chip" style="color:${color};">INT margin: ${margin > 0 ? '+' : ''}${margin}</span>`;
+    }
+
+    function injuryBadge(team){
+      const rows = (DATA.injuries || []).filter(r=>r.Team===team);
+      if(!rows.length) return '';
+      const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
+      const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
+      return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
     }
 
     // A real lineup breakdown per team: 1 QB, 2 RB, 3 WR, 2 TE, each the
@@ -1004,12 +1139,20 @@ function mountWeek2(){
       TE: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
     };
 
-    function sideHtml(team, defenseTeam){
+    function sideHtml(team, defenseTeam, gameDate){
       const topPlayers = getTopPlayers(team);
+      const rest = getTeamRestInfo(team, gameDate);
+      const contextLine = `
+        <div class="context-row">
+          ${rest ? `<span class="context-chip ${rest.cls}">${rest.label}</span>` : ''}
+          ${intMarginBadge(team)}
+          ${injuryBadge(team)}
+        </div>`;
       return `
         <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
+        ${contextLine}
         ${topPlayers.length ? topPlayers.map(p=>{
           const cfg = MATCHUP_STAT_BY_POS[p.Position];
           const dvp = cfg ? (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position) : null;
@@ -1047,10 +1190,14 @@ function mountWeek2(){
             const mlBadge = ml => (ml !== '' && ml != null && !isNaN(num(ml))) ? `<span class="ml-badge">${num(ml)>0?'+':''}${Math.round(num(ml))}</span>` : '';
             const spread = home.Spread || away.Spread || '';
             const overUnder = home['Over/Under'] || away['Over/Under'] || '';
+            const isDivisional = TEAM_DIVISIONS[away.Team] && TEAM_DIVISIONS[away.Team] === TEAM_DIVISIONS[home.Team];
             return `
             <div class="matchup-card">
               <div class="matchup-head">
-                <div class="matchup-teams">${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}</div>
+                <div class="matchup-teams">
+                  ${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}
+                  ${isDivisional ? `<span class="div-badge">DIV</span>` : ''}
+                </div>
                 <div class="matchup-time">${timeStr}</div>
               </div>
               ${(spread || overUnder) ? `
@@ -1059,8 +1206,8 @@ function mountWeek2(){
                 ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
               </div>` : ''}
               <div class="matchup-body">
-                <div class="matchup-side">${sideHtml(away.Team, home.Team)}</div>
-                <div class="matchup-side">${sideHtml(home.Team, away.Team)}</div>
+                <div class="matchup-side">${sideHtml(away.Team, home.Team, g.date)}</div>
+                <div class="matchup-side">${sideHtml(home.Team, away.Team, g.date)}</div>
               </div>
             </div>`;
           }).join('')}
@@ -1408,7 +1555,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'injuries'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
