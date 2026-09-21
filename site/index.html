@@ -545,17 +545,17 @@ function buildTable(container, columns, rows, opts={}){
 // ---------- TAB: OVERVIEW ----------
 function renderOverview(){
   const ts = DATA.teamSummary;
-  const totalPts = ts.reduce((s,r)=>s+num(r['PPR Points']),0);
   const topOff = [...ts].sort((a,b)=>num(b['Offensive Yards Per Game'])-num(a['Offensive Yards Per Game']))[0];
   const topDef = [...ts].sort((a,b)=>num(a['Offensive Yards Allowed Per Game'])-num(b['Offensive Yards Allowed Per Game']))[0];
-  const topScorer = [...DATA.playerGame].sort((a,b)=>num(b['PPR Points'])-num(a['PPR Points']))[0];
+  const topPasser = [...DATA.playerGame].sort((a,b)=>num(b['Pass Yards'])-num(a['Pass Yards']))[0];
+  const topRusher = [...DATA.playerGame].sort((a,b)=>num(b['Rush Yards'])-num(a['Rush Yards']))[0];
 
   return `
   <div class="stat-row">
     <div class="stat-card"><div class="label">Top Offense (Yds/G)</div><div class="value">${teamName(topOff.Team)} <span>${fmt(topOff['Offensive Yards Per Game'])}</span></div></div>
     <div class="stat-card"><div class="label">Stingiest Defense (Yds Allowed/G)</div><div class="value">${teamName(topDef.Team)} <span>${fmt(topDef['Offensive Yards Allowed Per Game'])}</span></div></div>
-    <div class="stat-card"><div class="label">Best Single-Game Scorer</div><div class="value">${topScorer.Player} <span>${fmt(topScorer['PPR Points'])} pts</span></div></div>
-    <div class="stat-card"><div class="label">League PPR Points Logged</div><div class="value">${Math.round(totalPts).toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">Most Pass Yds (Single Game)</div><div class="value">${topPasser.Player} <span>${fmt(topPasser['Pass Yards'])} yds</span></div></div>
+    <div class="stat-card"><div class="label">Most Rush Yds (Single Game)</div><div class="value">${topRusher.Player} <span>${fmt(topRusher['Rush Yards'])} yds</span></div></div>
   </div>
   <div class="grid-2">
     <div class="panel">
@@ -564,8 +564,8 @@ function renderOverview(){
       <canvas id="chart-overview-scatter" height="260"></canvas>
     </div>
     <div class="panel">
-      <div class="panel-title">Top 10 Single-Game PPR Performances</div>
-      <div class="panel-note">Fantasy points across all positions.</div>
+      <div class="panel-title">Top 10 Single-Game Yardage Performances</div>
+      <div class="panel-note">Combined rush + receiving + passing yards, across all positions.</div>
       <canvas id="chart-overview-top" height="260"></canvas>
     </div>
   </div>
@@ -597,11 +597,14 @@ function mountOverview(){
       }
     }
   });
-  const top10 = [...DATA.playerGame].sort((a,b)=>num(b['PPR Points'])-num(a['PPR Points'])).slice(0,10);
+  const withTotalYards = DATA.playerGame.map(r=>({
+    ...r, totalYards: num(r['Pass Yards']) + num(r['Rush Yards']) + num(r['Receiving Yards']),
+  }));
+  const top10 = withTotalYards.sort((a,b)=>b.totalYards - a.totalYards).slice(0,10);
   const ctx2 = $('#chart-overview-top');
   charts.top = new Chart(ctx2, {
     type:'bar',
-    data:{ labels: top10.map(r=>r.Player), datasets:[{ label:'PPR Points', data: top10.map(r=>num(r['PPR Points'])), backgroundColor:'#FFB020' }]},
+    data:{ labels: top10.map(r=>r.Player), datasets:[{ label:'Total Yards', data: top10.map(r=>r.totalYards), backgroundColor:'#FFB020' }]},
     options:{ indexAxis:'y',
       plugins:{legend:{display:false}},
       scales:{ x:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }, y:{ ticks:{color:'#EDEFF7', font:{size:11}}, grid:{display:false} } }
@@ -609,12 +612,11 @@ function mountOverview(){
   });
   buildTable($('#overview-table'), [
     {key:'Team', label:'Team', render:teamChip},
-    {key:'PPR Points Per Game', label:'PPR/G', numeric:true, render:v=>fmt(v)},
     {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
     {key:'Total TD Made Per Game', label:'TD/G', numeric:true, render:v=>fmt(v)},
     {key:'Offensive Yards Allowed Per Game', label:'Def Yds Allowed/G', numeric:true, render:v=>fmt(v)},
     {key:'Total TD Allowed Per Game', label:'TD Allowed/G', numeric:true, render:v=>fmt(v)},
-  ], ts, {defaultSort:'PPR Points Per Game'});
+  ], ts, {defaultSort:'Offensive Yards Per Game'});
 }
 
 // ---------- TAB: TEAM SUMMARY ----------
@@ -633,7 +635,6 @@ function mountTeams(){
   const cols = [
     {key:'Team', label:'Team', render:teamChip},
     {key:'Games Played', label:'GP', numeric:true},
-    {key:'PPR Points Per Game', label:'PPR/G', numeric:true, render:v=>fmt(v)},
     {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
     {key:'Pass Yards Per Game', label:'Pass Yds/G', numeric:true, render:v=>fmt(v)},
     {key:'Rush Yards Per Game', label:'Rush Yds/G', numeric:true, render:v=>fmt(v)},
@@ -646,7 +647,7 @@ function mountTeams(){
   function apply(){
     const q = $('#team-search').value.trim().toUpperCase();
     const rows = DATA.teamSummary.filter(r=> !q || r.Team.toUpperCase().includes(q) || teamName(r.Team).toUpperCase().includes(q));
-    buildTable($('#teams-table'), cols, rows, {defaultSort:'PPR Points Per Game'});
+    buildTable($('#teams-table'), cols, rows, {defaultSort:'Offensive Yards Per Game'});
   }
   $('#team-search').addEventListener('input', apply);
   apply();
@@ -672,7 +673,6 @@ function mountTeamWeek(){
     {key:'Opponent', label:'Opp', render:teamChip},
     {key:'Offensive Yards', label:'Off Yds', numeric:true},
     {key:'Total TD Made', label:'TD', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
     {key:'Offensive Yards Allowed', label:'Yds Allowed', numeric:true},
     {key:'Total TD Allowed', label:'TD Allowed', numeric:true},
   ];
@@ -706,6 +706,7 @@ function renderPlayers(){
 }
 function mountPlayers(){
   const cols = [
+    {key:'Week', label:'Wk', numeric:true},
     {key:'Player', label:'Player'},
     {key:'Team', label:'Team', render:teamChip},
     {key:'Opponent', label:'Opp', render:teamChip},
@@ -717,7 +718,6 @@ function mountPlayers(){
     {key:'Receptions', label:'Rec', numeric:true},
     {key:'Receiving Yards', label:'RecYd', numeric:true},
     {key:'Receiving TD', label:'RecTD', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
   ];
   let pos = '';
   function apply(){
@@ -728,7 +728,7 @@ function mountPlayers(){
       (!t || r.Team === t) &&
       (!pos || r.Position === pos)
     );
-    buildTable($('#pl-table'), cols, rows, {defaultSort:'PPR Points', limit:150});
+    buildTable($('#pl-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc', limit:150});
   }
   $('#pl-search').addEventListener('input', apply);
   $('#pl-team').addEventListener('change', apply);
@@ -748,7 +748,7 @@ function renderDefense(){
   return `
   <div class="panel">
     <div class="panel-title">Defense vs Position</div>
-    <div class="panel-note">PPR points allowed per game, by defense and position. Gold = juicy fantasy matchup, red = tough matchup. Rank 1 is most exploitable.</div>
+    <div class="panel-note">Total and per-game production allowed, by defense and position. Mint = weak defense (good matchup), coral = tough matchup. Rank 1 allows the most.</div>
     <div class="controls">
       <div class="pill-group" id="def-pos-pills">
         <span class="pill active" data-pos="QB">QB</span>
@@ -760,42 +760,53 @@ function renderDefense(){
     <div id="def-table"></div>
   </div>`;
 }
+
 // Position-specific columns for Defense vs Position -- what a defense
 // allows is only meaningful for the stats that position actually produces.
-// A QB doesn't get Receptions Allowed columns; an RB doesn't need Pass TD
-// Allowed columns, etc.
-const DEFENSE_COLS_BASE = [
-  {key:'PPR Points Allowed Rank', label:'Rank', numeric:true},
-  {key:'Defense', label:'Defense', render:teamChip},
-  {key:'PPR Points Allowed Per Game', label:'PPR Allowed/G', numeric:true, render:v=>fmt(v)},
-];
+// Each column shows the season TOTAL with the per-game rate alongside it
+// (e.g. "875 (125.0/g)"), sorted/ranked by the per-game rate.
+function totalPerGameCol(totalKey, perGameKey, label){
+  return {
+    key: perGameKey, label, numeric: true,
+    render: (v, row) => `${Math.round(num(row[totalKey])).toLocaleString()} <span style="color:var(--chalk-dim);">(${fmt(v)}/g)</span>`,
+  };
+}
+
+// Primary stat used to rank each position (also drives the color scale).
+const DEFENSE_RANK_STAT = {
+  QB: 'Pass Yards Allowed Per Game',
+  RB: 'Rush Yards Allowed Per Game',
+  WR: 'Receiving Yards Allowed Per Game',
+  TE: 'Receiving Yards Allowed Per Game',
+};
+
 const DEFENSE_COLS_BY_POS = {
   QB: [
-    {key:'Pass Yards Allowed Per Game', label:'Pass Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Pass TD Allowed Per Game', label:'Pass TD Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Interceptions Forced Per Game', label:'INT/G', numeric:true, render:v=>fmt(v)},
-    {key:'Rush Yards Allowed Per Game', label:'QB Rush Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Rush TD Allowed Per Game', label:'QB Rush TD Allowed/G', numeric:true, render:v=>fmt(v)},
+    totalPerGameCol('Pass Yards Allowed', 'Pass Yards Allowed Per Game', 'Pass Yds Allowed'),
+    totalPerGameCol('Pass TD Allowed', 'Pass TD Allowed Per Game', 'Pass TD Allowed'),
+    totalPerGameCol('Interceptions Forced', 'Interceptions Forced Per Game', 'INT Forced'),
+    totalPerGameCol('Rush Yards Allowed', 'Rush Yards Allowed Per Game', 'QB Rush Yds Allowed'),
+    totalPerGameCol('Rush TD Allowed', 'Rush TD Allowed Per Game', 'QB Rush TD Allowed'),
   ],
   RB: [
-    {key:'Rush Attempts Allowed Per Game', label:'Rush Att Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Rush Yards Allowed Per Game', label:'Rush Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Rush TD Allowed Per Game', label:'Rush TD Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receptions Allowed Per Game', label:'Rec Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving Yards Allowed Per Game', label:'Rec Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving TD Allowed Per Game', label:'Rec TD Allowed/G', numeric:true, render:v=>fmt(v)},
+    totalPerGameCol('Rush Attempts Allowed', 'Rush Attempts Allowed Per Game', 'Rush Att Allowed'),
+    totalPerGameCol('Rush Yards Allowed', 'Rush Yards Allowed Per Game', 'Rush Yds Allowed'),
+    totalPerGameCol('Rush TD Allowed', 'Rush TD Allowed Per Game', 'Rush TD Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
   ],
   WR: [
-    {key:'Targets Allowed Per Game', label:'Targets Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receptions Allowed Per Game', label:'Rec Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving Yards Allowed Per Game', label:'Rec Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving TD Allowed Per Game', label:'Rec TD Allowed/G', numeric:true, render:v=>fmt(v)},
+    totalPerGameCol('Targets Allowed', 'Targets Allowed Per Game', 'Targets Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
   ],
   TE: [
-    {key:'Targets Allowed Per Game', label:'Targets Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receptions Allowed Per Game', label:'Rec Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving Yards Allowed Per Game', label:'Rec Yds Allowed/G', numeric:true, render:v=>fmt(v)},
-    {key:'Receiving TD Allowed Per Game', label:'Rec TD Allowed/G', numeric:true, render:v=>fmt(v)},
+    totalPerGameCol('Targets Allowed', 'Targets Allowed Per Game', 'Targets Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
   ],
 };
 
@@ -803,10 +814,26 @@ function mountDefense(){
   let pos = 'QB';
   function apply(){
     const rows = DATA.defVsPos.filter(r=>r.Position===pos);
-    const maxRank = Math.max(...rows.map(r=>num(r['PPR Points Allowed Rank'])));
-    const rankCol = {...DEFENSE_COLS_BASE[0], render:(v)=>`<span class="heat" style="${heatColor(num(v), maxRank)}">#${v}</span>`};
-    const cols = [rankCol, ...DEFENSE_COLS_BASE.slice(1), ...(DEFENSE_COLS_BY_POS[pos] || [])];
-    buildTable($('#def-table'), cols, rows, {defaultSort:'PPR Points Allowed Rank', defaultDir:'asc'});
+    const rankStat = DEFENSE_RANK_STAT[pos];
+
+    // Rank teams by the primary allowed stat for this position -- highest
+    // (weakest defense) = rank 1 = best matchup, same convention used
+    // everywhere else in the app.
+    const sorted = [...rows].sort((a,b)=> num(b[rankStat]) - num(a[rankStat]));
+    const rankByDefense = {};
+    sorted.forEach((r,i)=>{ rankByDefense[r.Defense] = i+1; });
+    const maxRank = sorted.length;
+
+    const rankCol = {
+      key: rankStat, label: 'Rank', numeric: true,
+      render: (v, row) => {
+        const rank = rankByDefense[row.Defense];
+        return `<span class="heat" style="${heatColor(rank, maxRank)}">#${rank}</span>`;
+      },
+    };
+    const defenseCol = {key:'Defense', label:'Defense', render:teamChip};
+    const cols = [rankCol, defenseCol, ...(DEFENSE_COLS_BY_POS[pos] || [])];
+    buildTable($('#def-table'), cols, rows, {defaultSort: rankStat, defaultDir:'desc'});
   }
   $$('#def-pos-pills .pill').forEach(p=>{
     p.addEventListener('click', ()=>{
@@ -920,10 +947,15 @@ function mountWeek2(){
     }
 
     // A real lineup breakdown per team: 1 QB, 2 RB, 3 WR, 2 TE, each the
-    // top producer(s) at that position this season (ranked internally by
-    // total PPR just as a single number to sort mixed stat lines by --
-    // never shown to the user, since this isn't a fantasy display).
+    // top producer(s) at that position this season -- ranked by the yardage
+    // relevant to that position (not a fantasy points formula).
     const LINEUP_SLOTS = {QB:1, RB:2, WR:3, TE:2};
+    const RANK_VALUE_BY_POS = {
+      QB: g => num(g['Pass Yards']),
+      RB: g => num(g['Rush Yards']) + num(g['Receiving Yards']),
+      WR: g => num(g['Receiving Yards']),
+      TE: g => num(g['Receiving Yards']),
+    };
 
     function getTopPlayers(team){
       const byPlayer = {};
@@ -931,15 +963,16 @@ function mountWeek2(){
         if(!byPlayer[r.Player]) byPlayer[r.Player] = {Player:r.Player, Position:r.Position, games:[]};
         byPlayer[r.Player].games.push(r);
       });
-      const summarized = Object.values(byPlayer).map(p=>({
-        ...p, totalPPR: p.games.reduce((s,g)=>s+num(g['PPR Points']),0)
-      }));
+      const summarized = Object.values(byPlayer).map(p=>{
+        const valueFn = RANK_VALUE_BY_POS[p.Position] || (()=>0);
+        return {...p, rankValue: p.games.reduce((s,g)=>s+valueFn(g), 0)};
+      });
 
       const lineup = [];
       Object.entries(LINEUP_SLOTS).forEach(([pos, count])=>{
         const atPos = summarized
           .filter(p=>p.Position===pos)
-          .sort((a,b)=>b.totalPPR - a.totalPPR)
+          .sort((a,b)=>b.rankValue - a.rankValue)
           .slice(0, count);
         lineup.push(...atPos);
       });
@@ -1088,7 +1121,6 @@ const MATCHUP_COLS = {
     {key:'Pass Yards', label:'Pass Yds', numeric:true},
     {key:'Pass TD', label:'Pass TD', numeric:true},
     {key:'Interceptions', label:'INT', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
   ],
   RB: [
     {key:'Rush Attempts', label:'Rush Att', numeric:true},
@@ -1097,21 +1129,18 @@ const MATCHUP_COLS = {
     {key:'Receptions', label:'Rec', numeric:true},
     {key:'Receiving Yards', label:'Rec Yds', numeric:true},
     {key:'Receiving TD', label:'Rec TD', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
   ],
   TE: [
     {key:'Targets', label:'Tgt', numeric:true},
     {key:'Receptions', label:'Rec', numeric:true},
     {key:'Receiving Yards', label:'Rec Yds', numeric:true},
     {key:'Receiving TD', label:'Rec TD', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
   ],
   WR: [
     {key:'Targets', label:'Tgt', numeric:true},
     {key:'Receptions', label:'Rec', numeric:true},
     {key:'Receiving Yards', label:'Rec Yds', numeric:true},
     {key:'Receiving TD', label:'Rec TD', numeric:true},
-    {key:'PPR Points', label:'PPR', numeric:true, render:v=>fmt(v)},
   ],
 };
 
@@ -1137,10 +1166,14 @@ function mountMatchup(){
 
     const defVs = DATA.defVsPos.find(r=>r.Defense===def && r.Position===pos);
     const allAtPos = DATA.defVsPos.filter(r=>r.Position===pos);
-    const maxRank = Math.max(...allAtPos.map(r=>num(r['PPR Points Allowed Rank'])));
-    if(defVs){
-      const rank = num(defVs['PPR Points Allowed Rank']);
-      $('#mu-rank').innerHTML = `<div style="margin-bottom:14px;"><span class="heat" style="${heatColor(rank, maxRank)}">${teamChip(def)} ranks #${rank} of ${maxRank} vs ${pos} &middot; ${fmt(defVs['PPR Points Allowed Per Game'])} PPR pts/g allowed</span></div>`;
+    const rankStat = DEFENSE_RANK_STAT[pos];
+    if(defVs && rankStat){
+      const sorted = [...allAtPos].sort((a,b)=> num(b[rankStat]) - num(a[rankStat]));
+      const rank = sorted.findIndex(r=>r.Defense===def) + 1;
+      const maxRank = sorted.length;
+      const statVal = fmt(defVs[rankStat]);
+      const statLabel = rankStat.replace(' Allowed Per Game', '/g allowed');
+      $('#mu-rank').innerHTML = `<div style="margin-bottom:14px;"><span class="heat" style="${heatColor(rank, maxRank)}">${teamChip(def)} ranks #${rank} of ${maxRank} vs ${pos} &middot; ${statVal} ${statLabel}</span></div>`;
     } else {
       $('#mu-rank').innerHTML = '';
     }
