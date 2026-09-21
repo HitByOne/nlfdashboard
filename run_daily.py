@@ -58,6 +58,10 @@ def main(force_week: int | None = None):
     run("05_defense_vs_position.py")
     run("06_matchup_preview.py")
 
+    # Injury report hits an unverified ESPN endpoint -- non-critical so a
+    # bad response there can't block the core weekly refresh.
+    run("08_injury_report.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
