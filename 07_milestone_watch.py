@@ -1,42 +1,40 @@
 """
 07_milestone_watch.py
 
-TRUE CAREER milestone tracking, built from a legitimate, free, actively
-maintained public dataset instead of scraping Pro Football Reference
-(against their terms) or guessing at ESPN's undocumented per-athlete stats
-endpoint (which didn't pan out -- see git history).
+TRUE career milestone tracking, using ESPN's own per-athlete career stats
+endpoint -- verified against a REAL response (Josh Allen's actual stats
+page) rather than guessed. This replaces the earlier nflverse-based
+approach entirely: nflverse stopped at 2024 and needed a manual backfill
+for the gap season, whereas this endpoint's "totals" field is ESPN's own
+pre-computed career sum across every season, already including whatever
+has happened in the most recent season and even the current one in
+progress. One call per player gets the complete, always-current total --
+no separate season-baseline math needed at all.
 
-Source: nflverse-data (https://github.com/nflverse/nflverse-data), a
-week-level player stats file spanning many NFL seasons, published
-deliberately for exactly this kind of use as downloadable files -- not
-scraped, no ToS conflict.
+Verified real shape (site.web.api.espn.com/apis/common/v3/sports/football/
+nfl/athletes/{id}/stats):
+  data["categories"] -> list of stat categories (passing/rushing/receiving/...)
+  category["names"]  -> machine-readable stat keys, e.g. "passingTouchdowns"
+  category["totals"] -> career sum, positionally matching category["names"]
+                         (values are strings, sometimes comma-formatted,
+                         e.g. "30,684" -- stripped before converting)
 
-How it works:
-  1. Download nflverse's player_stats file (one row per player per week).
-  2. Sum every season STRICTLY BEFORE this app's current SEASON to get each
-     player's career baseline entering this season.
-  3. Add this season's totals from OUR OWN player_game_stats.csv (already
-     reliably tracked via the ESPN pipeline) on top, for an up-to-date
-     current total.
-  4. Compute each player's next milestone (TDs/receptions in steps of 50,
-     yardage in steps of 1000, interceptions in steps of 25 -- verified
-     against Pro Football Reference's own milestone tracker earlier).
-
-KNOWN LIMITATION: nflverse's data has, at various points, lagged behind by
-close to a full season. If it hasn't yet published the season immediately
-before SEASON, that season's production won't be counted in the baseline
--- there is no way to detect or backfill this automatically. It self-heals
-the moment nflverse publishes that season; no code change needed here.
-This script prints a clear note when that gap exists so it's never silent.
+Non-critical in run_daily.py -- if ESPN changes this shape again, the rest
+of the dashboard still refreshes normally, and this prints a DEBUG line
+with the raw category list for whichever player it can't parse, same
+safety net used elsewhere in this pipeline.
 """
 import sys
+import time
 
 import pandas as pd
+import requests
 
-from nfl_common import SEASON, PROCESSED_DIR, PLAYER_FILE
+from nfl_common import SEASON, PROCESSED_DIR, get_teams
 
 OUTPUT_FILE = PROCESSED_DIR / f"nfl_{SEASON}_milestones.csv"
-NFLVERSE_URL = "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats.parquet"
+ROSTER_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster"
+STATS_URL = "https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/{id}/stats"
 
 TRACKED_POSITIONS = {"QB", "RB", "WR", "TE"}
 MIN_CAREER_TOTAL = 5  # skip near-zero totals as noise
@@ -47,17 +45,56 @@ MILESTONE_STEP = {
     "Interceptions": 25,
 }
 
-# Our stat name -> nflverse's column name.
-NFLVERSE_STAT_MAP = {
-    "Pass TD": "passing_tds",
-    "Pass Yards": "passing_yards",
-    "Interceptions": "interceptions",
-    "Rush TD": "rushing_tds",
-    "Rush Yards": "rushing_yards",
-    "Receiving TD": "receiving_tds",
-    "Receiving Yards": "receiving_yards",
-    "Receptions": "receptions",
+# Our stat name -> (ESPN category name, ESPN stat key within that category).
+STAT_MAP = {
+    "Pass TD":         ("passing", "passingTouchdowns"),
+    "Pass Yards":      ("passing", "passingYards"),
+    "Interceptions":   ("passing", "interceptions"),
+    "Rush TD":         ("rushing", "rushingTouchdowns"),
+    "Rush Yards":      ("rushing", "rushingYards"),
+    "Receiving TD":    ("receiving", "receivingTouchdowns"),
+    "Receiving Yards": ("receiving", "receivingYards"),
+    "Receptions":      ("receiving", "receptions"),
 }
+
+_debug_logged = False
+
+
+def get_stat_total(stats_json: dict, category_name: str, stat_key: str, player_label: str):
+    global _debug_logged
+    categories = stats_json.get("categories", [])
+    for cat in categories:
+        if cat.get("name") != category_name:
+            continue
+        names = cat.get("names", [])
+        if stat_key not in names:
+            continue
+        idx = names.index(stat_key)
+        totals = cat.get("totals", [])
+        if idx >= len(totals):
+            continue
+        raw = totals[idx]
+        try:
+            return float(str(raw).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def get_roster(team_id: str, team_abbr: str) -> list[tuple[str, str, str]]:
+    """Returns list of (athlete_id, player_name, position) for tracked positions."""
+    resp = requests.get(ROSTER_URL.format(team_id=team_id), timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    players = []
+    for group in data.get("athletes", []):
+        for athlete in group.get("items", []):
+            pos = (athlete.get("position") or {}).get("abbreviation")
+            if pos not in TRACKED_POSITIONS:
+                continue
+            players.append((athlete.get("id"), athlete.get("displayName") or athlete.get("fullName"), pos))
+    return players
 
 
 def next_milestone(current: float, stat_name: str) -> tuple[float, float]:
@@ -72,92 +109,60 @@ def next_milestone(current: float, stat_name: str) -> tuple[float, float]:
 
 
 def main():
-    print("Downloading nflverse player_stats (career history)...")
-    nv = pd.read_parquet(NFLVERSE_URL)
-    min_nv_season, max_nv_season = int(nv["season"].min()), int(nv["season"].max())
-    print(f"nflverse data covers seasons {min_nv_season}-{max_nv_season}.")
+    global _debug_logged
 
-    if max_nv_season < SEASON - 1:
-        print(
-            f"    NOTE: nflverse's most recent season ({max_nv_season}) is more than one "
-            f"season behind this app's current season ({SEASON}). Career totals below will "
-            f"be missing production from {max_nv_season + 1} through {SEASON - 1} until "
-            f"nflverse publishes that data -- this is a known gap, not a bug here."
-        )
-
-    nv_career = nv[
-        (nv["season"] < SEASON)
-        & (nv["position"].isin(TRACKED_POSITIONS))
-        & (nv["season_type"] == "REG")  # exclude playoffs -- career trackers (PFR included) report regular season only
-    ]
-    nv_cols = list(NFLVERSE_STAT_MAP.values())
-    for col in nv_cols:
-        nv_career[col] = pd.to_numeric(nv_career[col], errors="coerce").fillna(0)
-
-    baseline = (
-        nv_career.groupby("player_display_name")[nv_cols]
-        .sum()
-        .reset_index()
-        .set_index("player_display_name")
-    )
-
-    if not PLAYER_FILE.exists():
-        print(f"No current-season player file found at {PLAYER_FILE} -- run the main pipeline first.")
-        sys.exit(1)
-
-    current = pd.read_csv(PLAYER_FILE)
-    current = current[current["Position"].isin(TRACKED_POSITIONS)].copy()
-
-    our_stat_cols = list(NFLVERSE_STAT_MAP.keys())
-    for col in our_stat_cols:
-        current[col] = pd.to_numeric(current[col], errors="coerce").fillna(0)
-
-    current_totals = (
-        current.groupby(["Player", "Team", "Position"])[our_stat_cols]
-        .sum()
-        .reset_index()
-    )
+    print("Fetching team list...")
+    teams = get_teams(SEASON)
+    print(f"Found {len(teams)} teams.\n")
 
     rows = []
-    unmatched = set()
+    for team_id, team_abbr in teams:
+        print(f"Rostering {team_abbr}...")
+        try:
+            roster = get_roster(team_id, team_abbr)
+        except Exception as exc:
+            print(f"    Failed to fetch roster for {team_abbr}: {exc}")
+            continue
+        time.sleep(0.15)
 
-    for _, row in current_totals.iterrows():
-        player, team, position = row["Player"], row["Team"], row["Position"]
-
-        if player in baseline.index:
-            base_vals = baseline.loc[player]
-        else:
-            unmatched.add(player)
-            base_vals = {c: 0 for c in nv_cols}
-
-        for our_name, nv_col in NFLVERSE_STAT_MAP.items():
-            season_total = row[our_name]
-            career_total = float(base_vals[nv_col]) + float(season_total)
-            if career_total < MIN_CAREER_TOTAL:
+        for athlete_id, player_name, position in roster:
+            if not athlete_id or not player_name:
                 continue
-            milestone, remaining = next_milestone(career_total, our_name)
-            rows.append({
-                "Player": player, "Team": team, "Position": position, "Stat": our_name,
-                "Current Total": int(career_total), "Milestone": int(milestone),
-                "Remaining": int(remaining),
-            })
+            try:
+                resp = requests.get(STATS_URL.format(id=athlete_id), timeout=20)
+                resp.raise_for_status()
+                stats_json = resp.json()
+            except Exception as exc:
+                print(f"    Failed to fetch stats for {player_name}: {exc}")
+                continue
+            time.sleep(0.15)
 
-    if unmatched:
-        sample = sorted(unmatched)[:15]
-        print(
-            f"\n{len(unmatched)} current-season player(s) had no nflverse career match "
-            f"(likely rookies with no prior-season history, or a name-format mismatch): "
-            f"{sample}{'...' if len(unmatched) > 15 else ''}"
-        )
+            found_any = False
+            for stat_name, (cat_name, stat_key) in STAT_MAP.items():
+                current = get_stat_total(stats_json, cat_name, stat_key, player_name)
+                if current is None or current < MIN_CAREER_TOTAL:
+                    continue
+                found_any = True
+                milestone, remaining = next_milestone(current, stat_name)
+                rows.append({
+                    "Player": player_name, "Team": team_abbr, "Position": position,
+                    "Stat": stat_name, "Current Total": int(current),
+                    "Milestone": int(milestone), "Remaining": int(remaining),
+                })
+
+            if not found_any and not _debug_logged:
+                print(f"    DEBUG: no tracked stats matched for {player_name}. "
+                      f"Categories present: {[c.get('name') for c in stats_json.get('categories', [])]}")
+                _debug_logged = True
 
     if not rows:
-        print("\nNo milestone rows produced -- check that PLAYER_FILE has current data.")
+        print("\nNo milestone rows produced -- check the DEBUG line above for the real response shape.")
         sys.exit(1)
 
     result = pd.DataFrame(rows).sort_values(["Remaining", "Current Total"], ascending=[True, False])
     result.to_csv(OUTPUT_FILE, index=False)
     print(f"\nSaved: {OUTPUT_FILE}")
-    print(f"Tracked {len(result)} player/stat milestone rows.")
+    print(f"Tracked {len(result)} player/stat milestone rows across {len(teams)} teams.")
     print("\nClosest to hitting a milestone right now:")
     print(result.head(10)[["Player", "Team", "Stat", "Current Total", "Milestone", "Remaining"]].to_string(index=False))
 
