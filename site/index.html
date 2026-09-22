@@ -287,6 +287,7 @@
   .player-preview-pos{font-family:var(--mono);font-size:10px;color:var(--gold);flex:0 0 auto;}
   .player-preview-stats{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-top:2px;}
   .player-preview-matchup{display:block;font-family:var(--mono);font-size:10.5px;margin-top:3px;font-weight:600;}
+  .milestone-badge{display:block;font-family:var(--mono);font-size:10.5px;margin-top:3px;font-weight:600;color:var(--gold);}
 
   /* ---- Stat cards ---- */
   .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
@@ -970,7 +971,7 @@ function renderWeek2(){
   return `
   <div class="panel">
     <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
-    <div class="panel-note">For each game, each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, and INT margin so far (interceptions only -- fumbles aren't tracked yet). DIV badge marks divisional matchups.</div>
+    <div class="panel-note">For each game, each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
     </div>
@@ -1082,6 +1083,23 @@ function mountWeek2(){
       return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
     }
 
+    // Closest active milestone for a player, if any (a player can be
+    // tracked toward more than one stat's milestone -- show whichever is
+    // nearest so this stays useful, not cluttered).
+    function getClosestMilestone(player){
+      const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+      if(!entries.length) return null;
+      return entries.reduce((closest, m) =>
+        (!closest || num(m.Remaining) < num(closest.Remaining)) ? m : closest
+      , null);
+    }
+    function milestoneBadge(player){
+      const m = getClosestMilestone(player);
+      if(!m) return '';
+      const remaining = num(m.Remaining);
+      return `<span class="milestone-badge">&#127919; ${remaining} ${m.Stat} from ${m.Milestone}</span>`;
+    }
+
     // A real lineup breakdown per team: 1 QB, 2 RB, 3 WR, 2 TE, each the
     // top producer(s) at that position this season -- ranked by the yardage
     // relevant to that position (not a fantasy points formula).
@@ -1175,6 +1193,7 @@ function mountWeek2(){
             </div>
             <div class="player-preview-stats">${statLine(p)}</div>
             ${matchupTag}
+            ${milestoneBadge(p.Player)}
           </div>`;
         }).join('') : '<div class="empty" style="padding:8px 0;">No player stats logged yet.</div>'}
       `;
