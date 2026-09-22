@@ -43,18 +43,22 @@ def fetch_team_injuries(team_id: str, team_abbr: str) -> list[dict]:
 
     for item in items:
         # ESPN's core API frequently returns {"$ref": "..."} pointers
-        # instead of inline objects -- follow them if that's what this is.
-        if isinstance(item, dict) and "$ref" in item and len(item) == 1:
-            try:
-                ref_resp = requests.get(item["$ref"], timeout=30)
-                ref_resp.raise_for_status()
-                item = ref_resp.json()
-            except Exception as exc:
-                print(f"    Failed to follow injury reference for {team_abbr}: {exc}")
-                continue
-
+        # instead of inline objects. Confirmed from a real response: the
+        # injury item itself IS fully inlined (status, type, details are
+        # all directly present), but its "athlete" field is just a $ref
+        # needing a follow-up fetch to get the player's actual name.
         athlete = item.get("athlete", {})
-        player_name = athlete.get("displayName") if isinstance(athlete, dict) else None
+        player_name = None
+        if isinstance(athlete, dict):
+            if athlete.get("displayName"):
+                player_name = athlete.get("displayName")
+            elif athlete.get("$ref"):
+                try:
+                    athlete_resp = requests.get(athlete["$ref"], timeout=30)
+                    athlete_resp.raise_for_status()
+                    player_name = athlete_resp.json().get("displayName")
+                except Exception as exc:
+                    print(f"    Failed to resolve athlete name for {team_abbr}: {exc}")
 
         status = item.get("status")
         if isinstance(status, dict):
@@ -76,9 +80,10 @@ def fetch_team_injuries(team_id: str, team_abbr: str) -> list[dict]:
         rows.append({
             "Team": team_abbr,
             "Player": player_name,
-            "Status": status or "Unknown", 
+            "Status": status or "Unknown",
             "Injury": injury_type or "",
         })
+        time.sleep(0.1)  # be polite -- this now makes one extra call per injury
 
     return rows
 
