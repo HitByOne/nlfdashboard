@@ -66,6 +66,10 @@ def main(force_week: int | None = None):
     # ESPN -- non-critical so it can't block the core weekly refresh.
     run("09_epa_efficiency.py", critical=False)
 
+    # Per-game detailed stats (real scores, sacks, penalties, QB
+    # performance) -- same external dependency as EPA, non-critical.
+    run("10_game_stats.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
