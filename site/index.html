@@ -1085,6 +1085,25 @@ function mountWeek2(){
       return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
     }
 
+    // EPA matchup context: this offense's EPA/play next to what THIS
+    // SPECIFIC opposing defense has allowed -- the exact "Team A offense
+    // vs Team B defense" comparison, shown as two real numbers side by
+    // side, not combined into a prediction.
+    function getTeamEpa(team, side){
+      const row = (DATA.epa || []).find(r=>r.Team===team && r.Side===side);
+      return row ? {epa: num(row['EPA/Play']), gp: num(row['Games Played'])} : null;
+    }
+    function epaMatchupLine(offenseTeam, defenseTeam){
+      const off = getTeamEpa(offenseTeam, 'Offense');
+      const def = getTeamEpa(defenseTeam, 'Defense');
+      if(!off && !def) return '';
+      const smallSample = (off && off.gp < 4) || (def && def.gp < 4);
+      const parts = [];
+      if(off) parts.push(`${offenseTeam} off: ${fmt(off.epa,3)} EPA/play`);
+      if(def) parts.push(`${defenseTeam} D allows: ${fmt(def.epa,3)} EPA/play`);
+      return `<div class="context-row"><span class="context-chip" title="EPA/play: real per-play efficiency, shown as-is -- not combined into a prediction">${parts.join(' &middot; ')}${smallSample ? ' (small sample)' : ''}</span></div>`;
+    }
+
     // Closest active milestone for a player, if any (a player can be
     // tracked toward more than one stat's milestone -- show whichever is
     // nearest so this stays useful, not cluttered).
@@ -1174,6 +1193,7 @@ function mountWeek2(){
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
         ${contextLine}
+        ${epaMatchupLine(team, defenseTeam)}
         ${topPlayers.length ? topPlayers.map(p=>{
           const cfg = MATCHUP_STAT_BY_POS[p.Position];
           const dvp = cfg ? (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position) : null;
