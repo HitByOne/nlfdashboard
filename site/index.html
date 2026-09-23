@@ -1367,7 +1367,7 @@ const STREAK_DEFS = {
   QB: [
     {key:'passTD2', label:'2+ Pass TD', check:r=>num(r['Pass TD'])>=2},
     {key:'pass250', label:'250+ Pass Yds', check:r=>num(r['Pass Yards'])>=250},
-    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Pass TD'])>=1 || num(r['Rush TD'])>=1},
+    {key:'rushTD', label:'Rush TD', highlight:true, check:r=>num(r['Rush TD'])>=1},
   ],
   RB: [
     {key:'rush100', label:'100+ Rush Yds', check:r=>num(r['Rush Yards'])>=100},
@@ -1421,7 +1421,7 @@ function renderStreaks(){
   return `
   <div class="panel">
     <div class="panel-title">Active Streaks</div>
-    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are Any-TD streaks.</div>
+    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are touchdown streaks (for QBs, rushing TDs specifically -- passing TDs are tracked separately under "2+ Pass TD").</div>
     <div class="controls">
       <input type="text" id="streak-search" placeholder="Search player...">
       <select id="streak-type"><option value="">All streak types</option></select>
