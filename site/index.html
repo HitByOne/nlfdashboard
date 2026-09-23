@@ -99,7 +99,15 @@
     padding:8px 18px;
     border-right:1px solid var(--panel-border);
     min-width:120px;
+    cursor:pointer;
+    transition:background .15s;
   }
+  .ticker-item:hover{background:rgba(76,141,255,0.1);}
+  @keyframes card-highlight-flash{
+    0%{box-shadow:0 0 0 2px var(--gold);}
+    100%{box-shadow:0 0 0 2px transparent;}
+  }
+  .card-highlight{animation:card-highlight-flash 1.8s ease-out;}
   .ticker-time{
     font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
     text-transform:uppercase;letter-spacing:0.4px;
@@ -453,7 +461,7 @@ function renderTickerGames(games, opts={}){
       : `<span title="${teamName(g.awayAbbr)}">${g.awayAbbr}</span><span class="ticker-score">${g.awayScore}</span>
          <span class="ticker-score">${g.homeScore}</span><span title="${teamName(g.homeAbbr)}">${g.homeAbbr}</span>`;
     return `
-    <div class="ticker-item">
+    <div class="ticker-item" data-away="${g.awayAbbr}" data-home="${g.homeAbbr}">
       <div class="ticker-time">${label}</div>
       <div class="ticker-teams">${scoreLine}</div>
     </div>`;
@@ -489,7 +497,7 @@ function renderTickerFromCSV(){
     const dayStr = isNaN(dt) ? '' : dt.toLocaleDateString('en-US',{weekday:'short'});
     const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     return `
-    <div class="ticker-item">
+    <div class="ticker-item" data-away="${g.away}" data-home="${g.home}">
       <div class="ticker-time">${dayStr}${timeStr ? ' &middot; ' + timeStr : ''}</div>
       <div class="ticker-teams">
         <span title="${teamName(g.away)}">${g.away}</span>
@@ -498,6 +506,23 @@ function renderTickerFromCSV(){
       </div>
     </div>`;
   }).join('') || '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
+}
+
+// Jump to a game's full detail card on the Upcoming Matchups tab and
+// highlight it -- reuses that tab's existing rich card (players, EPA,
+// injuries, milestones, odds) instead of building a second, separate
+// "game details" view that could drift out of sync with it.
+function goToGameDetails(away, home){
+  if(!away || !home || away==='?' || home==='?') return;
+  showTab('week2');
+  // showTab renders synchronously, so the card should already be in the DOM.
+  const card = document.querySelector(`.matchup-card[data-away="${away}"][data-home="${home}"]`);
+  if(card){
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+    card.classList.remove('card-highlight');
+    void card.offsetWidth; // restart the CSS animation if clicked twice in a row
+    card.classList.add('card-highlight');
+  }
 }
 
 // ---------- helpers ----------
@@ -1234,7 +1259,7 @@ function mountWeek2(){
             const overUnder = home['Over/Under'] || away['Over/Under'] || '';
             const isDivisional = TEAM_DIVISIONS[away.Team] && TEAM_DIVISIONS[away.Team] === TEAM_DIVISIONS[home.Team];
             return `
-            <div class="matchup-card">
+            <div class="matchup-card" data-away="${away.Team}" data-home="${home.Team}">
               <div class="matchup-head">
                 <div class="matchup-teams">
                   ${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}
@@ -1849,6 +1874,10 @@ async function init(){
   PREVIEW_WEEK = DATA.week2 && DATA.week2.length ? num_(DATA.week2[0].Week) : (LATEST_RESULTS_WEEK ? LATEST_RESULTS_WEEK + 1 : null);
 
   $$('#tabs button').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+  $('#ticker-track').addEventListener('click', (e)=>{
+    const item = e.target.closest('.ticker-item');
+    if(item) goToGameDetails(item.dataset.away, item.dataset.home);
+  });
   renderHero();
   renderTicker();
   showTab('overview');
