@@ -716,26 +716,30 @@ function mountLive(){
       </table>`;
   }
 
-  // Full player game log (every player with a stat that game, not just a
-  // top-N preview) -- shown when a card is "flipped" from its default
-  // stats-table view.
-  function fullSideLog(team, oppTeam, week){
-    const players = (DATA.playerGame || []).filter(r=>r.Team===team && num(r.Week)===week);
+  // Full player game log as a sortable table (both teams combined, a Team
+  // column distinguishes them) -- shown when a card is "flipped" from its
+  // default stats-table view.
+  const PLAYER_LOG_COLS = [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Player', label:'Player'},
+    {key:'Position', label:'Pos'},
+    {key:'Pass Completions', label:'Cmp', numeric:true},
+    {key:'Pass Attempts', label:'Att', numeric:true},
+    {key:'Pass Yards', label:'Pass Yds', numeric:true},
+    {key:'Pass TD', label:'Pass TD', numeric:true},
+    {key:'Interceptions', label:'INT', numeric:true},
+    {key:'Rush Attempts', label:'Rush Att', numeric:true},
+    {key:'Rush Yards', label:'Rush Yds', numeric:true},
+    {key:'Rush TD', label:'Rush TD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+  ];
+  function playerLogRows(teamA, teamB, week){
     const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
-    const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a));
-    return `
-      <div class="matchup-side-label"><b>${team}</b> player log vs <b>${oppTeam}</b></div>
-      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
-      ${sorted.length ? sorted.map(p=>`
-        <div class="player-preview">
-          <div class="player-preview-head">
-            <span class="player-preview-name">${p.Player}</span>
-            <span class="player-preview-pos">${p.Position}</span>
-          </div>
-          <div class="player-preview-stats">${singleGameStatLine(p)}</div>
-          ${milestoneBadgeSimple(p.Player)}
-        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>'}
-    `;
+    return (DATA.playerGame || [])
+      .filter(r=> (r.Team===teamA || r.Team===teamB) && num(r.Week)===week)
+      .map(r=> ({...r, _totalYards: totalYds(r)}));
   }
 
   const flippedGames = new Set();
@@ -780,10 +784,7 @@ function mountLive(){
           </div>
         </div>
         ${hasDetail ? (isFlipped ? `
-        <div class="matchup-body">
-          <div class="matchup-side">${fullSideLog(g.teamA, g.teamB, week)}</div>
-          <div class="matchup-side">${fullSideLog(g.teamB, g.teamA, week)}</div>
-        </div>
+        <div class="table-scroll" id="live-log-${g.gid}"></div>
         ` : `
         <div class="qb-card-row">
           ${qbCard(g.teamA, week)}
@@ -797,6 +798,14 @@ function mountLive(){
         </div>`}
       </div>`;
     }).join('') : '<div class="empty">No games logged for this week yet.</div>';
+
+    // Populate any flipped cards' player-log tables now that their
+    // placeholder divs exist in the DOM.
+    games.forEach(g=>{
+      if(!flippedGames.has(g.gid)) return;
+      const container = document.getElementById(`live-log-${g.gid}`);
+      if(container) buildTable(container, PLAYER_LOG_COLS, playerLogRows(g.teamA, g.teamB, week), {defaultSort:'_totalYards', defaultDir:'desc'});
+    });
 
     $$('.flip-btn', $('#live-grid')).forEach(btn=>{
       btn.addEventListener('click', (e)=>{
