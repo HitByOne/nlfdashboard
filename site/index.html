@@ -359,14 +359,11 @@
   <div class="ticker-track" id="ticker-track"></div>
 </div>
 
-<div class="wrap" id="game-details-wrap" style="display:none;">
-  <div class="panel" id="game-details-panel"></div>
-</div>
-
 <div class="wrap">
   <div class="main-layout">
     <nav class="tabs" id="tabs">
       <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="live">Live Matchups</button>
       <button data-tab="matchup">Matchup Explorer</button>
       <button data-tab="teams">Team Summary</button>
       <button data-tab="teamweek">Team Game Log</button>
@@ -546,7 +543,9 @@ function renderTickerFromCSV(){
 // milestones, odds) instead of building a second view that could drift
 // out of sync with it. Otherwise (this week's live/just-finished games,
 // which Upcoming Matchups doesn't cover since it only previews the NEXT
-// week), build an actual box-score recap from data already pulled.
+// week), navigate to the dedicated Live Matchups tab instead.
+let pendingHighlightGame = null; // {away, home} -- consumed once by mountLive after navigating there
+
 function goToGameDetails(away, home){
   if(!away || !home || away==='?' || home==='?') return;
 
@@ -566,7 +565,8 @@ function goToGameDetails(away, home){
     return;
   }
 
-  showCurrentWeekGameDetails(away, home);
+  pendingHighlightGame = {away, home};
+  showTab('live');
 }
 
 function singleGameStatLine(row){
@@ -579,8 +579,7 @@ function singleGameStatLine(row){
 
 // Small, self-contained versions of the Upcoming Matchups tab's injury/
 // milestone badges -- those live inside that tab's own closure, so this
-// panel (which can render on any tab) needs its own copies rather than
-// reaching into another tab's internals.
+// tab needs its own copies rather than reaching into another tab's internals.
 function injuryBadgeSimple(team){
   const rows = (DATA.injuries || []).filter(r=>r.Team===team);
   if(!rows.length) return '';
@@ -595,28 +594,45 @@ function milestoneBadgeSimple(player){
   return `<span class="milestone-badge">&#127919; ${num(m.Remaining)} ${m.Stat} from ${m.Milestone}</span>`;
 }
 
-function showCurrentWeekGameDetails(away, home){
-  const wrap = $('#game-details-wrap');
-  const panel = $('#game-details-panel');
+// ---------- TAB: LIVE MATCHUPS ----------
+// Real box-score recaps for games already pulled into the pipeline (this
+// week or any past week) -- separate from Upcoming Matchups, which only
+// previews the NEXT week and has no actual results yet.
+function renderLive(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Live Matchups</div>
+    <div class="panel-note">Real box scores for games your pipeline has already pulled -- top contributors per side by yards, their actual stat lines, plus injury and milestone context. Click a game in the ticker above to jump straight to it here.</div>
+    <div class="controls">
+      <select id="live-week"></select>
+    </div>
+    <div class="matchup-grid" id="live-grid"></div>
+  </div>`;
+}
+function mountLive(){
+  const weeks = [...new Set((DATA.teamWeek || []).map(r=>num(r.Week)))].sort((a,b)=>a-b);
+  const weekSelect = $('#live-week');
 
-  const teamWeekRow = (DATA.teamWeek || []).find(r=>
-    (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
-  );
-
-  if(!teamWeekRow){
-    panel.innerHTML = `
-      <div class="panel-title">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
-      <div class="empty">This game hasn't been pulled into the pipeline yet -- either it's still in progress, or the next daily refresh hasn't run since it finished.</div>`;
-    wrap.style.display = 'block';
-    wrap.scrollIntoView({behavior:'smooth', block:'start'});
+  if(!weeks.length){
+    $('#live-grid').innerHTML = '<div class="empty">No games logged yet.</div>';
+    weekSelect.innerHTML = '';
     return;
   }
 
-  const week = teamWeekRow.Week;
-  const awayPlayers = (DATA.playerGame || []).filter(r=>r.Team===away && num(r.Week)===num(week));
-  const homePlayers = (DATA.playerGame || []).filter(r=>r.Team===home && num(r.Week)===num(week));
+  const defaultWeek = pendingHighlightGame
+    ? (() => {
+        const row = (DATA.teamWeek || []).find(r =>
+          (r.Team===pendingHighlightGame.away && r.Opponent===pendingHighlightGame.home) ||
+          (r.Team===pendingHighlightGame.home && r.Opponent===pendingHighlightGame.away)
+        );
+        return row ? num(row.Week) : weeks[weeks.length-1];
+      })()
+    : weeks[weeks.length-1];
 
-  function sideRecap(players, team, oppTeam){
+  weekSelect.innerHTML = weeks.map(w=>`<option value="${w}" ${w===defaultWeek?'selected':''}>Week ${w}</option>`).join('');
+
+  function sideRecap(team, oppTeam, week){
+    const players = (DATA.playerGame || []).filter(r=>r.Team===team && num(r.Week)===week);
     const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
     const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a)).slice(0, 6);
     return `
@@ -630,22 +646,59 @@ function showCurrentWeekGameDetails(away, home){
           </div>
           <div class="player-preview-stats">${singleGameStatLine(p)}</div>
           ${milestoneBadgeSimple(p.Player)}
-        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game yet.</div>'}
+        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>'}
     `;
   }
 
-  panel.innerHTML = `
-    <div class="matchup-head" style="margin:-20px -20px 16px -20px;">
-      <div class="matchup-teams">${teamName(away)}<span class="at">@</span>${teamName(home)}</div>
-      <div class="matchup-time">WEEK ${week}</div>
-    </div>
-    <div class="matchup-body" style="margin:0 -20px -20px -20px;">
-      <div class="matchup-side">${sideRecap(awayPlayers, away, home)}</div>
-      <div class="matchup-side">${sideRecap(homePlayers, home, away)}</div>
-    </div>
-  `;
-  wrap.style.display = 'block';
-  wrap.scrollIntoView({behavior:'smooth', block:'start'});
+  function apply(){
+    const week = num(weekSelect.value);
+
+    // Pair team_week rows into games by Game ID -- each game has exactly
+    // two team rows (one per side).
+    const byGame = new Map();
+    (DATA.teamWeek || []).filter(r=>num(r.Week)===week).forEach(r=>{
+      const gid = r['Game ID'];
+      if(!gid) return;
+      if(!byGame.has(gid)) byGame.set(gid, []);
+      byGame.get(gid).push(r);
+    });
+
+    const games = [...byGame.entries()]
+      .filter(([, rows]) => rows.length === 2)
+      .map(([gid, rows]) => ({gid, teamA: rows[0].Team, teamB: rows[1].Team}));
+
+    $('#live-grid').innerHTML = games.length ? games.map(g=>`
+      <div class="matchup-card" data-away="${g.teamA}" data-home="${g.teamB}">
+        <div class="matchup-head">
+          <div class="matchup-teams">${teamName(g.teamA)}<span class="at">@</span>${teamName(g.teamB)}</div>
+          <div class="matchup-time">WEEK ${week}</div>
+        </div>
+        <div class="matchup-body">
+          <div class="matchup-side">${sideRecap(g.teamA, g.teamB, week)}</div>
+          <div class="matchup-side">${sideRecap(g.teamB, g.teamA, week)}</div>
+        </div>
+      </div>
+    `).join('') : '<div class="empty">No games logged for this week yet.</div>';
+
+    // Consume any pending highlight request from a ticker click -- match
+    // either team order since team_week doesn't track true home/away.
+    if(pendingHighlightGame){
+      const {away, home} = pendingHighlightGame;
+      const card = document.querySelector(
+        `.matchup-card[data-away="${away}"][data-home="${home}"], .matchup-card[data-away="${home}"][data-home="${away}"]`
+      );
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+        card.classList.remove('card-highlight');
+        void card.offsetWidth;
+        card.classList.add('card-highlight');
+      }
+      pendingHighlightGame = null;
+    }
+  }
+
+  weekSelect.addEventListener('change', apply);
+  apply();
 }
 
 // ---------- helpers ----------
@@ -1929,6 +1982,7 @@ function mountEpa(){
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
+  live: {render: renderLive, mount: mountLive},
   matchup: {render: renderMatchup, mount: mountMatchup},
   teams: {render: renderTeams, mount: mountTeams},
   teamweek: {render: renderTeamWeek, mount: mountTeamWeek},
@@ -1942,7 +1996,6 @@ const renderers = {
   epa: {render: renderEpa, mount: mountEpa},
 };
 function showTab(tab){
-  $('#game-details-wrap').style.display = 'none';
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const r = renderers[tab];
   $('#content').innerHTML = r.render();
