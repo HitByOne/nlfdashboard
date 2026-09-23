@@ -35,6 +35,7 @@ Drake Maye,NE,QB,Interceptions,22,25,3
 Mason Rudolph,PIT,QB,Interceptions,22,25,3
 Chris Olave,NO,WR,Receiving Yards,3996,4000,4
 Nico Collins,HOU,WR,Receptions,296,300,4
+Darius Slayton,IND,WR,Receptions,296,300,4
 Chig Okonkwo,WSH,TE,Receptions,196,200,4
 Mason Taylor,NYJ,TE,Receptions,46,50,4
 Kyle Allen,BUF,QB,Interceptions,21,25,4
@@ -362,6 +363,7 @@ Erick All Jr.,CIN,TE,Receptions,22,50,28
 Tylan Wallace,CLE,WR,Receptions,22,50,28
 Sam Howell,DAL,QB,Pass TD,22,50,28
 Drew Ogletree,IND,TE,Receptions,22,50,28
+Darius Slayton,IND,WR,Receiving TD,22,50,28
 Quintin Morris,JAX,TE,Receptions,22,50,28
 De'Von Achane,MIA,RB,Rush TD,22,50,28
 Jordan Addison,MIN,WR,Receiving TD,22,50,28
@@ -540,6 +542,7 @@ Cody White,LV,WR,Receptions,13,50,37
 Colby Parkinson,LAR,TE,Receiving TD,13,50,37
 De'Von Achane,MIA,RB,Receiving TD,13,50,37
 Cole Turner,MIA,TE,Receptions,13,50,37
+Jaret Patterson,MIN,RB,Receptions,13,50,37
 Jameis Winston,NYG,QB,Rush TD,13,50,37
 Tank Bigsby,PHI,RB,Receptions,13,50,37
 Britain Covey,PHI,WR,Receptions,13,50,37
@@ -1102,6 +1105,7 @@ Patrick Mahomes,KC,QB,Pass Yards,36505,37000,495
 T.J. Hockenson,MIN,TE,Receiving Yards,4505,5000,495
 Trey Sermon,ATL,RB,Rush Yards,505,1000,495
 C.J. Stroud,HOU,QB,Pass Yards,11503,12000,497
+Jaret Patterson,MIN,RB,Rush Yards,503,1000,497
 Pierre Strong Jr.,GB,RB,Rush Yards,499,1000,501
 Zach Wilson,NO,QB,Rush Yards,499,1000,501
 Jakobi Meyers,JAX,WR,Receiving Yards,5495,6000,505
@@ -1144,6 +1148,7 @@ Dak Prescott,DAL,QB,Pass Yards,36443,37000,557
 Evan Engram,DEN,TE,Receiving Yards,5443,6000,557
 Drew Lock,SEA,QB,Rush Yards,440,1000,560
 Bhayshul Tuten,JAX,RB,Rush Yards,438,1000,562
+Darius Slayton,IND,WR,Receiving Yards,4435,5000,565
 Chris Brooks,GB,RB,Rush Yards,435,1000,565
 Stone Smartt,NO,TE,Receiving Yards,432,1000,568
 Charlie Kolar,LAC,TE,Receiving Yards,430,1000,570
@@ -1501,6 +1506,7 @@ Ko Kieft,TB,TE,Receiving Yards,82,1000,918
 Michael Penix Jr.,ATL,QB,Rush Yards,81,1000,919
 Scotty Miller,CHI,WR,Rush Yards,81,1000,919
 Jaylen Waddle,DEN,WR,Rush Yards,81,1000,919
+Jaret Patterson,MIN,RB,Receiving Yards,81,1000,919
 British Brooks,HOU,RB,Rush Yards,80,1000,920
 Jacob Cowing,SF,WR,Receiving Yards,80,1000,920
 Eric Gray,CLE,RB,Rush Yards,79,1000,921
@@ -1591,6 +1597,7 @@ Matthew Golden,GB,WR,Rush Yards,49,1000,951
 Keenan Allen,IND,WR,Pass Yards,49,1000,951
 Brady Cook,MIA,QB,Rush Yards,49,1000,951
 Jerry Jeudy,CLE,WR,Rush Yards,48,1000,952
+Brenden Bates,JAX,TE,Receiving Yards,48,1000,952
 Aidan O'Connell,LV,QB,Rush Yards,48,1000,952
 Mike Washington Jr.,LV,RB,Rush Yards,48,1000,952
 Isaiah Williams,NYJ,WR,Rush Yards,48,1000,952
