@@ -86,6 +86,7 @@ Jordan Whittington,LAR,WR,Receptions,41,50,9
 Chris Godwin Jr.,TB,WR,Receiving TD,41,50,9
 Terry McLaurin,WSH,WR,Receiving TD,41,50,9
 Kenny Pickett,CAR,QB,Interceptions,16,25,9
+Will Levis,NYJ,QB,Interceptions,16,25,9
 Marcus Mariota,WSH,QB,Pass Yards,17990,18000,10
 Justin Jefferson,MIN,WR,Receptions,590,600,10
 T.J. Hockenson,MIN,TE,Receptions,440,450,10
@@ -110,7 +111,6 @@ Daniel Bellinger,TEN,TE,Receptions,89,100,11
 Courtland Sutton,DEN,WR,Receiving TD,39,50,11
 Matthew Golden,GB,WR,Receptions,39,50,11
 Caleb Williams,CHI,QB,Interceptions,14,25,11
-Bailey Zappe,NYJ,QB,Interceptions,14,25,11
 Michael Pittman Jr.,PIT,WR,Receptions,488,500,12
 Tyler Higbee,LAR,TE,Receptions,388,400,12
 Noah Fant,NO,TE,Receptions,338,350,12
@@ -392,6 +392,7 @@ Kimani Vidal,LAC,RB,Receptions,21,50,29
 Marquez Valdes-Scantling,LAC,WR,Receiving TD,21,50,29
 Aaron Jones Sr.,MIN,RB,Receiving TD,21,50,29
 Romeo Doubs,NE,WR,Receiving TD,21,50,29
+Will Levis,NYJ,QB,Pass TD,21,50,29
 Deebo Samuel Sr.,SF,WR,Rush TD,21,50,29
 Zach Charbonnet,SEA,RB,Rush TD,21,50,29
 Tyler Conklin,DET,TE,Receptions,270,300,30
@@ -400,6 +401,7 @@ Michael Wilson,ARI,WR,Receptions,170,200,30
 Tua Tagovailoa,ATL,QB,Pass TD,120,150,30
 J.K. Dobbins,DEN,RB,Receptions,70,100,30
 Keenan Allen,IND,WR,Receiving TD,70,100,30
+Isaiah Hodgins,PIT,WR,Receptions,70,100,30
 Hunter Long,ARI,TE,Receptions,20,50,30
 Deshaun Watson,CLE,QB,Rush TD,20,50,30
 Brevyn Spann-Ford,DAL,TE,Receptions,20,50,30
@@ -571,7 +573,6 @@ Brock Bowers,LV,TE,Receiving TD,12,50,38
 Tanner Conner,NE,TE,Receptions,12,50,38
 Spencer Rattler,NO,QB,Pass TD,12,50,38
 Geno Smith,NYJ,QB,Rush TD,12,50,38
-Bailey Zappe,NYJ,QB,Pass TD,12,50,38
 Tank Bigsby,PHI,RB,Rush TD,12,50,38
 Dontayvion Wicks,PHI,WR,Receiving TD,12,50,38
 Jaylen Warren,PIT,RB,Rush TD,12,50,38
@@ -696,6 +697,7 @@ Tommy DeVito,NE,QB,Pass TD,8,50,42
 Calvin Austin III,NYG,WR,Receiving TD,8,50,42
 Charlie Jones,NYG,WR,Receptions,8,50,42
 Dameon Pierce,PHI,RB,Rush TD,8,50,42
+Isaiah Hodgins,PIT,WR,Receiving TD,8,50,42
 Ko Kieft,TB,TE,Receptions,8,50,42
 Jalen McMillan,TB,WR,Receiving TD,8,50,42
 Tyjae Spears,TEN,RB,Rush TD,8,50,42
@@ -912,6 +914,7 @@ Carson Wentz,MIN,QB,Pass Yards,23902,24000,98
 K.J. Osborn,TEN,WR,Receiving Yards,1902,2000,98
 Quentin Johnston,LAC,WR,Receiving Yards,1901,2000,99
 Devaughn Vele,NO,WR,Receiving Yards,901,1000,99
+Will Levis,NYJ,QB,Pass Yards,3899,4000,101
 Rashee Rice,KC,WR,Receiving Yards,1899,2000,101
 Justin Fields,KC,QB,Rush Yards,2892,3000,108
 Caleb Williams,CHI,QB,Pass Yards,7890,8000,110
@@ -969,6 +972,7 @@ Pat Freiermuth,PIT,TE,Receiving Yards,2754,3000,246
 Kyle Allen,BUF,QB,Pass Yards,4753,5000,247
 Woody Marks,HOU,RB,Rush Yards,753,1000,247
 Pharaoh Brown,IND,TE,Receiving Yards,752,1000,248
+Isaiah Hodgins,PIT,WR,Receiving Yards,749,1000,251
 Kenny Gainwell,TB,RB,Rush Yards,1747,2000,253
 Luther Burden III,CHI,WR,Receiving Yards,747,1000,253
 Justin Herbert,LAC,QB,Rush Yards,1746,2000,254
@@ -1278,6 +1282,7 @@ Josh Downs,IND,WR,Receiving Yards,2249,3000,751
 DK Metcalf,PIT,WR,Receiving Yards,7241,8000,759
 Dalton Schultz,HOU,TE,Receiving Yards,4241,5000,759
 Puka Nacua,LAR,WR,Rush Yards,240,1000,760
+Will Levis,NYJ,QB,Rush Yards,240,1000,760
 Isaiah Williams,NYJ,WR,Receiving Yards,240,1000,760
 Ryan Miller,MIA,WR,Receiving Yards,239,1000,761
 Jack Stoll,SF,TE,Receiving Yards,239,1000,761
@@ -1293,7 +1298,6 @@ Tommy DeVito,NE,QB,Rush Yards,227,1000,773
 Van Jefferson,WSH,WR,Receiving Yards,2226,3000,774
 Cam Skattebo,NYG,RB,Receiving Yards,226,1000,774
 Jake Haener,NYG,QB,Pass Yards,226,1000,774
-Bailey Zappe,NYJ,QB,Pass Yards,2223,3000,777
 Devin Duvernay,ARI,WR,Rush Yards,222,1000,778
 Justin Herbert,LAC,QB,Pass Yards,25221,26000,779
 TreVeyon Henderson,NE,RB,Receiving Yards,221,1000,779
@@ -1497,7 +1501,6 @@ Antonio Williams,WSH,WR,Receiving Yards,88,1000,912
 Blake Corum,LAR,RB,Rush Yards,1086,2000,914
 Blake Whiteheart,CLE,TE,Receiving Yards,86,1000,914
 Dillon Gabriel,CLE,QB,Rush Yards,86,1000,914
-Bailey Zappe,NYJ,QB,Rush Yards,85,1000,915
 Kenneth Walker III,KC,RB,Receiving Yards,1084,2000,916
 Courtland Sutton,DEN,WR,Pass Yards,84,1000,916
 Christian McCaffrey,SF,RB,Pass Yards,84,1000,916
