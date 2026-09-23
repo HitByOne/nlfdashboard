@@ -30,6 +30,20 @@ PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
 
+# nflverse's play-by-play data uses different team abbreviations than
+# ESPN's API (which the rest of this pipeline is built around) for two
+# teams: Washington and the LA Rams. Confirmed directly by comparing
+# nflverse's actual posteam values against our own 32-team list -- these
+# are the only two differences. Any script reading nflverse data should
+# run its Team/Opponent columns through this before saving, so the output
+# matches the abbreviations used everywhere else in the dashboard.
+NFLVERSE_TEAM_FIX = {"WAS": "WSH", "LA": "LAR"}
+
+
+def fix_nflverse_team_abbrs(series):
+    """Remap nflverse's team abbreviations to this pipeline's standard ones."""
+    return series.replace(NFLVERSE_TEAM_FIX)
+
 _position_map_cache: dict[str, str] | None = None
 
 
