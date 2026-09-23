@@ -122,29 +122,56 @@
   .ticker-empty{padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);}
 
 
-  /* ---- Tabs ---- */
+  /* ---- Tabs (left sidebar on wide screens) ---- */
+  .main-layout{display:flex;gap:28px;align-items:flex-start;}
   nav.tabs{
     display:flex;
+    flex-direction:column;
     gap:2px;
-    overflow-x:auto;
-    border-bottom:1px solid var(--panel-border);
-    margin-bottom:22px;
+    flex:0 0 200px;
+    position:sticky;
+    top:20px;
+    border-right:1px solid var(--panel-border);
+    padding-right:4px;
   }
   nav.tabs button{
     background:transparent;
     border:none;
+    border-left:3px solid transparent;
     color:var(--chalk-dim);
     font-family:var(--cond);
     font-weight:600;
-    font-size:16px;
-    padding:12px 18px;
+    font-size:15px;
+    text-align:left;
+    padding:11px 14px;
     cursor:pointer;
     white-space:nowrap;
-    border-bottom:3px solid transparent;
-    transition:color .15s, border-color .15s;
+    transition:color .15s, border-color .15s, background .15s;
   }
-  nav.tabs button:hover{color:var(--chalk);}
-  nav.tabs button.active{color:var(--gold);border-bottom-color:var(--gold);}
+  nav.tabs button:hover{color:var(--chalk);background:rgba(76,141,255,0.06);}
+  nav.tabs button.active{color:var(--gold);border-left-color:var(--gold);background:rgba(227,169,59,0.08);}
+  #content{flex:1;min-width:0;}
+
+  /* Below this width a fixed sidebar eats too much of the screen --
+     revert to the original horizontal top-nav layout instead. */
+  @media (max-width:900px){
+    .main-layout{display:block;}
+    nav.tabs{
+      flex-direction:row;
+      overflow-x:auto;
+      position:static;
+      border-right:none;
+      border-bottom:1px solid var(--panel-border);
+      margin-bottom:22px;
+      padding-right:0;
+    }
+    nav.tabs button{
+      border-left:none;
+      border-bottom:3px solid transparent;
+      text-align:center;
+    }
+    nav.tabs button.active{border-left-color:transparent;border-bottom-color:var(--gold);}
+  }
 
   /* ---- Panels ---- */
   .panel{
@@ -337,22 +364,24 @@
 </div>
 
 <div class="wrap">
-  <nav class="tabs" id="tabs">
-    <button data-tab="overview" class="active">Overview</button>
-    <button data-tab="matchup">Matchup Explorer</button>
-    <button data-tab="teams">Team Summary</button>
-    <button data-tab="teamweek">Team Game Log</button>
-    <button data-tab="players">Player Stats</button>
-    <button data-tab="defense">Defense vs Position</button>
-    <button data-tab="sos">Strength of Schedule</button>
-    <button data-tab="week2">Upcoming Matchups</button>
-    <button data-tab="streaks">Streaks</button>
-    <button data-tab="milestones">Milestone Watch</button>
-    <button data-tab="injuries">Injury Report</button>
-    <button data-tab="epa">EPA / Efficiency</button>
-  </nav>
+  <div class="main-layout">
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="matchup">Matchup Explorer</button>
+      <button data-tab="teams">Team Summary</button>
+      <button data-tab="teamweek">Team Game Log</button>
+      <button data-tab="players">Player Stats</button>
+      <button data-tab="defense">Defense vs Position</button>
+      <button data-tab="sos">Strength of Schedule</button>
+      <button data-tab="week2">Upcoming Matchups</button>
+      <button data-tab="streaks">Streaks</button>
+      <button data-tab="milestones">Milestone Watch</button>
+      <button data-tab="injuries">Injury Report</button>
+      <button data-tab="epa">EPA / Efficiency</button>
+    </nav>
 
-  <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
+    <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
+  </div>
 </div>
 
 <footer>GRIDIRON LEDGER &mdash; generated from CSV data uploaded by user &middot; not affiliated with the NFL</footer>
