@@ -334,6 +334,11 @@
     margin-bottom:10px;
   }
   .matchup-side-label b{color:var(--gold);font-weight:700;}
+  .log-pos-label{
+    font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:0.5px;
+    color:var(--gold);text-transform:uppercase;margin:10px 0 5px;
+  }
+  .log-pos-label:first-child{margin-top:0;}
   .player-preview{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--hash-line);}
   .player-preview:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
   .player-preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
@@ -716,30 +721,48 @@ function mountLive(){
       </table>`;
   }
 
-  // Full player game log as a sortable table (both teams combined, a Team
-  // column distinguishes them) -- shown when a card is "flipped" from its
-  // default stats-table view.
-  const PLAYER_LOG_COLS = [
-    {key:'Team', label:'Team', render:teamChip},
-    {key:'Player', label:'Player'},
-    {key:'Position', label:'Pos'},
-    {key:'Pass Completions', label:'Cmp', numeric:true},
-    {key:'Pass Attempts', label:'Att', numeric:true},
-    {key:'Pass Yards', label:'Pass Yds', numeric:true},
-    {key:'Pass TD', label:'Pass TD', numeric:true},
-    {key:'Interceptions', label:'INT', numeric:true},
-    {key:'Rush Attempts', label:'Rush Att', numeric:true},
-    {key:'Rush Yards', label:'Rush Yds', numeric:true},
-    {key:'Rush TD', label:'Rush TD', numeric:true},
-    {key:'Receptions', label:'Rec', numeric:true},
-    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
-    {key:'Receiving TD', label:'Rec TD', numeric:true},
-  ];
-  function playerLogRows(teamA, teamB, week){
-    const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
-    return (DATA.playerGame || [])
-      .filter(r=> (r.Team===teamA || r.Team===teamB) && num(r.Week)===week)
-      .map(r=> ({...r, _totalYards: totalYds(r)}));
+  // Player log, split two ways: one section per team (side by side, so no
+  // Team column is needed) and within each team, one mini-table per
+  // position (so a QB's row isn't carrying empty receiving columns, etc.)
+  const LOG_POSITIONS = ['QB','RB','WR','TE'];
+
+  function teamPlayerLogShell(team, oppTeam, gid){
+    return `
+      <div class="matchup-side-label"><b>${team}</b> player log vs <b>${oppTeam}</b></div>
+      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
+      <div id="live-log-${gid}-${team}"></div>
+    `;
+  }
+
+  function populatePlayerLog(containerId, team, week){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+
+    const players = (DATA.playerGame || []).filter(r=>
+      r.Team===team && num(r.Week)===week && LOG_POSITIONS.includes(r.Position)
+    );
+    const groups = LOG_POSITIONS
+      .map(pos=>({pos, rows: players.filter(p=>p.Position===pos)}))
+      .filter(g=>g.rows.length);
+
+    if(!groups.length){
+      container.innerHTML = '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>';
+      return;
+    }
+
+    container.innerHTML = groups.map(g=>`
+      <div class="log-pos-label">${g.pos}</div>
+      <div class="table-scroll" id="${containerId}-${g.pos}" style="margin-bottom:10px;"></div>
+    `).join('');
+
+    groups.forEach(g=>{
+      const cols = [{key:'Player', label:'Player'}, ...MATCHUP_COLS[g.pos]];
+      buildTable(
+        document.getElementById(`${containerId}-${g.pos}`),
+        cols, g.rows,
+        {defaultSort: MATCHUP_COLS[g.pos][0].key, defaultDir:'desc'}
+      );
+    });
   }
 
   const flippedGames = new Set();
@@ -784,7 +807,10 @@ function mountLive(){
           </div>
         </div>
         ${hasDetail ? (isFlipped ? `
-        <div class="table-scroll" id="live-log-${g.gid}"></div>
+        <div class="matchup-body">
+          <div class="matchup-side">${teamPlayerLogShell(g.teamA, g.teamB, g.gid)}</div>
+          <div class="matchup-side">${teamPlayerLogShell(g.teamB, g.teamA, g.gid)}</div>
+        </div>
         ` : `
         <div class="qb-card-row">
           ${qbCard(g.teamA, week)}
@@ -803,8 +829,8 @@ function mountLive(){
     // placeholder divs exist in the DOM.
     games.forEach(g=>{
       if(!flippedGames.has(g.gid)) return;
-      const container = document.getElementById(`live-log-${g.gid}`);
-      if(container) buildTable(container, PLAYER_LOG_COLS, playerLogRows(g.teamA, g.teamB, week), {defaultSort:'_totalYards', defaultDir:'desc'});
+      populatePlayerLog(`live-log-${g.gid}-${g.teamA}`, g.teamA, week);
+      populatePlayerLog(`live-log-${g.gid}-${g.teamB}`, g.teamB, week);
     });
 
     $$('.flip-btn', $('#live-grid')).forEach(btn=>{
