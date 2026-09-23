@@ -297,6 +297,13 @@
     font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
     text-align:right;line-height:1.5;
   }
+  .flip-btn{
+    font-family:var(--mono);font-size:10px;color:var(--gold);
+    background:var(--field-deep);border:1px solid var(--gold-deep);
+    border-radius:3px;padding:4px 9px;cursor:pointer;
+    white-space:nowrap;transition:background .15s;
+  }
+  .flip-btn:hover{background:rgba(227,169,59,0.12);}
   .odds-strip{
     display:flex;gap:8px;padding:8px 16px;
     background:var(--field-deep);border-bottom:1px solid var(--panel-border);
@@ -709,6 +716,30 @@ function mountLive(){
       </table>`;
   }
 
+  // Full player game log (every player with a stat that game, not just a
+  // top-N preview) -- shown when a card is "flipped" from its default
+  // stats-table view.
+  function fullSideLog(team, oppTeam, week){
+    const players = (DATA.playerGame || []).filter(r=>r.Team===team && num(r.Week)===week);
+    const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
+    const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a));
+    return `
+      <div class="matchup-side-label"><b>${team}</b> player log vs <b>${oppTeam}</b></div>
+      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
+      ${sorted.length ? sorted.map(p=>`
+        <div class="player-preview">
+          <div class="player-preview-head">
+            <span class="player-preview-name">${p.Player}</span>
+            <span class="player-preview-pos">${p.Position}</span>
+          </div>
+          <div class="player-preview-stats">${singleGameStatLine(p)}</div>
+          ${milestoneBadgeSimple(p.Player)}
+        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>'}
+    `;
+  }
+
+  const flippedGames = new Set();
+
   function apply(){
     const week = num(weekSelect.value);
 
@@ -733,6 +764,7 @@ function mountLive(){
       const statsA = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamA && num(r.Week)===week);
       const statsB = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamB && num(r.Week)===week);
       const hasDetail = statsA && statsB;
+      const isFlipped = flippedGames.has(g.gid);
 
       const scoreHtml = hasDetail
         ? `<div class="matchup-time">${statsA['Final Score']} &ndash; ${statsB['Final Score']}</div>`
@@ -742,21 +774,39 @@ function mountLive(){
       <div class="matchup-card" data-away="${g.teamA}" data-home="${g.teamB}">
         <div class="matchup-head">
           <div class="matchup-teams">${teamName(g.teamA)}<span class="at">@</span>${teamName(g.teamB)}</div>
-          ${scoreHtml}
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${scoreHtml}
+            ${hasDetail ? `<button class="flip-btn" data-gid="${g.gid}">${isFlipped ? '&#8634; Stats' : '&#8634; Player Log'}</button>` : ''}
+          </div>
         </div>
-        ${hasDetail ? `
+        ${hasDetail ? (isFlipped ? `
+        <div class="matchup-body">
+          <div class="matchup-side">${fullSideLog(g.teamA, g.teamB, week)}</div>
+          <div class="matchup-side">${fullSideLog(g.teamB, g.teamA, week)}</div>
+        </div>
+        ` : `
         <div class="qb-card-row">
           ${qbCard(g.teamA, week)}
           ${qbCard(g.teamB, week)}
         </div>
         <div class="table-scroll">${statsTable(statsA, statsB, g.teamA, g.teamB)}</div>
-        ` : `
+        `) : `
         <div class="matchup-body">
           <div class="matchup-side">${simpleSideRecap(g.teamA, g.teamB, week)}</div>
           <div class="matchup-side">${simpleSideRecap(g.teamB, g.teamA, week)}</div>
         </div>`}
       </div>`;
     }).join('') : '<div class="empty">No games logged for this week yet.</div>';
+
+    $$('.flip-btn', $('#live-grid')).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const gid = btn.dataset.gid;
+        if(flippedGames.has(gid)) flippedGames.delete(gid);
+        else flippedGames.add(gid);
+        apply();
+      });
+    });
 
     // Consume any pending highlight request from a ticker click -- match
     // either team order since team_week doesn't track true home/away.
