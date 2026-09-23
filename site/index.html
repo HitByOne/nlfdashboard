@@ -1367,7 +1367,7 @@ const STREAK_DEFS = {
   QB: [
     {key:'passTD2', label:'2+ Pass TD', check:r=>num(r['Pass TD'])>=2},
     {key:'pass250', label:'250+ Pass Yds', check:r=>num(r['Pass Yards'])>=250},
-    {key:'rushTD', label:'Rush TD', highlight:true, check:r=>num(r['Rush TD'])>=1},
+    {key:'rushTD', label:'Any TD', highlight:true, check:r=>num(r['Rush TD'])>=1},
   ],
   RB: [
     {key:'rush100', label:'100+ Rush Yds', check:r=>num(r['Rush Yards'])>=100},
