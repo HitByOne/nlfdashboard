@@ -315,6 +315,8 @@
     border-radius:3px;padding:3px 9px;
   }
   .matchup-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .matchup-body.stacked{grid-template-columns:1fr;}
+  .matchup-body.stacked .matchup-side + .matchup-side{border-left:none;border-top:1px solid var(--panel-border);}
   .qb-card-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-border);}
   .qb-card{background:var(--field-deep);padding:12px 14px;}
   .qb-card-name{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--chalk);margin-bottom:5px;}
@@ -808,7 +810,7 @@ function mountLive(){
           </div>
         </div>
         ${hasDetail ? (isFlipped ? `
-        <div class="matchup-body">
+        <div class="matchup-body stacked">
           <div class="matchup-side">${teamPlayerLogShell(g.teamA, g.teamB, g.gid)}</div>
           <div class="matchup-side">${teamPlayerLogShell(g.teamB, g.teamA, g.gid)}</div>
         </div>
@@ -819,7 +821,7 @@ function mountLive(){
         </div>
         <div class="table-scroll">${statsTable(statsA, statsB, g.teamA, g.teamB)}</div>
         `) : `
-        <div class="matchup-body">
+        <div class="matchup-body stacked">
           <div class="matchup-side">${simpleSideRecap(g.teamA, g.teamB, week)}</div>
           <div class="matchup-side">${simpleSideRecap(g.teamB, g.teamA, week)}</div>
         </div>`}
