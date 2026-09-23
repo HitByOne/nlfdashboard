@@ -332,6 +332,10 @@
   <div class="ticker-track" id="ticker-track"></div>
 </div>
 
+<div class="wrap" id="game-details-wrap" style="display:none;">
+  <div class="panel" id="game-details-panel"></div>
+</div>
+
 <div class="wrap">
   <nav class="tabs" id="tabs">
     <button data-tab="overview" class="active">Overview</button>
@@ -508,21 +512,111 @@ function renderTickerFromCSV(){
   }).join('') || '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
 }
 
-// Jump to a game's full detail card on the Upcoming Matchups tab and
-// highlight it -- reuses that tab's existing rich card (players, EPA,
-// injuries, milestones, odds) instead of building a second, separate
-// "game details" view that could drift out of sync with it.
+// Jump to a game's details. If it's the week being previewed on Upcoming
+// Matchups, reuse that tab's existing rich card (players, EPA, injuries,
+// milestones, odds) instead of building a second view that could drift
+// out of sync with it. Otherwise (this week's live/just-finished games,
+// which Upcoming Matchups doesn't cover since it only previews the NEXT
+// week), build an actual box-score recap from data already pulled.
 function goToGameDetails(away, home){
   if(!away || !home || away==='?' || home==='?') return;
-  showTab('week2');
-  // showTab renders synchronously, so the card should already be in the DOM.
-  const card = document.querySelector(`.matchup-card[data-away="${away}"][data-home="${home}"]`);
-  if(card){
-    card.scrollIntoView({behavior:'smooth', block:'center'});
-    card.classList.remove('card-highlight');
-    void card.offsetWidth; // restart the CSS animation if clicked twice in a row
-    card.classList.add('card-highlight');
+
+  const week2Match = (DATA.week2 || []).some(r=>
+    (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
+  );
+
+  if(week2Match){
+    showTab('week2');
+    const card = document.querySelector(`.matchup-card[data-away="${away}"][data-home="${home}"]`);
+    if(card){
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      card.classList.remove('card-highlight');
+      void card.offsetWidth; // restart the CSS animation if clicked twice in a row
+      card.classList.add('card-highlight');
+    }
+    return;
   }
+
+  showCurrentWeekGameDetails(away, home);
+}
+
+function singleGameStatLine(row){
+  const parts = [];
+  if(num(row['Pass Attempts']) > 0) parts.push(`${row['Pass Completions']}/${row['Pass Attempts']}, ${row['Pass Yards']} yds, ${row['Pass TD']} TD${num(row['Interceptions'])>0 ? `, ${row['Interceptions']} INT` : ''}`);
+  if(num(row['Rush Attempts']) > 0) parts.push(`${row['Rush Attempts']} car, ${row['Rush Yards']} yds${num(row['Rush TD'])>0 ? `, ${row['Rush TD']} TD` : ''}`);
+  if(num(row['Receptions']) > 0 || num(row['Receiving Yards']) > 0) parts.push(`${row['Receptions']} rec, ${row['Receiving Yards']} yds${num(row['Receiving TD'])>0 ? `, ${row['Receiving TD']} TD` : ''}`);
+  return parts.join(' &middot; ') || 'No stats';
+}
+
+// Small, self-contained versions of the Upcoming Matchups tab's injury/
+// milestone badges -- those live inside that tab's own closure, so this
+// panel (which can render on any tab) needs its own copies rather than
+// reaching into another tab's internals.
+function injuryBadgeSimple(team){
+  const rows = (DATA.injuries || []).filter(r=>r.Team===team);
+  if(!rows.length) return '';
+  const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
+  const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
+  return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
+}
+function milestoneBadgeSimple(player){
+  const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+  if(!entries.length) return '';
+  const m = entries.reduce((closest, e) => (!closest || num(e.Remaining) < num(closest.Remaining)) ? e : closest, null);
+  return `<span class="milestone-badge">&#127919; ${num(m.Remaining)} ${m.Stat} from ${m.Milestone}</span>`;
+}
+
+function showCurrentWeekGameDetails(away, home){
+  const wrap = $('#game-details-wrap');
+  const panel = $('#game-details-panel');
+
+  const teamWeekRow = (DATA.teamWeek || []).find(r=>
+    (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
+  );
+
+  if(!teamWeekRow){
+    panel.innerHTML = `
+      <div class="panel-title">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
+      <div class="empty">This game hasn't been pulled into the pipeline yet -- either it's still in progress, or the next daily refresh hasn't run since it finished.</div>`;
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
+
+  const week = teamWeekRow.Week;
+  const awayPlayers = (DATA.playerGame || []).filter(r=>r.Team===away && num(r.Week)===num(week));
+  const homePlayers = (DATA.playerGame || []).filter(r=>r.Team===home && num(r.Week)===num(week));
+
+  function sideRecap(players, team, oppTeam){
+    const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
+    const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a)).slice(0, 6);
+    return `
+      <div class="matchup-side-label"><b>${team}</b> box score vs <b>${oppTeam}</b></div>
+      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
+      ${sorted.length ? sorted.map(p=>`
+        <div class="player-preview">
+          <div class="player-preview-head">
+            <span class="player-preview-name">${p.Player}</span>
+            <span class="player-preview-pos">${p.Position}</span>
+          </div>
+          <div class="player-preview-stats">${singleGameStatLine(p)}</div>
+          ${milestoneBadgeSimple(p.Player)}
+        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game yet.</div>'}
+    `;
+  }
+
+  panel.innerHTML = `
+    <div class="matchup-head" style="margin:-20px -20px 16px -20px;">
+      <div class="matchup-teams">${teamName(away)}<span class="at">@</span>${teamName(home)}</div>
+      <div class="matchup-time">WEEK ${week}</div>
+    </div>
+    <div class="matchup-body" style="margin:0 -20px -20px -20px;">
+      <div class="matchup-side">${sideRecap(awayPlayers, away, home)}</div>
+      <div class="matchup-side">${sideRecap(homePlayers, home, away)}</div>
+    </div>
+  `;
+  wrap.style.display = 'block';
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // ---------- helpers ----------
@@ -1819,6 +1913,7 @@ const renderers = {
   epa: {render: renderEpa, mount: mountEpa},
 };
 function showTab(tab){
+  $('#game-details-wrap').style.display = 'none';
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const r = renderers[tab];
   $('#content').innerHTML = r.render();
