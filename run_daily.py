@@ -62,6 +62,10 @@ def main(force_week: int | None = None):
     # bad response there can't block the core weekly refresh.
     run("08_injury_report.py", critical=False)
 
+    # EPA/efficiency depends on an external nflverse download on top of
+    # ESPN -- non-critical so it can't block the core weekly refresh.
+    run("09_epa_efficiency.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
