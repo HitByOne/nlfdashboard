@@ -266,6 +266,7 @@
     margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--panel-border);
   }
   .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;}
+  .matchup-grid.single-col{grid-template-columns:1fr;}
   .matchup-card{
     background:var(--field-deep);border:1px solid var(--panel-border);
     border-radius:6px;overflow:hidden;
@@ -632,7 +633,7 @@ function renderLive(){
     <div class="controls">
       <select id="live-week"></select>
     </div>
-    <div class="matchup-grid" id="live-grid"></div>
+    <div class="matchup-grid single-col" id="live-grid"></div>
   </div>`;
 }
 function mountLive(){
