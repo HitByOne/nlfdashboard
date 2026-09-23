@@ -1424,6 +1424,7 @@ function renderStreaks(){
     <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are Any-TD streaks.</div>
     <div class="controls">
       <input type="text" id="streak-search" placeholder="Search player...">
+      <select id="streak-type"><option value="">All streak types</option></select>
       <div class="pill-group" id="streak-pos-pills">
         <span class="pill active" data-pos="">ALL</span>
         <span class="pill" data-pos="QB">QB</span>
@@ -1440,6 +1441,11 @@ function mountStreaks(){
   const allStreaks = computeStreaks();
   const container = $('#streaks-table');
 
+  const typeOptions = [...new Set(allStreaks.map(r=>r.StreakType))].sort();
+  const typeSelect = $('#streak-type');
+  typeSelect.innerHTML = '<option value="">All streak types</option>' +
+    typeOptions.map(t=>`<option value="${t}">${t}</option>`).join('');
+
   const cols = [
     {key:'StreakLength', label:'Streak', numeric:true, render:(v, row)=>
       `<span class="heat" style="${row.highlight ? 'background:rgba(227,169,59,0.22);border:1px solid rgba(227,169,59,0.6);' : 'background:rgba(51,214,166,0.18);border:1px solid rgba(51,214,166,0.5);'}">${v} games</span>`
@@ -1453,17 +1459,20 @@ function mountStreaks(){
   let pos = '';
   function apply(){
     const q = $('#streak-search').value.trim().toLowerCase();
+    const streakType = typeSelect.value;
     const filtered = allStreaks.filter(r=>
       (!q || r.Player.toLowerCase().includes(q)) &&
-      (!pos || r.Position === pos)
+      (!pos || r.Position === pos) &&
+      (!streakType || r.StreakType === streakType)
     );
     buildTable(container, cols, filtered, {defaultSort:'StreakLength', defaultDir:'desc'});
     if(!filtered.length){
-      container.innerHTML = '<div class="empty">No active 2+ game streaks yet -- check back as more weeks get logged.</div>';
+      container.innerHTML = '<div class="empty">No active streaks match your filters.</div>';
     }
   }
 
   $('#streak-search').addEventListener('input', apply);
+  typeSelect.addEventListener('change', apply);
   $$('#streak-pos-pills .pill').forEach(p=>{
     p.addEventListener('click', ()=>{
       $$('#streak-pos-pills .pill').forEach(x=>x.classList.remove('active'));
