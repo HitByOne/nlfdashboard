@@ -24,7 +24,7 @@ import sys
 
 import pandas as pd
 
-from nfl_common import SEASON, PROCESSED_DIR
+from nfl_common import SEASON, PROCESSED_DIR, fix_nflverse_team_abbrs
 
 TEAM_STATS_FILE = PROCESSED_DIR / f"nfl_{SEASON}_game_team_stats.csv"
 QB_STATS_FILE = PROCESSED_DIR / f"nfl_{SEASON}_game_qb_stats.csv"
@@ -51,6 +51,12 @@ def main():
         sys.exit(1)
 
     print(f"Raw plays: {len(pbp):,}")
+
+    # Normalize nflverse's team abbreviations to this pipeline's standard
+    # ones (WAS->WSH, LA->LAR) before any grouping/matching happens.
+    for col in ["posteam", "defteam", "home_team", "away_team", "penalty_team"]:
+        if col in pbp.columns:
+            pbp[col] = fix_nflverse_team_abbrs(pbp[col])
 
     team_rows = []
     offense_plays = pbp[(pbp["pass_attempt"] == 1) | (pbp["rush_attempt"] == 1)]
