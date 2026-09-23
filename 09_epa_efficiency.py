@@ -33,7 +33,7 @@ import sys
 
 import pandas as pd
 
-from nfl_common import SEASON, PROCESSED_DIR
+from nfl_common import SEASON, PROCESSED_DIR, fix_nflverse_team_abbrs
 
 OUTPUT_FILE = PROCESSED_DIR / f"nfl_{SEASON}_team_epa.csv"
 PBP_URL = f"https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{SEASON}.parquet"
@@ -71,6 +71,12 @@ def main():
         sys.exit(1)
 
     print(f"Raw plays: {len(pbp):,}")
+
+    # Normalize nflverse's team abbreviations to this pipeline's standard
+    # ones (WAS->WSH, LA->LAR) before any grouping happens.
+    for col in ["posteam", "defteam"]:
+        if col in pbp.columns:
+            pbp[col] = fix_nflverse_team_abbrs(pbp[col])
 
     # Only real pass/run plays count toward EPA/success rate the way this
     # is normally computed -- excludes kneels, spikes, penalty-only plays.
