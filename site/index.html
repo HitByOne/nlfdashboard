@@ -307,6 +307,18 @@
     border-radius:3px;padding:3px 9px;
   }
   .matchup-body{display:grid;grid-template-columns:1fr 1fr;}
+  .qb-card-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-border);}
+  .qb-card{background:var(--field-deep);padding:12px 14px;}
+  .qb-card-name{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--chalk);margin-bottom:5px;}
+  .qb-card-line{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:3px;}
+  .game-stats-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;}
+  .game-stats-table th{
+    text-align:right;padding:8px 14px;color:var(--gold);
+    border-bottom:1px solid var(--panel-border);font-weight:700;
+  }
+  .game-stats-table th:first-child{text-align:left;}
+  .game-stats-table td{padding:6px 14px;text-align:right;border-bottom:1px solid var(--hash-line);color:var(--chalk);}
+  .game-stats-table td:first-child{text-align:left;color:var(--chalk-dim);}
   .matchup-side{padding:12px 14px;}
   .matchup-side + .matchup-side{border-left:1px solid var(--panel-border);}
   .matchup-side-label{
@@ -400,6 +412,8 @@ const CSV_FILES = {
   milestones:  'data/nfl_2026_milestones.csv',
   injuries:    'data/nfl_2026_injury_report.csv',
   epa:         'data/nfl_2026_team_epa.csv',
+  gameTeamStats: 'data/nfl_2026_game_team_stats.csv',
+  gameQbStats:   'data/nfl_2026_game_qb_stats.csv',
 };
 
 const TEAM_NAMES = {
@@ -631,7 +645,10 @@ function mountLive(){
 
   weekSelect.innerHTML = weeks.map(w=>`<option value="${w}" ${w===defaultWeek?'selected':''}>Week ${w}</option>`).join('');
 
-  function sideRecap(team, oppTeam, week){
+  // Simple fallback recap (box score list) -- used only when the detailed
+  // per-game stats (10_game_stats.py, an optional extra data source)
+  // haven't been generated yet for this game.
+  function simpleSideRecap(team, oppTeam, week){
     const players = (DATA.playerGame || []).filter(r=>r.Team===team && num(r.Week)===week);
     const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
     const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a)).slice(0, 6);
@@ -650,11 +667,54 @@ function mountLive(){
     `;
   }
 
+  // QB Performance mini-card -- text only, no headshots.
+  function qbCard(team, week){
+    const qbs = (DATA.gameQbStats || []).filter(r=>r.Team===team && num(r.Week)===week);
+    if(!qbs.length) return '';
+    const qb = qbs.reduce((best, r) => (!best || num(r.Attempts) > num(best.Attempts)) ? r : best, null);
+    return `
+      <div class="qb-card">
+        <div class="qb-card-name">${qb.Player} <span class="player-preview-pos">${team}</span></div>
+        <div class="qb-card-line">${qb.Completions}/${qb.Attempts}, ${qb['Pass Yards']} yds, ${qb['Pass TD']} TD, ${qb.Interceptions} INT</div>
+        ${num(qb['Rush Attempts']) > 0 ? `<div class="qb-card-line">${qb['Rush Attempts']} car, ${qb['Rush Yards']} rush yds${num(qb['Rush TD'])>0 ? `, ${qb['Rush TD']} rush TD` : ''}</div>` : ''}
+        <div class="qb-card-line">Rating: <b style="color:var(--chalk);">${qb['Passer Rating']}</b> &middot; EPA/play: <b style="color:var(--chalk);">${qb['EPA/Play']}</b></div>
+      </div>`;
+  }
+
+  // Detailed team-stats comparison table -- one row per stat, one column
+  // per team. Only shown when 10_game_stats.py has run for this game.
+  function statsTable(awayStats, homeStats, awayTeam, homeTeam){
+    const rows = [
+      ['Total Yards', s=>s['Total Yards']],
+      ['Total Plays', s=>s['Total Plays']],
+      ['EPA/Play', s=>fmt(s['EPA/Play'],3)],
+      ['Pass Yards', s=>s['Pass Yards']],
+      ['Comp/Att', s=>`${s['Pass Completions']}/${s['Pass Attempts']}`],
+      ['EPA/Pass', s=>fmt(s['EPA/Pass'],3)],
+      ['Rush Yards', s=>s['Rush Yards']],
+      ['Rush Attempts', s=>s['Rush Attempts']],
+      ['EPA/Rush', s=>fmt(s['EPA/Rush'],3)],
+      ['1st Downs', s=>s['First Downs']],
+      ['3rd Down', s=>`${s['Third Down Conversions']}/${s['Third Down Attempts']}`],
+      ['Turnovers', s=>num(s['Interceptions Thrown'])+num(s['Fumbles Lost'])],
+      ['Sacks Taken', s=>`${s['Sacks Taken']} (${s['Sack Yards']} yds)`],
+      ['Penalties', s=>`${s['Penalties']} (${s['Penalty Yards']} yds)`],
+    ];
+    return `
+      <table class="game-stats-table">
+        <thead><tr><th></th><th>${awayTeam}</th><th>${homeTeam}</th></tr></thead>
+        <tbody>
+          ${rows.map(([label, fn])=>`<tr><td>${label}</td><td>${fn(awayStats)}</td><td>${fn(homeStats)}</td></tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
   function apply(){
     const week = num(weekSelect.value);
 
     // Pair team_week rows into games by Game ID -- each game has exactly
-    // two team rows (one per side).
+    // two team rows (one per side). This is the core, always-available
+    // data source for "what games exist this week."
     const byGame = new Map();
     (DATA.teamWeek || []).filter(r=>num(r.Week)===week).forEach(r=>{
       const gid = r['Game ID'];
@@ -667,18 +727,36 @@ function mountLive(){
       .filter(([, rows]) => rows.length === 2)
       .map(([gid, rows]) => ({gid, teamA: rows[0].Team, teamB: rows[1].Team}));
 
-    $('#live-grid').innerHTML = games.length ? games.map(g=>`
+    $('#live-grid').innerHTML = games.length ? games.map(g=>{
+      // Detailed stats use nflverse's own game IDs, a different format
+      // from ESPN's -- match by Team + Week instead, which both share.
+      const statsA = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamA && num(r.Week)===week);
+      const statsB = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamB && num(r.Week)===week);
+      const hasDetail = statsA && statsB;
+
+      const scoreHtml = hasDetail
+        ? `<div class="matchup-time">${statsA['Final Score']} &ndash; ${statsB['Final Score']}</div>`
+        : `<div class="matchup-time">WEEK ${week}</div>`;
+
+      return `
       <div class="matchup-card" data-away="${g.teamA}" data-home="${g.teamB}">
         <div class="matchup-head">
           <div class="matchup-teams">${teamName(g.teamA)}<span class="at">@</span>${teamName(g.teamB)}</div>
-          <div class="matchup-time">WEEK ${week}</div>
+          ${scoreHtml}
         </div>
+        ${hasDetail ? `
+        <div class="qb-card-row">
+          ${qbCard(g.teamA, week)}
+          ${qbCard(g.teamB, week)}
+        </div>
+        <div class="table-scroll">${statsTable(statsA, statsB, g.teamA, g.teamB)}</div>
+        ` : `
         <div class="matchup-body">
-          <div class="matchup-side">${sideRecap(g.teamA, g.teamB, week)}</div>
-          <div class="matchup-side">${sideRecap(g.teamB, g.teamA, week)}</div>
-        </div>
-      </div>
-    `).join('') : '<div class="empty">No games logged for this week yet.</div>';
+          <div class="matchup-side">${simpleSideRecap(g.teamA, g.teamB, week)}</div>
+          <div class="matchup-side">${simpleSideRecap(g.teamB, g.teamA, week)}</div>
+        </div>`}
+      </div>`;
+    }).join('') : '<div class="empty">No games logged for this week yet.</div>';
 
     // Consume any pending highlight request from a ticker click -- match
     // either team order since team_week doesn't track true home/away.
@@ -2014,7 +2092,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
