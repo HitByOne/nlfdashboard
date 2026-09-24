@@ -481,6 +481,7 @@ const CSV_FILES = {
   epa:         'data/nfl_2026_team_epa.csv',
   gameTeamStats: 'data/nfl_2026_game_team_stats.csv',
   gameQbStats:   'data/nfl_2026_game_qb_stats.csv',
+  redzone:       'data/nfl_2026_redzone_usage.csv',
 };
 
 const TEAM_NAMES = {
@@ -1392,7 +1393,7 @@ function renderWeek2(){
         <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
       </div>
     </div>
-    <div class="panel-note">Each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
+    <div class="panel-note">Each team's top producers this season with their real stat line (including targets), red zone usage and share of their team's red zone looks, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
     <div class="matchup-grid single-col" id="wk2-days"></div>
   </div>`;
 }
@@ -1571,12 +1572,12 @@ function mountWeek2(){
       const sum = key => player.games.reduce((s,g)=>s+num(g[key]),0);
       const passAtt=sum('Pass Attempts'), passCmp=sum('Pass Completions'), passYds=sum('Pass Yards'), passTD=sum('Pass TD'), int=sum('Interceptions');
       const rushAtt=sum('Rush Attempts'), rushYds=sum('Rush Yards'), rushTD=sum('Rush TD');
-      const rec=sum('Receptions'), recYds=sum('Receiving Yards'), recTD=sum('Receiving TD');
+      const rec=sum('Receptions'), recYds=sum('Receiving Yards'), recTD=sum('Receiving TD'), targets=sum('Targets');
 
       const parts = [];
       if(passAtt > 0) parts.push(`${Math.round(passCmp)}/${Math.round(passAtt)}, ${Math.round(passYds)} yds, ${Math.round(passTD)} TD${int>0?`, ${Math.round(int)} INT`:''}`);
       if(rushAtt > 0) parts.push(`${Math.round(rushAtt)} car, ${Math.round(rushYds)} yds${rushTD>0?`, ${Math.round(rushTD)} TD`:''}`);
-      if(rec > 0 || recYds > 0) parts.push(`${Math.round(rec)} rec, ${Math.round(recYds)} yds${recTD>0?`, ${Math.round(recTD)} TD`:''}`);
+      if(rec > 0 || recYds > 0 || targets > 0) parts.push(`${Math.round(rec)} rec${targets>0?` (${Math.round(targets)} tgt)`:''}, ${Math.round(recYds)} yds${recTD>0?`, ${Math.round(recTD)} TD`:''}`);
       return parts.join(' &middot; ') || 'No stats yet';
     }
 
@@ -1642,6 +1643,14 @@ function mountWeek2(){
             const secondaryVal = fmt(num(dvp[cfg.secondary]));
             matchupTag = `<span class="player-preview-matchup" style="color:${color};">${defenseTeam} allows ${fmt(primaryVal)} ${cfg.primaryLabel}, ${secondaryVal} ${cfg.secondaryLabel}</span>`;
           }
+          const rz = (DATA.redzone || []).find(r=>r.Player===p.Player && r.Team===team);
+          let rzBadge = '';
+          if(rz){
+            const rzParts = [];
+            if(num(rz['RZ Targets']) > 0) rzParts.push(`${Math.round(num(rz['RZ Targets']))} RZ tgt (${Math.round(num(rz['RZ Target Share'])*100)}% share)`);
+            if(num(rz['RZ Rush Attempts']) > 0) rzParts.push(`${Math.round(num(rz['RZ Rush Attempts']))} RZ car (${Math.round(num(rz['RZ Rush Share'])*100)}% share)`);
+            if(rzParts.length) rzBadge = `<span class="player-preview-matchup" style="color:var(--gold);">${rzParts.join(' &middot; ')}</span>`;
+          }
           return `
           <div class="player-preview">
             <div class="player-preview-head">
@@ -1650,6 +1659,7 @@ function mountWeek2(){
             </div>
             <div class="player-preview-stats">${statLine(p)}</div>
             ${matchupTag}
+            ${rzBadge}
             ${milestoneBadge(p.Player)}
           </div>`;
         }).join('') : '<div class="empty" style="padding:8px 0;">No player stats logged yet.</div>'}
@@ -2453,7 +2463,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
