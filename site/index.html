@@ -414,6 +414,7 @@
       <button data-tab="milestones">Milestone Watch</button>
       <button data-tab="injuries">Injury Report</button>
       <button data-tab="epa">EPA / Efficiency</button>
+    <button data-tab="picks">Best Picks</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -2182,6 +2183,210 @@ function mountEpa(){
   apply();
 }
 
+// ---------- TAB: BEST PICKS ----------
+// Ranked matchup edges for this week's games. Combines: how a player's own
+// season production compares to what the opposing defense allows at their
+// position (the core signal), whether both are trending the right way over
+// the last 3 games (a modest boost, not a separate score), and any
+// milestone they're closing in on (called out, also a small boost so it
+// helps break ties toward more newsworthy picks). Out/Doubtful players are
+// excluded entirely -- a great matchup on paper means nothing if they
+// don't play.
+const PICKS_STAT_KEY = { QB: 'Pass Yards', RB: 'Rush Yards', WR: 'Receiving Yards', TE: 'Receiving Yards' };
+const PICKS_POSITIONS = ['QB','RB','WR','TE'];
+
+function getPlayerSeasonAndLast3(playerName, position){
+  const statKey = PICKS_STAT_KEY[position];
+  const games = (DATA.playerGame || []).filter(r=>r.Player===playerName && r.Position===position)
+    .sort((a,b)=>num(a.Week)-num(b.Week));
+  if(!games.length) return null;
+  const seasonAvg = games.reduce((s,g)=>s+num(g[statKey]),0) / games.length;
+  const last3 = games.slice(-3);
+  const last3Avg = last3.reduce((s,g)=>s+num(g[statKey]),0) / last3.length;
+  return {statKey, seasonAvg, last3Avg, gamesPlayed: games.length};
+}
+
+function getDefenseSeasonAndLast3(defense, position){
+  const rankStat = DEFENSE_RANK_STAT[position];
+  const row = (DATA.defVsPos || []).find(r=>r.Defense===defense && r.Position===position);
+  if(!row) return null;
+  const seasonAllowed = num(row[rankStat]);
+  const rankTotalKey = rankStat.replace(' Per Game', '');
+  const rawKey = DEFENSE_STAT_RAW_MAP[rankTotalKey];
+  const log = getDefenseWeeklyLog(defense, position);
+  const last3 = log.slice(-3);
+  const last3Allowed = last3.length ? last3.reduce((s,w)=>s+num(w[rawKey]),0)/last3.length : seasonAllowed;
+  return {seasonAllowed, last3Allowed};
+}
+
+function getClosestMilestoneGlobal(player){
+  const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+  const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+  if(!close.length) return null;
+  return close.reduce((c,m)=>(!c || num(m.Remaining) < num(c.Remaining)) ? m : c, null);
+}
+
+function isPlayerOut(player){
+  return (DATA.injuries || []).some(r=>r.Player===player && /out|doubtful/i.test(r.Status || ''));
+}
+
+// League-wide percentile per position: 1.0 = the top producer at that
+// position this season, 0.0 = the lowest. This is what separates a
+// genuinely good player facing a bad defense from just anyone facing one.
+function buildPlayerPercentileRanks(){
+  const ranks = {};
+  PICKS_POSITIONS.forEach(pos=>{
+    const statKey = PICKS_STAT_KEY[pos];
+    const byPlayer = {};
+    (DATA.playerGame || []).filter(r=>r.Position===pos).forEach(r=>{
+      if(!byPlayer[r.Player]) byPlayer[r.Player] = [];
+      byPlayer[r.Player].push(num(r[statKey]));
+    });
+    const avgs = Object.entries(byPlayer).map(([player, vals]) => ({player, avg: vals.reduce((s,v)=>s+v,0)/vals.length}));
+    avgs.sort((a,b)=>b.avg-a.avg);
+    const n = avgs.length;
+    ranks[pos] = {};
+    avgs.forEach((e,i)=>{ ranks[pos][e.player] = n>1 ? 1 - i/(n-1) : 1; });
+  });
+  return ranks;
+}
+
+// Same idea for defenses: 1.0 = allows the most at this position (weakest,
+// best matchup), 0.0 = allows the least.
+function buildDefensePercentileRanks(){
+  const ranks = {};
+  PICKS_POSITIONS.forEach(pos=>{
+    const rankStat = DEFENSE_RANK_STAT[pos];
+    const rows = (DATA.defVsPos || []).filter(r=>r.Position===pos);
+    const sorted = [...rows].sort((a,b)=>num(b[rankStat]) - num(a[rankStat]));
+    const n = sorted.length;
+    ranks[pos] = {};
+    sorted.forEach((r,i)=>{ ranks[pos][r.Defense] = n>1 ? 1 - i/(n-1) : 1; });
+  });
+  return ranks;
+}
+
+function computeGamePicks(awayTeam, homeTeam, playerPercentiles, defensePercentiles){
+  const sides = [[awayTeam, homeTeam], [homeTeam, awayTeam]]; // [offenseTeam, defenseTeam]
+  const candidates = [];
+
+  sides.forEach(([offenseTeam, defenseTeam])=>{
+    const players = [...new Set(
+      (DATA.playerGame || []).filter(r=>r.Team===offenseTeam && PICKS_POSITIONS.includes(r.Position)).map(r=>r.Player)
+    )];
+
+    players.forEach(player=>{
+      if(isPlayerOut(player)) return;
+      const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===offenseTeam);
+      const position = posRow.Position;
+
+      const playerTrend = getPlayerSeasonAndLast3(player, position);
+      const defTrend = getDefenseSeasonAndLast3(defenseTeam, position);
+      if(!playerTrend || !defTrend) return;
+
+      const playerPct = playerPercentiles[position]?.[player] ?? 0;
+      const defPct = defensePercentiles[position]?.[defenseTeam] ?? 0;
+      let score = playerPct * defPct;
+
+      const defenseTrendUp = defTrend.last3Allowed > defTrend.seasonAllowed * 1.1;
+      const playerTrendUp = playerTrend.last3Avg > playerTrend.seasonAvg * 1.1;
+      if(defenseTrendUp) score *= 1.1;
+      if(playerTrendUp) score *= 1.1;
+
+      const milestone = getClosestMilestoneGlobal(player);
+      if(milestone) score *= 1.05;
+
+      candidates.push({
+        player, position, team: offenseTeam, opponent: defenseTeam,
+        statLabel: playerTrend.statKey,
+        playerSeasonAvg: playerTrend.seasonAvg, playerLast3Avg: playerTrend.last3Avg,
+        defenseSeasonAllowed: defTrend.seasonAllowed, defenseLast3Allowed: defTrend.last3Allowed,
+        defenseTrendUp, playerTrendUp, milestone, score,
+      });
+    });
+  });
+
+  candidates.sort((a,b)=>b.score-a.score);
+  return candidates.slice(0,5);
+}
+
+function renderPicks(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Best Picks</div>
+    <div class="panel-note">
+      Ranked matchup edges for this week's games -- how a player's own season production compares to what
+      the opposing defense allows at their position, whether both are trending the right way over the last
+      3 games, and any milestone they're closing in on. Out/Doubtful players are excluded. This is a data
+      lens built from your own pulled stats, not a guarantee -- always check for the latest injury news
+      before acting on anything here.
+    </div>
+    <div id="picks-list"></div>
+  </div>`;
+}
+
+function mountPicks(){
+  const container = $('#picks-list');
+
+  const games = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+    const isHome = r['Home/Away'] === 'Home';
+    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away)
+    .sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  if(!gameList.length){
+    container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>';
+    return;
+  }
+
+  const playerPercentiles = buildPlayerPercentileRanks();
+  const defensePercentiles = buildDefensePercentileRanks();
+
+  const sections = gameList.map(g=>{
+    const away = g.sides.away.Team, home = g.sides.home.Team;
+    const picks = computeGamePicks(away, home, playerPercentiles, defensePercentiles);
+    if(!picks.length) return '';
+
+    return `
+      <div class="log-pos-group" style="margin-bottom:20px;">
+        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Player</th><th>Pos</th><th>Team</th><th>Opp</th>
+              <th>Season Avg</th><th>Last 3 Avg</th>
+              <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
+              <th>Notes</th>
+            </tr></thead>
+            <tbody>
+              ${picks.map(p=>`
+                <tr>
+                  <td>${p.player}</td>
+                  <td>${p.position}</td>
+                  <td>${teamChip(p.team)}</td>
+                  <td>${teamChip(p.opponent)}</td>
+                  <td class="num">${fmt(p.playerSeasonAvg)}</td>
+                  <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                  <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
+                  <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                  <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).filter(Boolean);
+
+  container.innerHTML = sections.length ? sections.join('') :
+    '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -2197,6 +2402,7 @@ const renderers = {
   milestones: {render: renderMilestones, mount: mountMilestones},
   injuries: {render: renderInjuries, mount: mountInjuries},
   epa: {render: renderEpa, mount: mountEpa},
+  picks: {render: renderPicks, mount: mountPicks},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
