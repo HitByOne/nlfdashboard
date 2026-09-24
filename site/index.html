@@ -1559,21 +1559,25 @@ function mountWeek2(){
       TE: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
     };
 
-    function sideHtml(team, defenseTeam, gameDate){
-      const topPlayers = getTopPlayers(team);
+    function teamContextHtml(team, defenseTeam, gameDate){
       const rest = getTeamRestInfo(team, gameDate);
-      const contextLine = `
-        <div class="context-row">
-          ${rest ? `<span class="context-chip ${rest.cls}">${rest.label}</span>` : ''}
-          ${intMarginBadge(team)}
-          ${injuryBadge(team)}
-        </div>`;
       return `
         <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
-        ${contextLine}
+        <div class="context-row">
+          ${rest ? `<span class="context-chip ${rest.cls}">${rest.label}</span>` : ''}
+          ${intMarginBadge(team)}
+          ${injuryBadge(team)}
+        </div>
         ${epaMatchupLine(team, defenseTeam)}
+      `;
+    }
+
+    function playerListHtml(team, defenseTeam){
+      const topPlayers = getTopPlayers(team);
+      return `
+        <div class="matchup-side-label"><b>${team}</b> top players</div>
         ${topPlayers.length ? topPlayers.map(p=>{
           const cfg = MATCHUP_STAT_BY_POS[p.Position];
           const dvp = cfg ? (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position) : null;
@@ -1625,9 +1629,18 @@ function mountWeek2(){
           ${spread ? `<span class="odds-chip">${spread}</span>` : ''}
           ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
         </div>` : ''}
-        <div class="matchup-body stacked">
-          <div class="matchup-side">${sideHtml(away.Team, home.Team, g.date)}</div>
-          <div class="matchup-side">${sideHtml(home.Team, away.Team, g.date)}</div>
+        <div class="live-card-columns">
+          <div class="live-stats-col">
+            ${teamContextHtml(away.Team, home.Team, g.date)}
+            <div style="margin:14px 0;border-top:1px solid var(--panel-border);"></div>
+            ${teamContextHtml(home.Team, away.Team, g.date)}
+          </div>
+          <div class="live-playerlog-col">
+            <div class="matchup-body stacked">
+              <div class="matchup-side">${playerListHtml(away.Team, home.Team)}</div>
+              <div class="matchup-side">${playerListHtml(home.Team, away.Team)}</div>
+            </div>
+          </div>
         </div>
       </div>`;
     }).join('') : '<div class="empty">No matchups match your filter.</div>';
