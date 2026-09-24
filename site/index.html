@@ -735,10 +735,26 @@ function mountLive(){
       </table>`;
   }
 
-  // Player log, split two ways: one section per team (side by side, so no
-  // Team column is needed) and within each team, one mini-table per
-  // position (so a QB's row isn't carrying empty receiving columns, etc.)
+  // Player log: one continuous, linear table per team (side by side, so no
+  // Team column is needed). Earlier this split into a separate mini-table
+  // per position, which read as scattered -- one consistent table with a
+  // Pos column is more linear to scan, even with a few empty cells.
   const LOG_POSITIONS = ['QB','RB','WR','TE'];
+  const PLAYER_LOG_COLS = [
+    {key:'Player', label:'Player'},
+    {key:'Position', label:'Pos'},
+    {key:'Pass Completions', label:'Cmp', numeric:true},
+    {key:'Pass Attempts', label:'Att', numeric:true},
+    {key:'Pass Yards', label:'Pass Yds', numeric:true},
+    {key:'Pass TD', label:'Pass TD', numeric:true},
+    {key:'Interceptions', label:'INT', numeric:true},
+    {key:'Rush Attempts', label:'Rush Att', numeric:true},
+    {key:'Rush Yards', label:'Rush Yds', numeric:true},
+    {key:'Rush TD', label:'Rush TD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+  ];
 
   function teamPlayerLogShell(team, oppTeam, gid){
     return `
@@ -754,29 +770,14 @@ function mountLive(){
 
     const players = (DATA.playerGame || []).filter(r=>
       r.Team===team && num(r.Week)===week && LOG_POSITIONS.includes(r.Position)
-    );
-    const groups = LOG_POSITIONS
-      .map(pos=>({pos, rows: players.filter(p=>p.Position===pos)}))
-      .filter(g=>g.rows.length);
+    ).map(r=>({...r, _totalYards: num(r['Pass Yards'])+num(r['Rush Yards'])+num(r['Receiving Yards'])}));
 
-    if(!groups.length){
+    if(!players.length){
       container.innerHTML = '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>';
       return;
     }
 
-    container.innerHTML = groups.map(g=>`
-      <div class="log-pos-label">${g.pos}</div>
-      <div class="table-scroll" id="${containerId}-${g.pos}" style="margin-bottom:10px;"></div>
-    `).join('');
-
-    groups.forEach(g=>{
-      const cols = [{key:'Player', label:'Player'}, ...MATCHUP_COLS[g.pos]];
-      buildTable(
-        document.getElementById(`${containerId}-${g.pos}`),
-        cols, g.rows,
-        {defaultSort: MATCHUP_COLS[g.pos][0].key, defaultDir:'desc'}
-      );
-    });
+    buildTable(container, PLAYER_LOG_COLS, players, {defaultSort:'_totalYards', defaultDir:'desc'});
   }
 
   function apply(){
