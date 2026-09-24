@@ -162,6 +162,7 @@ Tyler Huntley,BAL,QB,Interceptions,10,25,15
 Shedeur Sanders,CLE,QB,Interceptions,10,25,15
 Spencer Rattler,NO,QB,Interceptions,10,25,15
 Caleb Williams,CHI,QB,Rush Yards,984,1000,16
+Brandin Cooks,SF,WR,Receptions,734,750,16
 CeeDee Lamb,DAL,WR,Receptions,584,600,16
 James Cook III,BUF,RB,Receptions,134,150,16
 Kirk Cousins,LV,QB,Interceptions,134,150,16
@@ -388,8 +389,8 @@ Cooper Rush,ATL,QB,Pass TD,21,50,29
 Mitchell Evans,CAR,TE,Receptions,21,50,29
 George Pickens,DAL,WR,Receiving TD,21,50,29
 Sam LaPorta,DET,TE,Receiving TD,21,50,29
-Kimani Vidal,LAC,RB,Receptions,21,50,29
 Marquez Valdes-Scantling,LAC,WR,Receiving TD,21,50,29
+Kimani Vidal,LAC,RB,Receptions,21,50,29
 Aaron Jones Sr.,MIN,RB,Receiving TD,21,50,29
 Romeo Doubs,NE,WR,Receiving TD,21,50,29
 Will Levis,NYJ,QB,Pass TD,21,50,29
@@ -617,6 +618,7 @@ Jauan Jennings,MIN,WR,Receptions,210,250,40
 Joe Burrow,CIN,QB,Pass TD,160,200,40
 James Conner,ARI,RB,Rush TD,60,100,40
 Darnell Washington,PIT,TE,Receptions,60,100,40
+Brandin Cooks,SF,WR,Receiving TD,60,100,40
 Simi Fehoko,ARI,WR,Receptions,10,50,40
 Bijan Robinson,ATL,RB,Receiving TD,10,50,40
 Dalton Kincaid,BUF,TE,Receiving TD,10,50,40
@@ -806,8 +808,8 @@ Derrick Henry,BAL,RB,Receiving TD,5,50,45
 Justice Hill,BAL,RB,Receiving TD,5,50,45
 Tyler Huntley,BAL,QB,Rush TD,5,50,45
 Ray Davis,BUF,RB,Receiving TD,5,50,45
-Jonathon Brooks,CAR,RB,Receptions,5,50,45
 Kenny Pickett,CAR,QB,Rush TD,5,50,45
+Jonathon Brooks,CAR,RB,Receptions,5,50,45
 Caleb Williams,CHI,QB,Rush TD,5,50,45
 Salvon Ahmed,CHI,RB,Rush TD,5,50,45
 Drew Sample,CIN,TE,Receiving TD,5,50,45
@@ -945,6 +947,7 @@ Treylon Burks,WSH,WR,Receiving Yards,829,1000,171
 Jaxon Smith-Njigba,SEA,WR,Receiving Yards,3828,4000,172
 Foster Moreau,HOU,TE,Receiving Yards,1821,2000,179
 Josh Allen,BUF,QB,Rush Yards,4813,5000,187
+Brandin Cooks,SF,WR,Receiving Yards,9811,10000,189
 Brian Robinson Jr.,ATL,RB,Rush Yards,2811,3000,189
 Harold Fannin Jr.,CLE,TE,Receiving Yards,806,1000,194
 Josh Jacobs,GB,RB,Rush Yards,7803,8000,197
@@ -1209,6 +1212,7 @@ Deshaun Watson,CLE,QB,Pass Yards,18347,19000,653
 Joshua Dobbs,DET,QB,Pass Yards,3346,4000,654
 Rhamondre Stevenson,NE,RB,Receiving Yards,1342,2000,658
 Colby Parkinson,LAR,TE,Receiving Yards,1341,2000,659
+Brandin Cooks,SF,WR,Rush Yards,341,1000,659
 George Pickens,DAL,WR,Receiving Yards,4338,5000,662
 Brandon Johnson,PIT,WR,Receiving Yards,335,1000,665
 Samaje Perine,CIN,RB,Rush Yards,2330,3000,670
