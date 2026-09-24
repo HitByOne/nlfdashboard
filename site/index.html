@@ -308,6 +308,21 @@
     .live-card-columns{grid-template-columns:1fr;}
     .live-stats-col{border-right:none;border-bottom:1px solid var(--panel-border);}
   }
+  .wk2-four-col{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.3fr);
+  }
+  .wk2-four-col > div{padding:18px 20px;min-width:0;}
+  .wk2-four-col > div + div{border-left:1px solid var(--panel-border);}
+  @media (max-width:1400px){
+    .wk2-four-col{grid-template-columns:1fr 1fr;}
+    .wk2-four-col > div:nth-child(3), .wk2-four-col > div:nth-child(4){border-left:none;border-top:1px solid var(--panel-border);}
+  }
+  @media (max-width:800px){
+    .wk2-four-col{grid-template-columns:1fr;}
+    .wk2-four-col > div{border-left:none !important;border-top:1px solid var(--panel-border);}
+    .wk2-four-col > div:first-child{border-top:none;}
+  }
   .odds-strip{
     display:flex;gap:8px;padding:8px 16px;
     background:var(--field-deep);border-bottom:1px solid var(--panel-border);
@@ -1629,18 +1644,11 @@ function mountWeek2(){
           ${spread ? `<span class="odds-chip">${spread}</span>` : ''}
           ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
         </div>` : ''}
-        <div class="live-card-columns">
-          <div class="live-stats-col">
-            ${teamContextHtml(away.Team, home.Team, g.date)}
-            <div style="margin:14px 0;border-top:1px solid var(--panel-border);"></div>
-            ${teamContextHtml(home.Team, away.Team, g.date)}
-          </div>
-          <div class="live-playerlog-col">
-            <div class="matchup-body stacked">
-              <div class="matchup-side">${playerListHtml(away.Team, home.Team)}</div>
-              <div class="matchup-side">${playerListHtml(home.Team, away.Team)}</div>
-            </div>
-          </div>
+        <div class="wk2-four-col">
+          <div>${teamContextHtml(away.Team, home.Team, g.date)}</div>
+          <div>${playerListHtml(away.Team, home.Team)}</div>
+          <div>${teamContextHtml(home.Team, away.Team, g.date)}</div>
+          <div>${playerListHtml(home.Team, away.Team)}</div>
         </div>
       </div>`;
     }).join('') : '<div class="empty">No matchups match your filter.</div>';
