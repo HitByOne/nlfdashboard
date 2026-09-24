@@ -17,6 +17,12 @@ permissions:
   pages: write
   id-token: write
 
+# Matches the lightweight deploy-only workflow's group -- keeps the two
+# from ever deploying to Pages at literally the same instant.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
