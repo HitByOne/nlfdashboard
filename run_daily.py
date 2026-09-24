@@ -70,6 +70,10 @@ def main(force_week: int | None = None):
     # performance) -- same external dependency as EPA, non-critical.
     run("10_game_stats.py", critical=False)
 
+    # Red zone usage depends on the same external nflverse download as EPA
+    # and game stats -- non-critical for the same reason.
+    run("11_redzone_usage.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
