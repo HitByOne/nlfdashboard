@@ -1,0 +1,45 @@
+name: Deploy Site (no data refresh)
+
+# Redeploys the dashboard whenever you manually push/upload a change under
+# site/ (like a new index.html) -- without re-running the data pipeline.
+# The daily refresh workflow already deploys on its own after it runs, and
+# its automated commit won't re-trigger this (GitHub doesn't let a push
+# made with the default GITHUB_TOKEN fire other workflows, so there's no
+# double-deploy when the two overlap).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Matches the daily refresh workflow's deploy target -- this keeps the two
+# workflows from ever deploying to Pages at literally the same instant.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Upload site as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site   # contains index.html + data/*.csv
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
