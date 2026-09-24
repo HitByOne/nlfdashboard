@@ -1576,16 +1576,36 @@ function mountWeek2(){
 
     function teamContextHtml(team, defenseTeam, gameDate){
       const rest = getTeamRestInfo(team, gameDate);
+      const margin = getTeamIntMargin(team);
+      const off = getTeamEpa(team, 'Offense');
+      const def = getTeamEpa(defenseTeam, 'Defense');
+      const injRows = (DATA.injuries || []).filter(r=>r.Team===team);
+      const outCount = injRows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
+
+      const items = [
+        {label: 'Rest', value: rest ? rest.label.replace(/<[^>]*>/g,'') : 'No data yet', color: rest?.cls==='rest-short' ? 'var(--red)' : rest?.cls==='rest-bye' ? 'var(--mint)' : null},
+        {label: 'INT Margin', value: margin===0 ? 'Even' : (margin>0 ? `+${margin}` : `${margin}`), color: margin>0 ? 'var(--mint)' : margin<0 ? 'var(--red)' : null},
+      ];
+      if(off) items.push({label: `${team} Offensive EPA/Play`, value: `${fmt(off.epa,3)}${off.gp<4 ? ' (small sample)' : ''}`});
+      if(def) items.push({label: `${defenseTeam} Defensive EPA/Play Allowed`, value: `${fmt(def.epa,3)}${def.gp<4 ? ' (small sample)' : ''}`});
+      items.push({
+        label: 'Injuries',
+        value: injRows.length ? `${injRows.length} listed${outCount ? `, ${outCount} OUT` : ''}` : 'None listed',
+        color: outCount ? 'var(--red)' : null,
+      });
+
       return `
         <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
           <b>${team}</b> offense vs <b>${defenseTeam}</b> D
         </div>
-        <div class="context-row">
-          ${rest ? `<span class="context-chip ${rest.cls}">${rest.label}</span>` : ''}
-          ${intMarginBadge(team)}
-          ${injuryBadge(team)}
-        </div>
-        ${epaMatchupLine(team, defenseTeam)}
+        ${items.map(it=>`
+          <div class="player-preview">
+            <div class="player-preview-head">
+              <span class="player-preview-name">${it.label}</span>
+            </div>
+            <div class="player-preview-stats" style="${it.color ? `color:${it.color};` : ''}">${it.value}</div>
+          </div>
+        `).join('')}
       `;
     }
 
