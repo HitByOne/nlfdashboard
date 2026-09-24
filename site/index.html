@@ -76,6 +76,7 @@
     display:flex;align-items:stretch;
     background:var(--field-deep);
     border-bottom:1px solid var(--panel-border);
+    position:sticky;top:0;z-index:50;
   }
   .ticker-label{
     flex:0 0 auto;
@@ -130,7 +131,7 @@
     gap:2px;
     flex:0 0 200px;
     position:sticky;
-    top:20px;
+    top:70px;
     border-right:1px solid var(--panel-border);
     padding-right:4px;
   }
@@ -180,6 +181,12 @@
     border-radius:4px;
     padding:20px;
     margin-bottom:20px;
+  }
+  .wk2-sticky-header{
+    position:sticky;top:50px;z-index:20;
+    background:var(--panel);
+    margin:-20px -20px 0;
+    padding:20px 20px 10px;
   }
   .panel-title{
     font-family:var(--cond);
@@ -239,7 +246,7 @@
     white-space:nowrap;
     cursor:pointer;
     user-select:none;
-    position:sticky;top:0;background:var(--panel);
+    position:sticky;top:50px;background:var(--panel);z-index:10;
   }
   thead th:hover{color:var(--chalk);}
   thead th.sorted::after{content:' ▾';font-size:10px;}
@@ -451,6 +458,13 @@ const MILESTONE_STEP_JS = {
 };
 const MILESTONE_CLOSE_FRACTION = 0.2;
 
+// "Active" status entries in the injury feed aren't actually injury
+// concerns (a cleared/healthy player still listed) -- excluded everywhere
+// injuries are shown or counted.
+function isRelevantInjury(row){
+  return !/^active$/i.test((row.Status || '').trim());
+}
+
 // Every week's data -- including week 1 -- comes from the same place: these
 // CSVs, fetched fresh on every page load. Nothing is embedded/baked into
 // this file. Re-run the pipeline to refresh the CSVs and just reload the
@@ -648,7 +662,7 @@ function singleGameStatLine(row){
 // milestone badges -- those live inside that tab's own closure, so this
 // tab needs its own copies rather than reaching into another tab's internals.
 function injuryBadgeSimple(team){
-  const rows = (DATA.injuries || []).filter(r=>r.Team===team);
+  const rows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
   if(!rows.length) return '';
   const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
   const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
@@ -1372,11 +1386,13 @@ function renderWeek2(){
   const wk = DATA.week2 && DATA.week2.length ? DATA.week2[0].Week : null;
   return `
   <div class="panel">
-    <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
-    <div class="panel-note">Each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
-    <div class="controls">
-      <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
+    <div class="wk2-sticky-header">
+      <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
+      <div class="controls">
+        <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
+      </div>
     </div>
+    <div class="panel-note">Each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
     <div class="matchup-grid single-col" id="wk2-days"></div>
   </div>`;
 }
@@ -1468,7 +1484,7 @@ function mountWeek2(){
     }
 
     function injuryBadge(team){
-      const rows = (DATA.injuries || []).filter(r=>r.Team===team);
+      const rows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
       if(!rows.length) return '';
       const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
       const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
@@ -1579,7 +1595,7 @@ function mountWeek2(){
       const margin = getTeamIntMargin(team);
       const off = getTeamEpa(team, 'Offense');
       const def = getTeamEpa(defenseTeam, 'Defense');
-      const injRows = (DATA.injuries || []).filter(r=>r.Team===team);
+      const injRows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
       const outCount = injRows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
 
       const items = [
@@ -2018,7 +2034,7 @@ function renderInjuries(){
 }
 function mountInjuries(){
   const container = $('#injuries-table');
-  const raw = DATA.injuries || [];
+  const raw = (DATA.injuries || []).filter(isRelevantInjury);
   if(!raw.length){
     container.innerHTML = '<div class="empty">No injury data yet. Run 08_injury_report.py.</div>';
     return;
