@@ -1351,7 +1351,7 @@ function renderWeek2(){
   return `
   <div class="panel">
     <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
-    <div class="panel-note">For each game, each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
+    <div class="panel-note">Click a game to expand it: each team's top producers this season with their real stat line, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
     <div class="controls">
       <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
     </div>
@@ -1360,6 +1360,7 @@ function renderWeek2(){
 }
 
 function mountWeek2(){
+  const expandedGames = new Set();
   function apply(){
     const q = $('#wk2-search').value.trim().toUpperCase();
 
@@ -1386,16 +1387,6 @@ function mountWeek2(){
     }
 
     gameList.sort((a,b)=> new Date(a.date) - new Date(b.date));
-
-    // Group into day-of-week sections, in date order.
-    const dayGroups = [];
-    gameList.forEach(g=>{
-      const dt = new Date(g.date);
-      const dayKey = isNaN(dt) ? 'TBD' : dt.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
-      let group = dayGroups.find(d=>d.key === dayKey);
-      if(!group){ group = {key: dayKey, games: []}; dayGroups.push(group); }
-      group.games.push(g);
-    });
 
     function meterColor(pct){
       // Same mint-to-coral scale used everywhere else: high value (defense
@@ -1604,41 +1595,62 @@ function mountWeek2(){
       `;
     }
 
-    $('#wk2-days').innerHTML = dayGroups.length ? dayGroups.map(group=>`
-      <div class="day-group">
-        <div class="day-header">${group.key}</div>
-        <div class="matchup-grid">
-          ${group.games.map(g=>{
+    const expanded = expandedGames; // persists across re-renders (search, etc.)
+
+    $('#wk2-days').innerHTML = gameList.length ? `
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Day / Time</th><th>Matchup</th><th>Spread</th><th>O/U</th></tr></thead>
+        <tbody>
+          ${gameList.map(g=>{
             const home = g.sides.home, away = g.sides.away;
             const dt = new Date(g.date);
+            const dayStr = isNaN(dt) ? 'TBD' : dt.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
             const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
             const mlBadge = ml => (ml !== '' && ml != null && !isNaN(num(ml))) ? `<span class="ml-badge">${num(ml)>0?'+':''}${Math.round(num(ml))}</span>` : '';
             const spread = home.Spread || away.Spread || '';
             const overUnder = home['Over/Under'] || away['Over/Under'] || '';
             const isDivisional = TEAM_DIVISIONS[away.Team] && TEAM_DIVISIONS[away.Team] === TEAM_DIVISIONS[home.Team];
-            return `
-            <div class="matchup-card" data-away="${away.Team}" data-home="${home.Team}">
-              <div class="matchup-head">
-                <div class="matchup-teams">
+            const gid = away.Team + '@' + home.Team;
+            const isOpen = expanded.has(gid);
+
+            const rowHtml = `
+              <tr class="wk2-row" data-gid="${gid}" data-away="${away.Team}" data-home="${home.Team}" style="cursor:pointer;">
+                <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
+                <td style="font-family:var(--mono);font-size:11.5px;color:var(--chalk-dim);white-space:nowrap;">${dayStr}${timeStr ? ' &middot; '+timeStr : ''}</td>
+                <td>
                   ${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}
                   ${isDivisional ? `<span class="div-badge">DIV</span>` : ''}
-                </div>
-                <div class="matchup-time">${timeStr}</div>
-              </div>
-              ${(spread || overUnder) ? `
-              <div class="odds-strip">
-                ${spread ? `<span class="odds-chip">${spread}</span>` : ''}
-                ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
-              </div>` : ''}
-              <div class="matchup-body">
-                <div class="matchup-side">${sideHtml(away.Team, home.Team, g.date)}</div>
-                <div class="matchup-side">${sideHtml(home.Team, away.Team, g.date)}</div>
-              </div>
-            </div>`;
+                </td>
+                <td class="num">${spread || '&mdash;'}</td>
+                <td class="num">${overUnder ? 'O/U '+overUnder : '&mdash;'}</td>
+              </tr>`;
+
+            const detailHtml = isOpen ? `
+              <tr class="def-detail-row">
+                <td colspan="5" style="padding:0;">
+                  <div class="matchup-body stacked" style="border-top:1px solid var(--panel-border);">
+                    <div class="matchup-side">${sideHtml(away.Team, home.Team, g.date)}</div>
+                    <div class="matchup-side">${sideHtml(home.Team, away.Team, g.date)}</div>
+                  </div>
+                </td>
+              </tr>` : '';
+
+            return rowHtml + detailHtml;
           }).join('')}
-        </div>
+        </tbody>
+      </table>
       </div>
-    `).join('') : '<div class="empty">No matchups match your filter.</div>';
+    ` : '<div class="empty">No matchups match your filter.</div>';
+
+    $$('.wk2-row', $('#wk2-days')).forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        const gid = tr.dataset.gid;
+        if(expanded.has(gid)) expanded.delete(gid);
+        else expanded.add(gid);
+        apply();
+      });
+    });
   }
 
   $('#wk2-search').addEventListener('input', apply);
