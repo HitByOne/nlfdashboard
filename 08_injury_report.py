@@ -42,11 +42,22 @@ def fetch_team_injuries(team_id: str, team_abbr: str) -> list[dict]:
     rows = []
 
     for item in items:
-        # ESPN's core API frequently returns {"$ref": "..."} pointers
-        # instead of inline objects. Confirmed from a real response: the
-        # injury item itself IS fully inlined (status, type, details are
-        # all directly present), but its "athlete" field is just a $ref
-        # needing a follow-up fetch to get the player's actual name.
+        # ESPN's core API can return this two different ways: sometimes the
+        # injury item is fully inlined already (status/type/details present
+        # directly, just the nested "athlete" field is a $ref), and
+        # sometimes the item itself is nothing but a bare {"$ref": "..."}
+        # pointer with no other keys at all -- confirmed from a real
+        # response. Handle both: resolve the item's own $ref first if
+        # that's all it has, then resolve the athlete's $ref as before.
+        if isinstance(item, dict) and set(item.keys()) == {"$ref"}:
+            try:
+                item_resp = requests.get(item["$ref"], timeout=30)
+                item_resp.raise_for_status()
+                item = item_resp.json()
+            except Exception as exc:
+                print(f"    Failed to resolve injury item for {team_abbr}: {exc}")
+                continue
+
         athlete = item.get("athlete", {})
         player_name = None
         if isinstance(athlete, dict):
