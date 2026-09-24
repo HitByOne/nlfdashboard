@@ -197,6 +197,9 @@
   .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;}
   @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
   .mu-grid{display:grid;grid-template-columns:1fr;gap:24px;}
+  .mu-grid table{width:auto;min-width:0;}
+  .mu-grid th, .mu-grid td{padding-right:22px;}
+  .mu-grid th:last-child, .mu-grid td:last-child{padding-right:10px;}
 
   /* ---- Controls ---- */
   .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
