@@ -265,7 +265,7 @@
     color:var(--gold);text-transform:uppercase;letter-spacing:0.8px;
     margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--panel-border);
   }
-  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;}
+  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:20px;}
   .matchup-grid.single-col{grid-template-columns:1fr;}
   .matchup-card{
     background:var(--field-deep);border:1px solid var(--panel-border);
@@ -273,11 +273,11 @@
   }
   .matchup-head{
     display:flex;justify-content:space-between;align-items:center;
-    padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--panel-border);
+    padding:16px 20px;background:var(--panel);border-bottom:1px solid var(--panel-border);
   }
   .matchup-teams{
-    font-family:var(--cond);font-weight:700;font-size:18px;color:var(--chalk);
-    display:flex;align-items:baseline;gap:8px;
+    font-family:var(--cond);font-weight:700;font-size:19px;color:var(--chalk);
+    display:flex;align-items:baseline;gap:9px;
   }
   .matchup-teams .at{color:var(--chalk-dim);font-weight:500;font-size:13px;}
   .ml-badge{font-family:var(--mono);font-size:10px;color:var(--mint);font-weight:600;margin:0 2px;}
@@ -286,11 +286,11 @@
     color:var(--gold);border:1px solid var(--gold-deep);border-radius:3px;
     padding:1px 5px;margin-left:6px;vertical-align:middle;
   }
-  .context-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .context-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .context-chip{
-    font-family:var(--mono);font-size:9.5px;color:var(--chalk-dim);
+    font-family:var(--mono);font-size:10.5px;color:var(--chalk-dim);
     background:var(--field-deep);border:1px solid var(--hash);
-    border-radius:10px;padding:2px 7px;
+    border-radius:10px;padding:3px 9px;
   }
   .rest-short{color:var(--red);}
   .rest-bye{color:var(--mint);}
@@ -329,12 +329,12 @@
   .game-stats-table th:first-child{text-align:left;}
   .game-stats-table td{padding:6px 14px;text-align:right;border-bottom:1px solid var(--hash-line);color:var(--chalk);}
   .game-stats-table td:first-child{text-align:left;color:var(--chalk-dim);}
-  .matchup-side{padding:12px 14px;}
+  .matchup-side{padding:18px 20px;}
   .matchup-side + .matchup-side{border-left:1px solid var(--panel-border);}
   .matchup-side-label{
-    font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
+    font-family:var(--mono);font-size:12px;color:var(--chalk-dim);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    margin-bottom:10px;
+    margin-bottom:14px;
   }
   .matchup-side-label b{color:var(--gold);font-weight:700;}
   .log-pos-label{
@@ -342,14 +342,14 @@
     color:var(--gold);text-transform:uppercase;margin:10px 0 5px;
   }
   .log-pos-label:first-child{margin-top:0;}
-  .player-preview{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--hash-line);}
+  .player-preview{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--hash-line);}
   .player-preview:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
   .player-preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-  .player-preview-name{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .player-preview-pos{font-family:var(--mono);font-size:10px;color:var(--gold);flex:0 0 auto;}
-  .player-preview-stats{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-top:2px;}
-  .player-preview-matchup{display:block;font-family:var(--mono);font-size:10.5px;margin-top:3px;font-weight:600;}
-  .milestone-badge{display:block;font-family:var(--mono);font-size:10.5px;margin-top:3px;font-weight:600;color:var(--gold);}
+  .player-preview-name{font-family:var(--cond);font-weight:700;font-size:14.5px;color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .player-preview-pos{font-family:var(--mono);font-size:10.5px;color:var(--gold);flex:0 0 auto;}
+  .player-preview-stats{font-family:var(--mono);font-size:12px;color:var(--chalk-dim);margin-top:4px;line-height:1.5;}
+  .player-preview-matchup{display:block;font-family:var(--mono);font-size:11.5px;margin-top:6px;font-weight:600;}
+  .milestone-badge{display:block;font-family:var(--mono);font-size:11.5px;margin-top:6px;font-weight:600;color:var(--gold);}
 
   /* ---- Stat cards ---- */
   .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
@@ -412,6 +412,16 @@
 
 <script>
 let DATA = { teamSummary:[], teamWeek:[], playerGame:[], defVsPos:[], sos:[], week2:[] };
+
+// Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
+// player is genuinely "close" to a milestone (within 20% of the step size)
+// rather than just eventually on track toward some future round number.
+const MILESTONE_STEP_JS = {
+  'Pass TD': 50, 'Rush TD': 50, 'Receiving TD': 50, 'Receptions': 50,
+  'Pass Yards': 1000, 'Rush Yards': 1000, 'Receiving Yards': 1000,
+  'Interceptions': 25,
+};
+const MILESTONE_CLOSE_FRACTION = 0.2;
 
 // Every week's data -- including week 1 -- comes from the same place: these
 // CSVs, fetched fresh on every page load. Nothing is embedded/baked into
@@ -618,8 +628,9 @@ function injuryBadgeSimple(team){
 }
 function milestoneBadgeSimple(player){
   const entries = (DATA.milestones || []).filter(m=>m.Player===player);
-  if(!entries.length) return '';
-  const m = entries.reduce((closest, e) => (!closest || num(e.Remaining) < num(closest.Remaining)) ? e : closest, null);
+  const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+  if(!close.length) return '';
+  const m = close.reduce((closest, e) => (!closest || num(e.Remaining) < num(closest.Remaining)) ? e : closest, null);
   return `<span class="milestone-badge">&#127919; ${num(m.Remaining)} ${m.Stat} from ${m.Milestone}</span>`;
 }
 
@@ -1473,11 +1484,16 @@ function mountWeek2(){
 
     // Closest active milestone for a player, if any (a player can be
     // tracked toward more than one stat's milestone -- show whichever is
-    // nearest so this stays useful, not cluttered).
+    // nearest so this stays useful, not cluttered). Only counts as "close"
+    // if within 20% of that stat's milestone step (e.g. within 10 for a
+    // 50-TD milestone, within 200 for a 1000-yard one) -- otherwise a
+    // player merely on-track toward some future round number isn't
+    // meaningfully "chasing" it yet.
     function getClosestMilestone(player){
       const entries = (DATA.milestones || []).filter(m=>m.Player===player);
-      if(!entries.length) return null;
-      return entries.reduce((closest, m) =>
+      const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+      if(!close.length) return null;
+      return close.reduce((closest, m) =>
         (!closest || num(m.Remaining) < num(closest.Remaining)) ? m : closest
       , null);
     }
