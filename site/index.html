@@ -1,99 +1,2530 @@
-#!/usr/bin/env python3
-"""
-run_daily.py
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gridiron Ledger — NFL 2026 Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --field:#0B0F19;
+    --field-deep:#070A12;
+    --chalk:#EDEFF7;
+    --chalk-dim:#8B93AC;
+    --hash:#2A3348;
+    --hash-line:#1B2233;
+    --gold:#4C8DFF;
+    --gold-deep:#3568CC;
+    --red:#FF5C6C;
+    --mint:#33D6A6;
+    --panel:#121826;
+    --panel-border:#232B3E;
+    --mono:'IBM Plex Mono', monospace;
+    --cond:'Barlow Condensed', sans-serif;
+    --display:'Archivo Black', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--field);
+    color:var(--chalk);
+    font-family:var(--cond);
+    min-height:100vh;
+  }
+  a{color:inherit;}
+  .wrap{max-width:100%;margin:0 auto;padding:0 32px 60px;}
 
-Runs the data pipeline in dependency order:
+  /* ---- Header ---- */
+  header.hero{
+    border-bottom:3px solid var(--gold);
+    background:linear-gradient(180deg, var(--field-deep), var(--field) 80%);
+    padding:34px 0 22px;
+    margin-bottom:26px;
+  }
+  .hero-inner{max-width:100%;margin:0 auto;padding:0 32px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;}
+  .hero-title{
+    font-family:var(--display);
+    font-size:clamp(28px, 4vw, 46px);
+    letter-spacing:0.5px;
+    line-height:1;
+    margin:0;
+    color:var(--chalk);
+  }
+  .hero-title span{color:var(--gold);}
+  .hero-sub{
+    font-family:var(--mono);
+    color:var(--chalk-dim);
+    font-size:13px;
+    margin-top:10px;
+    letter-spacing:0.3px;
+  }
+  .hero-meta{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--gold);
+    text-align:right;
+    line-height:1.6;
+  }
+  .hero-meta b{color:var(--chalk);font-family:var(--cond);font-weight:600;}
 
-  1. Player stats   (initial pull if no CSV yet, otherwise weekly update)
-  2. Team tables     (team_week_stats, team_summary)      <- needs player stats
-  3. Strength of schedule                                  <- needs team_week
-  4. Defense vs position                                    <- needs player stats
-  5. Upcoming matchups                                      <- needs DvP + team_summary
-
-There is no "build the dashboard" step. site/index.html fetches these CSVs
-directly from site/data/ every time someone loads the page, so refreshing
-the CSVs *is* refreshing the dashboard -- same mechanism for every week,
-including week 1.
-
-Schedule this with cron or a GitHub Actions workflow, e.g. daily at 6am:
-    0 6 * * *  cd /path/to/pipeline && python3 run_daily.py
-"""
-import argparse
-import subprocess
-import sys
-from pathlib import Path
-
-from nfl_common import PLAYER_FILE
-
-PIPELINE_DIR = Path(__file__).resolve().parent
-
-
-def run(script_name: str, critical: bool = True, extra_args: list[str] | None = None) -> None:
-    script_path = PIPELINE_DIR / script_name
-    cmd = [sys.executable, str(script_path)] + (extra_args or [])
-    print(f"\n=== Running {script_name} {' '.join(extra_args or [])} ===")
-    result = subprocess.run(cmd, cwd=PIPELINE_DIR)
-    if result.returncode != 0:
-        if critical:
-            raise RuntimeError(f"{script_name} failed with exit code {result.returncode}")
-        print(f"WARNING: {script_name} failed (exit {result.returncode}) -- continuing, "
-              f"this step is not required for the core dashboard.")
-
-
-def main(force_week: int | None = None):
-    # Step 1: player stats.
-    if force_week is not None:
-        # Force-refresh a specific week regardless of what's already in the
-        # CSV -- overwrites that week's rows with a fresh pull.
-        run("02_weekly_player_update.py", extra_args=["--week", str(force_week)])
-    elif PLAYER_FILE.exists():
-        run("02_weekly_player_update.py")
-    else:
-        run("01_initial_player_pull.py")
-
-    # Steps 2-5: derived tables. Safe to re-run even if step 1 found
-    # nothing new -- they just recompute the same values.
-    run("03_build_team_tables.py")
-    run("04_strength_of_schedule.py")
-    run("05_defense_vs_position.py")
-    run("06_matchup_preview.py")
-
-    # Injury report hits an unverified ESPN endpoint -- non-critical so a
-    # bad response there can't block the core weekly refresh.
-    run("08_injury_report.py", critical=False)
-
-    # EPA/efficiency depends on an external nflverse download on top of
-    # ESPN -- non-critical so it can't block the core weekly refresh.
-    run("09_epa_efficiency.py", critical=False)
-
-    # Per-game detailed stats (real scores, sacks, penalties, QB
-    # performance) -- same external dependency as EPA, non-critical.
-    run("10_game_stats.py", critical=False)
-
-    # Red zone usage depends on the same external nflverse download as EPA
-    # and game stats -- non-critical for the same reason.
-    run("11_redzone_usage.py", critical=False)
-
-    # Milestone Watch is a nice-to-have layered on top of everything else --
-    # a flaky nflverse download shouldn't block the core weekly refresh, so
-    # this one is non-critical.
-    run("07_milestone_watch.py", critical=False)
-
-    print("\nPipeline complete. site/data/*.csv is up to date --")
-    print("reload the dashboard page to see the refresh.")
+  /* ---- Ticker (horizontal bar, always visible regardless of screen width) ---- */
+  .ticker-side{
+    display:flex;align-items:stretch;
+    background:var(--field-deep);
+    border-bottom:1px solid var(--panel-border);
+    position:sticky;top:0;z-index:50;
+  }
+  .ticker-label{
+    flex:0 0 auto;
+    display:flex;align-items:center;gap:6px;
+    padding:0 16px;
+    font-family:var(--cond);font-weight:700;font-size:13px;
+    color:var(--gold);
+    background:var(--panel);
+    border-right:1px solid var(--panel-border);
+    white-space:nowrap;
+  }
+  .ticker-track{
+    flex:1 1 auto;
+    display:flex;
+    overflow-x:auto;
+    scrollbar-width:thin;
+  }
+  .ticker-item{
+    flex:0 0 auto;
+    display:flex;flex-direction:column;justify-content:center;gap:3px;
+    padding:8px 18px;
+    border-right:1px solid var(--panel-border);
+    min-width:120px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .ticker-item:hover{background:rgba(76,141,255,0.1);}
+  @keyframes card-highlight-flash{
+    0%{box-shadow:0 0 0 2px var(--gold);}
+    100%{box-shadow:0 0 0 2px transparent;}
+  }
+  .card-highlight{animation:card-highlight-flash 1.8s ease-out;}
+  .ticker-time{
+    font-family:var(--mono);font-size:10px;color:var(--chalk-dim);
+    text-transform:uppercase;letter-spacing:0.4px;
+  }
+  .ticker-teams{
+    display:flex;align-items:baseline;gap:5px;
+    font-family:var(--cond);font-weight:700;font-size:14px;
+    color:var(--chalk);
+  }
+  .ticker-at{color:var(--chalk-dim);font-weight:500;font-size:11px;}
+  .ticker-score{color:var(--gold);font-family:var(--mono);}
+  .ticker-empty{padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);}
 
 
-if __name__ == "__main__":
-    cli = argparse.ArgumentParser()
-    cli.add_argument(
-        "--week", type=int, default=None,
-        help="Force-refresh this specific week's player stats instead of auto-detecting "
-             "the next new one, then rebuild everything downstream from it.",
-    )
-    cli_args = cli.parse_args()
+  /* ---- Tabs (left sidebar on wide screens) ---- */
+  .main-layout{display:flex;gap:28px;align-items:flex-start;}
+  nav.tabs{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:0 0 200px;
+    position:sticky;
+    top:70px;
+    border-right:1px solid var(--panel-border);
+    padding-right:4px;
+  }
+  nav.tabs button{
+    background:transparent;
+    border:none;
+    border-left:3px solid transparent;
+    color:var(--chalk-dim);
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:15px;
+    text-align:left;
+    padding:11px 14px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:color .15s, border-color .15s, background .15s;
+  }
+  nav.tabs button:hover{color:var(--chalk);background:rgba(76,141,255,0.06);}
+  nav.tabs button.active{color:var(--gold);border-left-color:var(--gold);background:rgba(227,169,59,0.08);}
+  #content{flex:1;min-width:0;}
 
-    try:
-        main(force_week=cli_args.week)
-    except RuntimeError as exc:
-        print(f"\nPIPELINE FAILED: {exc}", file=sys.stderr)
-        sys.exit(1)
+  /* Below this width a fixed sidebar eats too much of the screen --
+     revert to the original horizontal top-nav layout instead. */
+  @media (max-width:900px){
+    .main-layout{display:block;}
+    nav.tabs{
+      flex-direction:row;
+      overflow-x:auto;
+      position:static;
+      border-right:none;
+      border-bottom:1px solid var(--panel-border);
+      margin-bottom:22px;
+      padding-right:0;
+    }
+    nav.tabs button{
+      border-left:none;
+      border-bottom:3px solid transparent;
+      text-align:center;
+    }
+    nav.tabs button.active{border-left-color:transparent;border-bottom-color:var(--gold);}
+  }
+
+  /* ---- Panels ---- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:4px;
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .wk2-sticky-header{
+    position:sticky;top:50px;z-index:20;
+    background:var(--panel);
+    margin:-20px -20px 0;
+    padding:20px 20px 10px;
+  }
+  .panel-title{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:19px;
+    margin:0 0 4px;
+    color:var(--chalk);
+  }
+  .panel-note{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--chalk-dim);
+    margin:0 0 16px;
+  }
+  .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+  .mu-grid{display:grid;grid-template-columns:1fr;gap:24px;}
+  .mu-grid table{width:auto;min-width:0;}
+  .mu-grid th, .mu-grid td{padding-right:22px;}
+  .mu-grid th:last-child, .mu-grid td:last-child{padding-right:10px;}
+
+  /* ---- Controls ---- */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+  select, input[type="text"]{
+    background:var(--field-deep);
+    border:1px solid var(--hash);
+    color:var(--chalk);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:3px;
+  }
+  select:focus, input:focus{outline:1px solid var(--gold);}
+  .pill-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill{
+    background:var(--field-deep);
+    border:1px solid var(--hash);
+    color:var(--chalk-dim);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .12s;
+  }
+  .pill.active{background:var(--gold);border-color:var(--gold);color:var(--field-deep);font-weight:600;}
+  .pill:hover:not(.active){border-color:var(--gold);color:var(--chalk);}
+
+  /* ---- Table ---- */
+  .table-scroll{overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px;}
+  thead th{
+    text-align:left;
+    padding:8px 10px;
+    color:var(--gold);
+    border-bottom:2px solid var(--hash);
+    white-space:nowrap;
+    cursor:pointer;
+    user-select:none;
+    background:var(--panel);
+  }
+  thead th:hover{color:var(--chalk);}
+  thead th.sorted::after{content:' ▾';font-size:10px;}
+  thead th.sorted-asc::after{content:' ▴';font-size:10px;}
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--hash-line);white-space:nowrap;color:var(--chalk);}
+  tbody tr:hover{background:rgba(227,169,59,0.06);}
+  tbody tr:nth-child(even){background:rgba(255,255,255,0.015);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .rank-badge{
+    display:inline-block;min-width:22px;text-align:center;
+    background:var(--field-deep);border:1px solid var(--hash);
+    border-radius:3px;padding:2px 5px;color:var(--gold);font-size:11px;
+  }
+  .team-chip{
+    font-family:var(--cond);font-weight:700;letter-spacing:0.5px;
+    background:var(--field-deep);border:1px solid var(--gold-deep);
+    color:var(--gold);padding:2px 8px;border-radius:3px;font-size:12px;
+  }
+  .heat{border-radius:2px;padding:3px 8px;display:inline-block;min-width:48px;text-align:center;font-weight:600;}
+
+  /* ---- Upcoming Matchups ---- */
+  .day-group{margin-bottom:28px;}
+  .day-group:last-child{margin-bottom:0;}
+  .day-header{
+    font-family:var(--cond);font-weight:700;font-size:14px;
+    color:var(--gold);text-transform:uppercase;letter-spacing:0.8px;
+    margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--panel-border);
+  }
+  .matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:20px;}
+  .matchup-grid.single-col{grid-template-columns:1fr;}
+  .matchup-card{
+    background:var(--field-deep);border:1px solid var(--panel-border);
+    border-radius:6px;overflow:hidden;
+  }
+  .matchup-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:16px 20px;background:var(--panel);border-bottom:1px solid var(--panel-border);
+  }
+  .matchup-teams{
+    font-family:var(--cond);font-weight:700;font-size:19px;color:var(--chalk);
+    display:flex;align-items:baseline;gap:9px;
+  }
+  .matchup-teams .at{color:var(--chalk-dim);font-weight:500;font-size:13px;}
+  .ml-badge{font-family:var(--mono);font-size:10px;color:var(--mint);font-weight:600;margin:0 2px;}
+  .div-badge{
+    font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.5px;
+    color:var(--gold);border:1px solid var(--gold-deep);border-radius:3px;
+    padding:1px 5px;margin-left:6px;vertical-align:middle;
+  }
+  .context-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .context-chip{
+    font-family:var(--mono);font-size:10.5px;color:var(--chalk-dim);
+    background:var(--field-deep);border:1px solid var(--hash);
+    border-radius:10px;padding:3px 9px;
+  }
+  .rest-short{color:var(--red);}
+  .rest-bye{color:var(--mint);}
+  .matchup-time{
+    font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
+    text-align:right;line-height:1.5;
+  }
+  .live-card-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);}
+  .live-stats-col{padding:18px 20px;border-right:1px solid var(--panel-border);}
+  .live-playerlog-col{min-width:0;}
+  @media (max-width:1100px){
+    .live-card-columns{grid-template-columns:1fr;}
+    .live-stats-col{border-right:none;border-bottom:1px solid var(--panel-border);}
+  }
+  .wk2-four-col{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.3fr);
+  }
+  .wk2-four-col > div{padding:18px 20px;min-width:0;}
+  .wk2-four-col > div + div{border-left:1px solid var(--panel-border);}
+  @media (max-width:1400px){
+    .wk2-four-col{grid-template-columns:1fr 1fr;}
+    .wk2-four-col > div:nth-child(3), .wk2-four-col > div:nth-child(4){border-left:none;border-top:1px solid var(--panel-border);}
+  }
+  @media (max-width:800px){
+    .wk2-four-col{grid-template-columns:1fr;}
+    .wk2-four-col > div{border-left:none !important;border-top:1px solid var(--panel-border);}
+    .wk2-four-col > div:first-child{border-top:none;}
+  }
+  .odds-strip{
+    display:flex;gap:8px;padding:8px 16px;
+    background:var(--field-deep);border-bottom:1px solid var(--panel-border);
+  }
+  .odds-chip{
+    font-family:var(--mono);font-size:11px;color:var(--chalk);
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:3px;padding:3px 9px;
+  }
+  .matchup-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .matchup-body.stacked{grid-template-columns:1fr;}
+  .matchup-body.stacked .matchup-side + .matchup-side{border-left:none;border-top:1px solid var(--panel-border);}
+  .qb-card-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-border);}
+  .qb-card{background:var(--field-deep);padding:12px 14px;}
+  .qb-card-name{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--chalk);margin-bottom:5px;}
+  .qb-card-line{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:3px;}
+  .game-stats-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;}
+  .game-stats-table th{
+    text-align:right;padding:8px 14px;color:var(--gold);
+    border-bottom:1px solid var(--panel-border);font-weight:700;
+  }
+  .game-stats-table th:first-child{text-align:left;}
+  .game-stats-table td{padding:6px 14px;text-align:right;border-bottom:1px solid var(--hash-line);color:var(--chalk);}
+  .game-stats-table td:first-child{text-align:left;color:var(--chalk-dim);}
+  .matchup-side{padding:18px 20px;}
+  .matchup-side + .matchup-side{border-left:1px solid var(--panel-border);}
+  .matchup-side-label{
+    font-family:var(--mono);font-size:12px;color:var(--chalk-dim);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-bottom:14px;
+  }
+  .matchup-side-label b{color:var(--gold);font-weight:700;}
+  .log-pos-group{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:6px;
+    padding:10px 14px 12px;margin-bottom:12px;
+  }
+  .log-pos-group:last-child{margin-bottom:0;}
+  .log-pos-label{
+    font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:0.8px;
+    color:var(--gold);text-transform:uppercase;
+    margin-bottom:0;padding-bottom:6px;
+    border-bottom:1px solid var(--hash-line);
+  }
+  .log-pos-group table{width:auto;min-width:0;}
+  .log-pos-group th, .log-pos-group td{padding-right:22px;}
+  .log-pos-group th:last-child, .log-pos-group td:last-child{padding-right:10px;}
+  .player-preview{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--hash-line);}
+  .player-preview:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+  .player-preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .player-preview-name{font-family:var(--cond);font-weight:700;font-size:14.5px;color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .player-preview-pos{font-family:var(--mono);font-size:10.5px;color:var(--gold);flex:0 0 auto;}
+  .player-preview-stats{font-family:var(--mono);font-size:12px;color:var(--chalk-dim);margin-top:4px;line-height:1.5;}
+  .player-preview-matchup{display:block;font-family:var(--mono);font-size:11.5px;margin-top:6px;font-weight:600;}
+  .milestone-badge{display:block;font-family:var(--mono);font-size:11.5px;margin-top:6px;font-weight:600;color:var(--gold);}
+
+  /* ---- Stat cards ---- */
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .stat-card{
+    flex:1;min-width:150px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-left:3px solid var(--gold);
+    padding:14px 16px;border-radius:4px;
+  }
+  .stat-card .label{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:0.5px;}
+  .stat-card .value{font-family:var(--display);font-size:24px;color:var(--chalk);margin-top:6px;}
+  .stat-card .value span{color:var(--gold);font-size:14px;font-family:var(--cond);}
+
+  canvas{max-width:100%;}
+  .empty{color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center;}
+  footer{text-align:center;padding:30px 0 10px;font-family:var(--mono);font-size:11px;color:var(--hash);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <h1 class="hero-title">GRIDIRON <span>LEDGER</span></h1>
+      <div class="hero-sub" id="hero-sub"></div>
+    </div>
+    <div class="hero-meta" id="hero-meta">
+    </div>
+  </div>
+</header>
+
+<div class="ticker-side">
+  <div class="ticker-label">WEEK <span id="ticker-week">-</span></div>
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<div class="wrap">
+  <div class="main-layout">
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="live">Live Matchups</button>
+      <button data-tab="matchup">Matchup Explorer</button>
+      <button data-tab="teams">Team Summary</button>
+      <button data-tab="teamweek">Team Game Log</button>
+      <button data-tab="players">Player Stats</button>
+      <button data-tab="defense">Defense vs Position</button>
+      <button data-tab="sos">Strength of Schedule</button>
+      <button data-tab="week2">Upcoming Matchups</button>
+      <button data-tab="streaks">Streaks</button>
+      <button data-tab="milestones">Milestone Watch</button>
+      <button data-tab="injuries">Injury Report</button>
+      <button data-tab="epa">EPA / Efficiency</button>
+    <button data-tab="picks">Best Picks</button>
+    </nav>
+
+    <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
+  </div>
+</div>
+
+<footer>GRIDIRON LEDGER &mdash; generated from CSV data uploaded by user &middot; not affiliated with the NFL</footer>
+
+<script>
+let DATA = { teamSummary:[], teamWeek:[], playerGame:[], defVsPos:[], sos:[], week2:[] };
+
+// Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
+// player is genuinely "close" to a milestone (within 20% of the step size)
+// rather than just eventually on track toward some future round number.
+const MILESTONE_STEP_JS = {
+  'Pass TD': 50, 'Rush TD': 50, 'Receiving TD': 50, 'Receptions': 50,
+  'Pass Yards': 1000, 'Rush Yards': 1000, 'Receiving Yards': 1000,
+  'Interceptions': 25,
+};
+const MILESTONE_CLOSE_FRACTION = 0.2;
+
+// "Active" status entries in the injury feed aren't actually injury
+// concerns (a cleared/healthy player still listed) -- excluded everywhere
+// injuries are shown or counted.
+function isRelevantInjury(row){
+  return !/^active$/i.test((row.Status || '').trim());
+}
+
+// Every week's data -- including week 1 -- comes from the same place: these
+// CSVs, fetched fresh on every page load. Nothing is embedded/baked into
+// this file. Re-run the pipeline to refresh the CSVs and just reload the
+// page; there is no separate "build the dashboard" step anymore.
+const CSV_FILES = {
+  teamSummary: 'data/nfl_2026_team_summary.csv',
+  teamWeek:    'data/nfl_2026_team_week_stats.csv',
+  playerGame:  'data/nfl_2026_player_game_stats.csv',
+  defVsPos:    'data/nfl_2026_defense_vs_position.csv',
+  sos:         'data/nfl_2026_strength_of_schedule.csv',
+  week2:       'data/nfl_2026_upcoming_matchups.csv',
+  milestones:  'data/nfl_2026_milestones.csv',
+  injuries:    'data/nfl_2026_injury_report.csv',
+  epa:         'data/nfl_2026_team_epa.csv',
+  gameTeamStats: 'data/nfl_2026_game_team_stats.csv',
+  gameQbStats:   'data/nfl_2026_game_qb_stats.csv',
+  redzone:       'data/nfl_2026_redzone_usage.csv',
+};
+
+const TEAM_NAMES = {
+  ARI:'Arizona Cardinals', ATL:'Atlanta Falcons', BAL:'Baltimore Ravens', BUF:'Buffalo Bills',
+  CAR:'Carolina Panthers', CHI:'Chicago Bears', CIN:'Cincinnati Bengals', CLE:'Cleveland Browns',
+  DAL:'Dallas Cowboys', DEN:'Denver Broncos', DET:'Detroit Lions', GB:'Green Bay Packers',
+  HOU:'Houston Texans', IND:'Indianapolis Colts', JAX:'Jacksonville Jaguars', KC:'Kansas City Chiefs',
+  LAC:'Los Angeles Chargers', LAR:'Los Angeles Rams', LV:'Las Vegas Raiders', MIA:'Miami Dolphins',
+  MIN:'Minnesota Vikings', NE:'New England Patriots', NO:'New Orleans Saints', NYG:'New York Giants',
+  NYJ:'New York Jets', PHI:'Philadelphia Eagles', PIT:'Pittsburgh Steelers', SEA:'Seattle Seahawks',
+  SF:'San Francisco 49ers', TB:'Tampa Bay Buccaneers', TEN:'Tennessee Titans', WSH:'Washington Commanders'
+};
+function teamName(abbr){ return TEAM_NAMES[abbr] || abbr; }
+
+// Derive "what week are we on" straight from the data instead of hardcoding
+// it, so the header text stays correct all season without editing the template.
+function num_(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+let LATEST_RESULTS_WEEK = null;
+let PREVIEW_WEEK = null;
+
+function renderHero(){
+  const parts = [];
+  if(LATEST_RESULTS_WEEK) parts.push(`WEEK ${LATEST_RESULTS_WEEK} RESULTS`);
+  if(PREVIEW_WEEK) parts.push(`WEEK ${PREVIEW_WEEK} MATCHUP PREP`);
+  $('#hero-sub').textContent = `2026 SEASON${parts.length ? ' \u00b7 ' + parts.join(' + ') : ''}`;
+  $('#hero-meta').innerHTML = `
+    <div><b>${DATA.teamSummary.length}</b> teams tracked &middot; <b>${DATA.playerGame.length}</b> player logs</div>
+    <div>Built from your uploaded weekly data exports</div>`;
+}
+
+const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+let liveScoreboardTimer = null;
+let liveScoreboardWorked = false;
+
+async function fetchLiveScoreboard(){
+  const res = await fetch(ESPN_SCOREBOARD_URL);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  return (data.events || []).map(ev=>{
+    const comp = (ev.competitions || [])[0] || {};
+    const competitors = comp.competitors || [];
+    const home = competitors.find(c=>c.homeAway==='home') || {};
+    const away = competitors.find(c=>c.homeAway==='away') || {};
+    const statusType = (ev.status || {}).type || {};
+    return {
+      date: ev.date,
+      homeAbbr: (home.team || {}).abbreviation || '?',
+      awayAbbr: (away.team || {}).abbreviation || '?',
+      homeScore: home.score,
+      awayScore: away.score,
+      state: statusType.state,           // 'pre' | 'in' | 'post'
+      detail: statusType.shortDetail,     // e.g. "Sun 1:00 PM", "Final", "Q3 4:15"
+    };
+  });
+}
+
+function renderTicker(){
+  fetchLiveScoreboard().then(games=>{
+    liveScoreboardWorked = true;
+    renderTickerGames(games, {live:true});
+    if(!liveScoreboardTimer){
+      // Re-poll every 60s so in-progress games actually update while the page is open.
+      liveScoreboardTimer = setInterval(()=>{
+        fetchLiveScoreboard().then(g=>renderTickerGames(g, {live:true})).catch(()=>{});
+      }, 60000);
+    }
+  }).catch(err=>{
+    // Browser blocked the cross-origin call (or it's offline) -- fall back
+    // to the static CSV matchups so the panel still shows something useful.
+    console.warn('Live ESPN scoreboard unavailable, falling back to CSV data:', err);
+    renderTickerFromCSV();
+  });
+}
+
+function renderTickerGames(games, opts={}){
+  const track = $('#ticker-track');
+  if(!track) return;
+  $('#ticker-week').textContent = opts.live ? 'LIVE' : (PREVIEW_WEEK || '-');
+  if(!games.length){
+    track.innerHTML = '<div class="ticker-empty">No games found.</div>';
+    return;
+  }
+  track.innerHTML = games.map(g=>{
+    const label = g.state === 'in' ? (g.detail || 'LIVE')
+                : g.state === 'post' ? 'Final'
+                : (g.detail || '');
+    const scoreLine = g.state === 'pre'
+      ? `<span>${g.awayAbbr}</span><span class="ticker-at">@</span><span>${g.homeAbbr}</span>`
+      : `<span title="${teamName(g.awayAbbr)}">${g.awayAbbr}</span><span class="ticker-score">${g.awayScore}</span>
+         <span class="ticker-score">${g.homeScore}</span><span title="${teamName(g.homeAbbr)}">${g.homeAbbr}</span>`;
+    return `
+    <div class="ticker-item" data-away="${g.awayAbbr}" data-home="${g.homeAbbr}">
+      <div class="ticker-time">${label}</div>
+      <div class="ticker-teams">${scoreLine}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTickerFromCSV(){
+  const track = $('#ticker-track');
+  if(!track) return;
+  if(!DATA.week2 || !DATA.week2.length){
+    track.innerHTML = '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
+    return;
+  }
+  // One row per team per game in the source data -- collapse to one entry per game.
+  const seen = new Set();
+  const games = [];
+  DATA.week2.forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid || seen.has(gid)) return;
+    seen.add(gid);
+    const isHome = r['Home/Away'] === 'Home';
+    games.push({
+      date: r.Date,
+      home: isHome ? r.Team : r.Opponent,
+      away: isHome ? r.Opponent : r.Team,
+    });
+  });
+  games.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  $('#ticker-week').textContent = PREVIEW_WEEK || '-';
+  track.innerHTML = games.map(g=>{
+    const dt = new Date(g.date);
+    const dayStr = isNaN(dt) ? '' : dt.toLocaleDateString('en-US',{weekday:'short'});
+    const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    return `
+    <div class="ticker-item" data-away="${g.away}" data-home="${g.home}">
+      <div class="ticker-time">${dayStr}${timeStr ? ' &middot; ' + timeStr : ''}</div>
+      <div class="ticker-teams">
+        <span title="${teamName(g.away)}">${g.away}</span>
+        <span class="ticker-at">@</span>
+        <span title="${teamName(g.home)}">${g.home}</span>
+      </div>
+    </div>`;
+  }).join('') || '<div class="ticker-empty">No upcoming matchups loaded yet.</div>';
+}
+
+// Jump to a game's details. If it's the week being previewed on Upcoming
+// Matchups, reuse that tab's existing rich card (players, EPA, injuries,
+// milestones, odds) instead of building a second view that could drift
+// out of sync with it. Otherwise (this week's live/just-finished games,
+// which Upcoming Matchups doesn't cover since it only previews the NEXT
+// week), navigate to the dedicated Live Matchups tab instead.
+let pendingHighlightGame = null; // {away, home} -- consumed once by mountLive after navigating there
+
+function goToGameDetails(away, home){
+  if(!away || !home || away==='?' || home==='?') return;
+
+  const week2Match = (DATA.week2 || []).some(r=>
+    (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
+  );
+
+  if(week2Match){
+    showTab('week2');
+    const card = document.querySelector(`.matchup-card[data-away="${away}"][data-home="${home}"]`);
+    if(card){
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      card.classList.remove('card-highlight');
+      void card.offsetWidth; // restart the CSS animation if clicked twice in a row
+      card.classList.add('card-highlight');
+    }
+    return;
+  }
+
+  pendingHighlightGame = {away, home};
+  showTab('live');
+}
+
+function singleGameStatLine(row){
+  const parts = [];
+  if(num(row['Pass Attempts']) > 0) parts.push(`${row['Pass Completions']}/${row['Pass Attempts']}, ${row['Pass Yards']} yds, ${row['Pass TD']} TD${num(row['Interceptions'])>0 ? `, ${row['Interceptions']} INT` : ''}`);
+  if(num(row['Rush Attempts']) > 0) parts.push(`${row['Rush Attempts']} car, ${row['Rush Yards']} yds${num(row['Rush TD'])>0 ? `, ${row['Rush TD']} TD` : ''}`);
+  if(num(row['Receptions']) > 0 || num(row['Receiving Yards']) > 0) parts.push(`${row['Receptions']} rec, ${row['Receiving Yards']} yds${num(row['Receiving TD'])>0 ? `, ${row['Receiving TD']} TD` : ''}`);
+  return parts.join(' &middot; ') || 'No stats';
+}
+
+// Small, self-contained versions of the Upcoming Matchups tab's injury/
+// milestone badges -- those live inside that tab's own closure, so this
+// tab needs its own copies rather than reaching into another tab's internals.
+function injuryBadgeSimple(team){
+  const rows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
+  if(!rows.length) return '';
+  const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
+  const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
+  return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
+}
+function milestoneBadgeSimple(player){
+  const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+  const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+  if(!close.length) return '';
+  const m = close.reduce((closest, e) => (!closest || num(e.Remaining) < num(closest.Remaining)) ? e : closest, null);
+  return `<span class="milestone-badge">&#127919; ${num(m.Remaining)} ${m.Stat} from ${m.Milestone}</span>`;
+}
+
+// ---------- TAB: LIVE MATCHUPS ----------
+// Real box-score recaps for games already pulled into the pipeline (this
+// week or any past week) -- separate from Upcoming Matchups, which only
+// previews the NEXT week and has no actual results yet.
+function renderLive(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Live Matchups</div>
+    <div class="panel-note">Real box scores for games your pipeline has already pulled -- top contributors per side by yards, their actual stat lines, plus injury and milestone context. Click a game in the ticker above to jump straight to it here.</div>
+    <div class="controls">
+      <select id="live-week"></select>
+    </div>
+    <div class="matchup-grid single-col" id="live-grid"></div>
+  </div>`;
+}
+function mountLive(){
+  const weeks = [...new Set((DATA.teamWeek || []).map(r=>num(r.Week)))].sort((a,b)=>a-b);
+  const weekSelect = $('#live-week');
+
+  if(!weeks.length){
+    $('#live-grid').innerHTML = '<div class="empty">No games logged yet.</div>';
+    weekSelect.innerHTML = '';
+    return;
+  }
+
+  const defaultWeek = pendingHighlightGame
+    ? (() => {
+        const row = (DATA.teamWeek || []).find(r =>
+          (r.Team===pendingHighlightGame.away && r.Opponent===pendingHighlightGame.home) ||
+          (r.Team===pendingHighlightGame.home && r.Opponent===pendingHighlightGame.away)
+        );
+        return row ? num(row.Week) : weeks[weeks.length-1];
+      })()
+    : weeks[weeks.length-1];
+
+  weekSelect.innerHTML = weeks.map(w=>`<option value="${w}" ${w===defaultWeek?'selected':''}>Week ${w}</option>`).join('');
+
+  // Simple fallback recap (box score list) -- used only when the detailed
+  // per-game stats (10_game_stats.py, an optional extra data source)
+  // haven't been generated yet for this game.
+  function simpleSideRecap(team, oppTeam, week){
+    const players = (DATA.playerGame || []).filter(r=>r.Team===team && num(r.Week)===week);
+    const totalYds = p => num(p['Pass Yards']) + num(p['Rush Yards']) + num(p['Receiving Yards']);
+    const sorted = [...players].sort((a,b)=> totalYds(b) - totalYds(a)).slice(0, 6);
+    return `
+      <div class="matchup-side-label"><b>${team}</b> box score vs <b>${oppTeam}</b></div>
+      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
+      ${sorted.length ? sorted.map(p=>`
+        <div class="player-preview">
+          <div class="player-preview-head">
+            <span class="player-preview-name">${p.Player}</span>
+            <span class="player-preview-pos">${p.Position}</span>
+          </div>
+          <div class="player-preview-stats">${singleGameStatLine(p)}</div>
+          ${milestoneBadgeSimple(p.Player)}
+        </div>`).join('') : '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>'}
+    `;
+  }
+
+  // QB Performance mini-card -- text only, no headshots.
+  function qbCard(team, week){
+    const qbs = (DATA.gameQbStats || []).filter(r=>r.Team===team && num(r.Week)===week);
+    if(!qbs.length) return '';
+    const qb = qbs.reduce((best, r) => (!best || num(r.Attempts) > num(best.Attempts)) ? r : best, null);
+    return `
+      <div class="qb-card">
+        <div class="qb-card-name">${qb.Player} <span class="player-preview-pos">${team}</span></div>
+        <div class="qb-card-line">${qb.Completions}/${qb.Attempts}, ${qb['Pass Yards']} yds, ${qb['Pass TD']} TD, ${qb.Interceptions} INT</div>
+        ${num(qb['Rush Attempts']) > 0 ? `<div class="qb-card-line">${qb['Rush Attempts']} car, ${qb['Rush Yards']} rush yds${num(qb['Rush TD'])>0 ? `, ${qb['Rush TD']} rush TD` : ''}</div>` : ''}
+        <div class="qb-card-line">Rating: <b style="color:var(--chalk);">${qb['Passer Rating']}</b> &middot; EPA/play: <b style="color:var(--chalk);">${qb['EPA/Play']}</b></div>
+      </div>`;
+  }
+
+  // Detailed team-stats comparison table -- one row per stat, one column
+  // per team. Only shown when 10_game_stats.py has run for this game.
+  function statsTable(awayStats, homeStats, awayTeam, homeTeam){
+    const rows = [
+      ['Total Yards', s=>s['Total Yards']],
+      ['Total Plays', s=>s['Total Plays']],
+      ['EPA/Play', s=>fmt(s['EPA/Play'],3)],
+      ['Pass Yards', s=>s['Pass Yards']],
+      ['Comp/Att', s=>`${s['Pass Completions']}/${s['Pass Attempts']}`],
+      ['EPA/Pass', s=>fmt(s['EPA/Pass'],3)],
+      ['Rush Yards', s=>s['Rush Yards']],
+      ['Rush Attempts', s=>s['Rush Attempts']],
+      ['EPA/Rush', s=>fmt(s['EPA/Rush'],3)],
+      ['1st Downs', s=>s['First Downs']],
+      ['3rd Down', s=>`${s['Third Down Conversions']}/${s['Third Down Attempts']}`],
+      ['Turnovers', s=>num(s['Interceptions Thrown'])+num(s['Fumbles Lost'])],
+      ['Sacks Taken', s=>`${s['Sacks Taken']} (${s['Sack Yards']} yds)`],
+      ['Penalties', s=>`${s['Penalties']} (${s['Penalty Yards']} yds)`],
+    ];
+    return `
+      <table class="game-stats-table">
+        <thead><tr><th></th><th>${awayTeam}</th><th>${homeTeam}</th></tr></thead>
+        <tbody>
+          ${rows.map(([label, fn])=>`<tr><td>${label}</td><td>${fn(awayStats)}</td><td>${fn(homeStats)}</td></tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // Player log: one card per position group (QB, RB, WR, TE), each a
+  // clean bounded box with its own heading and only the columns relevant
+  // to that position -- no irrelevant zero columns, and each group reads
+  // as a clear, contained section instead of floating text + table.
+  const LOG_POSITIONS = ['QB','RB','WR','TE'];
+
+  function teamPlayerLogShell(team, oppTeam, gid){
+    return `
+      <div class="matchup-side-label"><b>${team}</b> player log vs <b>${oppTeam}</b></div>
+      ${injuryBadgeSimple(team) ? `<div class="context-row">${injuryBadgeSimple(team)}</div>` : ''}
+      <div id="live-log-${gid}-${team}"></div>
+    `;
+  }
+
+  function populatePlayerLog(containerId, team, week){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+
+    const players = (DATA.playerGame || []).filter(r=>
+      r.Team===team && num(r.Week)===week && LOG_POSITIONS.includes(r.Position)
+    );
+    const groups = LOG_POSITIONS
+      .map(pos=>({pos, rows: players.filter(p=>p.Position===pos)}))
+      .filter(g=>g.rows.length);
+
+    if(!groups.length){
+      container.innerHTML = '<div class="empty" style="padding:8px 0;">No stats logged for this game.</div>';
+      return;
+    }
+
+    container.innerHTML = groups.map(g=>`
+      <div class="log-pos-group">
+        <div class="log-pos-label">${g.pos}</div>
+        <div id="${containerId}-${g.pos}"></div>
+      </div>
+    `).join('');
+
+    groups.forEach(g=>{
+      const cols = [{key:'Player', label:'Player'}, ...MATCHUP_COLS[g.pos]];
+      buildTable(
+        document.getElementById(`${containerId}-${g.pos}`),
+        cols, g.rows,
+        {defaultSort: MATCHUP_COLS[g.pos][0].key, defaultDir:'desc'}
+      );
+    });
+  }
+
+  function apply(){
+    const week = num(weekSelect.value);
+
+    // Pair team_week rows into games by Game ID -- each game has exactly
+    // two team rows (one per side). This is the core, always-available
+    // data source for "what games exist this week."
+    const byGame = new Map();
+    (DATA.teamWeek || []).filter(r=>num(r.Week)===week).forEach(r=>{
+      const gid = r['Game ID'];
+      if(!gid) return;
+      if(!byGame.has(gid)) byGame.set(gid, []);
+      byGame.get(gid).push(r);
+    });
+
+    const games = [...byGame.entries()]
+      .filter(([, rows]) => rows.length === 2)
+      .map(([gid, rows]) => ({gid, teamA: rows[0].Team, teamB: rows[1].Team}));
+
+    $('#live-grid').innerHTML = games.length ? games.map(g=>{
+      // Detailed stats use nflverse's own game IDs, a different format
+      // from ESPN's -- match by Team + Week instead, which both share.
+      const statsA = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamA && num(r.Week)===week);
+      const statsB = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamB && num(r.Week)===week);
+      const hasDetail = statsA && statsB;
+
+      const scoreHtml = hasDetail
+        ? `<div class="matchup-time">${statsA['Final Score']} &ndash; ${statsB['Final Score']}</div>`
+        : `<div class="matchup-time">WEEK ${week}</div>`;
+
+      return `
+      <div class="matchup-card" data-away="${g.teamA}" data-home="${g.teamB}">
+        <div class="matchup-head">
+          <div class="matchup-teams">${teamName(g.teamA)}<span class="at">@</span>${teamName(g.teamB)}</div>
+          ${scoreHtml}
+        </div>
+        ${hasDetail ? `
+        <div class="live-card-columns">
+          <div class="live-stats-col">
+            <div class="qb-card-row">
+              ${qbCard(g.teamA, week)}
+              ${qbCard(g.teamB, week)}
+            </div>
+            <div class="table-scroll">${statsTable(statsA, statsB, g.teamA, g.teamB)}</div>
+          </div>
+          <div class="live-playerlog-col">
+            <div class="matchup-body stacked">
+              <div class="matchup-side">${teamPlayerLogShell(g.teamA, g.teamB, g.gid)}</div>
+              <div class="matchup-side">${teamPlayerLogShell(g.teamB, g.teamA, g.gid)}</div>
+            </div>
+          </div>
+        </div>
+        ` : `
+        <div class="matchup-body stacked">
+          <div class="matchup-side">${simpleSideRecap(g.teamA, g.teamB, week)}</div>
+          <div class="matchup-side">${simpleSideRecap(g.teamB, g.teamA, week)}</div>
+        </div>`}
+      </div>`;
+    }).join('') : '<div class="empty">No games logged for this week yet.</div>';
+
+    // Populate every game's player-log tables now that their placeholder
+    // divs exist in the DOM (always shown now, no flip needed).
+    games.forEach(g=>{
+      const statsA = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamA && num(r.Week)===week);
+      const statsB = (DATA.gameTeamStats || []).find(r=>r.Team===g.teamB && num(r.Week)===week);
+      if(!statsA || !statsB) return;
+      populatePlayerLog(`live-log-${g.gid}-${g.teamA}`, g.teamA, week);
+      populatePlayerLog(`live-log-${g.gid}-${g.teamB}`, g.teamB, week);
+    });
+
+    // Consume any pending highlight request from a ticker click -- match
+    // either team order since team_week doesn't track true home/away.
+    if(pendingHighlightGame){
+      const {away, home} = pendingHighlightGame;
+      const card = document.querySelector(
+        `.matchup-card[data-away="${away}"][data-home="${home}"], .matchup-card[data-away="${home}"][data-home="${away}"]`
+      );
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+        card.classList.remove('card-highlight');
+        void card.offsetWidth;
+        card.classList.add('card-highlight');
+      }
+      pendingHighlightGame = null;
+    }
+  }
+
+  weekSelect.addEventListener('change', apply);
+  apply();
+}
+
+// ---------- helpers ----------
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function fmt(v, d=1){ const n = num(v); return Number.isInteger(n) ? n.toString() : n.toFixed(d); }
+function teamChip(t){ return `<span class="team-chip">${teamName(t)}</span>`; }
+function heatColor(rank, max){
+  // rank 1 = best matchup (most points allowed) -> mint green, rank max = tough matchup -> coral
+  const pct = 1 - ((rank-1)/(max-1||1));
+  const good = [51,214,166];   // mint
+  const bad  = [255,92,108];   // coral
+  const r = Math.round(bad[0] + (good[0]-bad[0])*pct);
+  const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
+  const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
+  return `background:rgba(${r},${g},${b},0.22);border:1px solid rgba(${r},${g},${b},0.6);color:var(--chalk);`;
+}
+
+let charts = {};
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+// generic sortable table builder
+function buildTable(container, columns, rows, opts={}){
+  const state = container._sortState || {key: opts.defaultSort || columns[0].key, dir: opts.defaultDir || 'desc'};
+  container._sortState = state;
+  let sorted = [...rows].sort((a,b)=>{
+    let av = a[state.key], bv = b[state.key];
+    const an = parseFloat(av), bn = parseFloat(bv);
+    const isNum = !isNaN(an) && !isNaN(bn) && av !== '' && bv !== '';
+    let cmp;
+    if(isNum) cmp = an - bn; else cmp = String(av).localeCompare(String(bv));
+    return state.dir === 'asc' ? cmp : -cmp;
+  });
+  if(opts.limit) sorted = sorted.slice(0, opts.limit);
+
+  const thead = columns.map(c=>{
+    let cls = '';
+    if(c.key === state.key) cls = state.dir === 'asc' ? 'sorted-asc' : 'sorted';
+    return `<th class="${cls}" data-key="${c.key}" style="${c.numeric?'text-align:right':''}">${c.label}</th>`;
+  }).join('');
+
+  const tbody = sorted.map(row=>{
+    return '<tr>' + columns.map(c=>{
+      const raw = row[c.key];
+      const val = c.render ? c.render(raw, row) : raw;
+      return `<td class="${c.numeric?'num':''}">${val}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  container.innerHTML = `<div class="table-scroll"><table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${columns.length}" class="empty">No rows match your filters.</td></tr>`}</tbody></table></div>`;
+
+  $$('th', container).forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(state.key === key){ state.dir = state.dir === 'asc' ? 'desc' : 'asc'; }
+      else { state.key = key; state.dir = 'desc'; }
+      buildTable(container, columns, rows, opts);
+    });
+  });
+}
+
+// ---------- TAB: OVERVIEW ----------
+function renderOverview(){
+  const ts = DATA.teamSummary;
+  const topOff = [...ts].sort((a,b)=>num(b['Offensive Yards Per Game'])-num(a['Offensive Yards Per Game']))[0];
+  const topDef = [...ts].sort((a,b)=>num(a['Offensive Yards Allowed Per Game'])-num(b['Offensive Yards Allowed Per Game']))[0];
+  const topPasser = [...DATA.playerGame].sort((a,b)=>num(b['Pass Yards'])-num(a['Pass Yards']))[0];
+  const topRusher = [...DATA.playerGame].sort((a,b)=>num(b['Rush Yards'])-num(a['Rush Yards']))[0];
+
+  return `
+  <div class="stat-row">
+    <div class="stat-card"><div class="label">Top Offense (Yds/G)</div><div class="value">${teamName(topOff.Team)} <span>${fmt(topOff['Offensive Yards Per Game'])}</span></div></div>
+    <div class="stat-card"><div class="label">Stingiest Defense (Yds Allowed/G)</div><div class="value">${teamName(topDef.Team)} <span>${fmt(topDef['Offensive Yards Allowed Per Game'])}</span></div></div>
+    <div class="stat-card"><div class="label">Most Pass Yds (Single Game)</div><div class="value">${topPasser.Player} <span>${fmt(topPasser['Pass Yards'])} yds</span></div></div>
+    <div class="stat-card"><div class="label">Most Rush Yds (Single Game)</div><div class="value">${topRusher.Player} <span>${fmt(topRusher['Rush Yards'])} yds</span></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Offense vs Defense — Yards Per Game</div>
+      <div class="panel-note">Each dot is a team. Bottom-right = explosive offense facing a leaky defense.</div>
+      <canvas id="chart-overview-scatter" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top 10 Single-Game Yardage Performances</div>
+      <div class="panel-note">Combined rush + receiving + passing yards, across all positions.</div>
+      <canvas id="chart-overview-top" height="260"></canvas>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">League Snapshot</div>
+    <div class="panel-note">Click any column header to sort.</div>
+    <div id="overview-table"></div>
+  </div>
+  `;
+}
+function mountOverview(){
+  const ts = DATA.teamSummary;
+  destroyChart('scatter'); destroyChart('top');
+  const ctx1 = $('#chart-overview-scatter');
+  charts.scatter = new Chart(ctx1, {
+    type:'scatter',
+    data:{ datasets:[{
+      label:'Teams',
+      data: ts.map(r=>({x:num(r['Offensive Yards Per Game']), y:num(r['Offensive Yards Allowed Per Game']), team:r.Team})),
+      backgroundColor:'#4C8DFF',
+      pointRadius:5,
+    }]},
+    options:{
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label:(c)=> `${c.raw.team}: ${c.raw.x} off yds/g, ${c.raw.y} allowed yds/g` } } },
+      scales:{
+        x:{ title:{display:true,text:'Offensive Yards / Game', color:'#8B93AC'}, ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} },
+        y:{ title:{display:true,text:'Yards Allowed / Game', color:'#8B93AC'}, ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }
+      }
+    }
+  });
+  const withTotalYards = DATA.playerGame.map(r=>({
+    ...r, totalYards: num(r['Pass Yards']) + num(r['Rush Yards']) + num(r['Receiving Yards']),
+  }));
+  const top10 = withTotalYards.sort((a,b)=>b.totalYards - a.totalYards).slice(0,10);
+  const ctx2 = $('#chart-overview-top');
+  charts.top = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels: top10.map(r=>r.Player), datasets:[{ label:'Total Yards', data: top10.map(r=>r.totalYards), backgroundColor:'#FFB020' }]},
+    options:{ indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }, y:{ ticks:{color:'#EDEFF7', font:{size:11}}, grid:{display:false} } }
+    }
+  });
+  buildTable($('#overview-table'), [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Made Per Game', label:'TD/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Allowed Per Game', label:'Def Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Allowed Per Game', label:'TD Allowed/G', numeric:true, render:v=>fmt(v)},
+  ], ts, {defaultSort:'Offensive Yards Per Game'});
+}
+
+// ---------- TAB: TEAM SUMMARY ----------
+function renderTeams(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Team Summary — Season Totals & Per-Game Averages</div>
+    <div class="panel-note">Offense and defense in one row. Sort by any column.</div>
+    <div class="controls">
+      <input type="text" id="team-search" placeholder="Filter team (e.g. Bills or BUF)">
+    </div>
+    <div id="teams-table"></div>
+  </div>`;
+}
+function mountTeams(){
+  const cols = [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Games Played', label:'GP', numeric:true},
+    {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Pass Yards Per Game', label:'Pass Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Rush Yards Per Game', label:'Rush Yds/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Made Per Game', label:'TD/G', numeric:true, render:v=>fmt(v)},
+    {key:'Offensive Yards Allowed Per Game', label:'Yds Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Pass Yards Allowed Per Game', label:'Pass Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Rush Yards Allowed Per Game', label:'Rush Allowed/G', numeric:true, render:v=>fmt(v)},
+    {key:'Total TD Allowed Per Game', label:'TD Allowed/G', numeric:true, render:v=>fmt(v)},
+  ];
+  function apply(){
+    const q = $('#team-search').value.trim().toUpperCase();
+    const rows = DATA.teamSummary.filter(r=> !q || r.Team.toUpperCase().includes(q) || teamName(r.Team).toUpperCase().includes(q));
+    buildTable($('#teams-table'), cols, rows, {defaultSort:'Offensive Yards Per Game'});
+  }
+  $('#team-search').addEventListener('input', apply);
+  apply();
+}
+
+// ---------- TAB: TEAM WEEK STATS ----------
+function renderTeamWeek(){
+  const teams = [...new Set(DATA.teamWeek.map(r=>r.Team))].sort();
+  return `
+  <div class="panel">
+    <div class="panel-title">Team Game Log</div>
+    <div class="panel-note">Every team's game-by-game offensive and defensive output.</div>
+    <div class="controls">
+      <select id="tw-team"><option value="">All teams</option>${teams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('')}</select>
+    </div>
+    <div id="tw-table"></div>
+  </div>`;
+}
+function mountTeamWeek(){
+  const cols = [
+    {key:'Week', label:'Wk', numeric:true},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponent', label:'Opp', render:teamChip},
+    {key:'Offensive Yards', label:'Off Yds', numeric:true},
+    {key:'Total TD Made', label:'TD', numeric:true},
+    {key:'Offensive Yards Allowed', label:'Yds Allowed', numeric:true},
+    {key:'Total TD Allowed', label:'TD Allowed', numeric:true},
+  ];
+  function apply(){
+    const t = $('#tw-team').value;
+    const rows = DATA.teamWeek.filter(r=> !t || r.Team === t);
+    buildTable($('#tw-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc'});
+  }
+  $('#tw-team').addEventListener('change', apply);
+  apply();
+}
+
+// ---------- TAB: PLAYER STATS ----------
+function renderPlayers(){
+  const teams = [...new Set(DATA.playerGame.map(r=>r.Team))].sort();
+  const positions = [...new Set(DATA.playerGame.map(r=>r.Position))].sort();
+  return `
+  <div class="panel">
+    <div class="panel-title">Player Game Stats</div>
+    <div class="panel-note">Box scores across every game logged so far this season.</div>
+    <div class="controls">
+      <input type="text" id="pl-search" placeholder="Search player...">
+      <select id="pl-team"><option value="">All teams</option>${teams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('')}</select>
+      <div class="pill-group" id="pl-pos-pills">
+        <span class="pill active" data-pos="">ALL</span>
+        ${positions.map(p=>`<span class="pill" data-pos="${p}">${p}</span>`).join('')}
+      </div>
+    </div>
+    <div id="pl-table"></div>
+  </div>`;
+}
+function mountPlayers(){
+  const cols = [
+    {key:'Week', label:'Wk', numeric:true},
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponent', label:'Opp', render:teamChip},
+    {key:'Position', label:'Pos'},
+    {key:'Pass Yards', label:'PassYd', numeric:true},
+    {key:'Pass TD', label:'PassTD', numeric:true},
+    {key:'Rush Yards', label:'RushYd', numeric:true},
+    {key:'Rush TD', label:'RushTD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'RecYd', numeric:true},
+    {key:'Receiving TD', label:'RecTD', numeric:true},
+  ];
+  let pos = '';
+  function apply(){
+    const q = $('#pl-search').value.trim().toLowerCase();
+    const t = $('#pl-team').value;
+    const rows = DATA.playerGame.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!t || r.Team === t) &&
+      (!pos || r.Position === pos)
+    );
+    buildTable($('#pl-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc', limit:150});
+  }
+  $('#pl-search').addEventListener('input', apply);
+  $('#pl-team').addEventListener('change', apply);
+  $$('#pl-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#pl-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: DEFENSE VS POSITION ----------
+function renderDefense(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Defense vs Position</div>
+    <div class="panel-note">Total and per-game production allowed, by defense and position. "Last 3" shows recent form next to the season rate -- click a row to see the actual game-by-game log behind the numbers, since an average can hide a single blowout game. Mint = weak defense (good matchup), coral = tough matchup.</div>
+    <div class="controls">
+      <div class="pill-group" id="def-pos-pills">
+        <span class="pill active" data-pos="QB">QB</span>
+        <span class="pill" data-pos="RB">RB</span>
+        <span class="pill" data-pos="TE">TE</span>
+        <span class="pill" data-pos="WR">WR</span>
+      </div>
+    </div>
+    <div id="def-table"></div>
+  </div>`;
+}
+
+// Position-specific columns for Defense vs Position -- what a defense
+// allows is only meaningful for the stats that position actually produces.
+// Each column shows the season TOTAL with the per-game rate alongside it
+// (e.g. "875 (125.0/g)").
+function totalPerGameCol(totalKey, perGameKey, label){
+  return {key: perGameKey, totalKey, label};
+}
+
+// Primary stat used to rank each position (also drives the color scale and
+// the "Last 3" recent-form column).
+const DEFENSE_RANK_STAT = {
+  QB: 'Pass Yards Allowed Per Game',
+  RB: 'Rush Yards Allowed Per Game',
+  WR: 'Receiving Yards Allowed Per Game',
+  TE: 'Receiving Yards Allowed Per Game',
+};
+
+const DEFENSE_COLS_BY_POS = {
+  QB: [
+    totalPerGameCol('Pass Yards Allowed', 'Pass Yards Allowed Per Game', 'Pass Yds Allowed'),
+    totalPerGameCol('Pass TD Allowed', 'Pass TD Allowed Per Game', 'Pass TD Allowed'),
+    totalPerGameCol('Interceptions Forced', 'Interceptions Forced Per Game', 'INT Forced'),
+    totalPerGameCol('Rush Yards Allowed', 'Rush Yards Allowed Per Game', 'QB Rush Yds Allowed'),
+    totalPerGameCol('Rush TD Allowed', 'Rush TD Allowed Per Game', 'QB Rush TD Allowed'),
+  ],
+  RB: [
+    totalPerGameCol('Rush Attempts Allowed', 'Rush Attempts Allowed Per Game', 'Rush Att Allowed'),
+    totalPerGameCol('Rush Yards Allowed', 'Rush Yards Allowed Per Game', 'Rush Yds Allowed'),
+    totalPerGameCol('Rush TD Allowed', 'Rush TD Allowed Per Game', 'Rush TD Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
+  ],
+  WR: [
+    totalPerGameCol('Targets Allowed', 'Targets Allowed Per Game', 'Targets Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
+  ],
+  TE: [
+    totalPerGameCol('Targets Allowed', 'Targets Allowed Per Game', 'Targets Allowed'),
+    totalPerGameCol('Receptions Allowed', 'Receptions Allowed Per Game', 'Rec Allowed'),
+    totalPerGameCol('Receiving Yards Allowed', 'Receiving Yards Allowed Per Game', 'Rec Yds Allowed'),
+    totalPerGameCol('Receiving TD Allowed', 'Receiving TD Allowed Per Game', 'Rec TD Allowed'),
+  ],
+};
+
+// Maps a defense-vs-position stat name (as used above) to the raw column
+// name on individual player-game rows, so a per-week breakdown can be
+// rebuilt by summing every opposing player's game that week.
+const DEFENSE_STAT_RAW_MAP = {
+  'Pass Yards Allowed': 'Pass Yards', 'Pass TD Allowed': 'Pass TD', 'Interceptions Forced': 'Interceptions',
+  'Rush Attempts Allowed': 'Rush Attempts', 'Rush Yards Allowed': 'Rush Yards', 'Rush TD Allowed': 'Rush TD',
+  'Receptions Allowed': 'Receptions', 'Receiving Yards Allowed': 'Receiving Yards', 'Receiving TD Allowed': 'Receiving TD',
+  'Targets Allowed': 'Targets',
+};
+
+function getDefenseWeeklyLog(defense, position){
+  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position===position);
+  const byWeek = {};
+  rows.forEach(r=>{
+    const wk = num(r.Week);
+    if(!byWeek[wk]){
+      byWeek[wk] = {Week: wk};
+      Object.values(DEFENSE_STAT_RAW_MAP).forEach(raw=>{ byWeek[wk][raw] = 0; });
+    }
+    Object.values(DEFENSE_STAT_RAW_MAP).forEach(raw=>{ byWeek[wk][raw] += num(r[raw]); });
+  });
+  return Object.values(byWeek).sort((a,b)=>a.Week - b.Week);
+}
+
+function mountDefense(){
+  let pos = 'QB';
+  const expanded = new Set();
+
+  function apply(){
+    const container = $('#def-table');
+    const rows = DATA.defVsPos.filter(r=>r.Position===pos);
+    const rankStat = DEFENSE_RANK_STAT[pos];
+    const rankTotalKey = rankStat.replace(' Per Game', '');
+    const rankRawKey = DEFENSE_STAT_RAW_MAP[rankTotalKey];
+    const posCols = DEFENSE_COLS_BY_POS[pos] || [];
+
+    // Rank teams by the primary allowed stat -- highest (weakest defense) =
+    // rank 1 = best matchup, same convention used everywhere else.
+    const sorted = [...rows].sort((a,b)=> num(b[rankStat]) - num(a[rankStat]));
+    const maxRank = sorted.length;
+
+    const headCells = ['', '#', 'Defense', 'Last 3', ...posCols.map(c=>c.label)];
+    const theadHtml = `<tr>${headCells.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+
+    const bodyHtml = sorted.map((row, i)=>{
+      const rank = i + 1;
+      const defense = row.Defense;
+      const log = getDefenseWeeklyLog(defense, pos);
+      const last3 = log.slice(-3);
+      const last3Avg = last3.length ? last3.reduce((s,w)=>s + num(w[rankRawKey]), 0) / last3.length : null;
+      const seasonAvg = num(row[rankStat]);
+      const trend = last3Avg === null ? '' :
+        last3Avg > seasonAvg * 1.15 ? '<span style="color:var(--mint);">&#9650;</span>' :
+        last3Avg < seasonAvg * 0.85 ? '<span style="color:var(--red);">&#9660;</span>' : '';
+      const isOpen = expanded.has(defense);
+
+      const rowHtml = `
+        <tr class="def-row" data-defense="${defense}" style="cursor:pointer;">
+          <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
+          <td class="num"><span class="heat" style="${heatColor(rank, maxRank)}">#${rank}</span></td>
+          <td>${teamChip(defense)}</td>
+          <td class="num">${last3Avg === null ? '&mdash;' : fmt(last3Avg) + '/g'} ${trend}</td>
+          ${posCols.map(c=>`<td class="num">${Math.round(num(row[c.totalKey])).toLocaleString()} <span style="color:var(--chalk-dim);">(${fmt(num(row[c.key]))}/g)</span></td>`).join('')}
+        </tr>`;
+
+      const detailHtml = isOpen ? `
+        <tr class="def-detail-row">
+          <td colspan="${headCells.length}" style="background:var(--field-deep);padding:10px 16px;">
+            ${log.length ? `
+            <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">Week-by-week vs ${pos} (${DEFENSE_STAT_RAW_MAP[rankTotalKey]}):</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${log.map(w=>`<span class="odds-chip">Wk ${w.Week}: ${fmt(num(w[rankRawKey]))}</span>`).join('')}
+            </div>` : `<div class="empty" style="padding:0;">No games logged yet.</div>`}
+          </td>
+        </tr>` : '';
+
+      return rowHtml + detailHtml;
+    }).join('');
+
+    container.innerHTML = `<div class="table-scroll"><table><thead>${theadHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+
+    $$('.def-row', container).forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        const defense = tr.dataset.defense;
+        if(expanded.has(defense)) expanded.delete(defense);
+        else expanded.add(defense);
+        apply();
+      });
+    });
+  }
+
+  $$('#def-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#def-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      expanded.clear();
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: STRENGTH OF SCHEDULE ----------
+function renderSOS(){
+  return `
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Strength of Schedule Played</div>
+      <div class="panel-note">Based on combined win-loss record of opponents faced so far.</div>
+      <div id="sos-table"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Toughest vs Easiest Schedules</div>
+      <canvas id="chart-sos" height="320"></canvas>
+    </div>
+  </div>`;
+}
+function mountSOS(){
+  const cols = [
+    {key:'Played SOS Rank', label:'Rank', numeric:true, render:v=>`<span class="rank-badge">${v}</span>`},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Opponents Played', label:'Opponent(s)'},
+    {key:'Opponent Combined Record', label:'Opp Record'},
+    {key:'Played SOS', label:'SOS', numeric:true, render:v=>fmt(v,3)},
+    {key:'Opponent TD Made Per Game', label:'Opp TD/G', numeric:true, render:v=>fmt(v)},
+  ];
+  buildTable($('#sos-table'), cols, DATA.sos, {defaultSort:'Played SOS Rank', defaultDir:'asc'});
+
+  const sorted = [...DATA.sos].sort((a,b)=>num(b['Played SOS'])-num(a['Played SOS']));
+  destroyChart('sos');
+  charts.sos = new Chart($('#chart-sos'), {
+    type:'bar',
+    data:{ labels: sorted.map(r=>r.Team), datasets:[{ label:'SOS', data: sorted.map(r=>num(r['Played SOS'])), backgroundColor: sorted.map(r=> num(r['Played SOS'])>=0.5 ? '#FF5C6C' : '#33D6A6') }]},
+    options:{ plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:'#8B93AC', maxRotation:90, minRotation:90, font:{size:9}}, grid:{display:false} },
+               y:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} } }
+    }
+  });
+}
+
+// ---------- TAB: WEEK 2 MATCHUPS ----------
+function renderWeek2(){
+  const wk = DATA.week2 && DATA.week2.length ? DATA.week2[0].Week : null;
+  return `
+  <div class="panel">
+    <div class="wk2-sticky-header">
+      <div class="panel-title">${wk ? `Week ${wk} Matchups` : 'Upcoming Matchups'}</div>
+      <div class="controls">
+        <input type="text" id="wk2-search" placeholder="Filter team (e.g. Bills or BUF)">
+      </div>
+    </div>
+    <div class="panel-note">Each team's top producers this season with their real stat line (including targets), red zone usage and share of their team's red zone looks, how the opposing defense has performed against that position, rest days since their last game, INT margin so far (interceptions only), and any career milestone they're closing in on. DIV badge marks divisional matchups.</div>
+    <div class="matchup-grid single-col" id="wk2-days"></div>
+  </div>`;
+}
+
+function mountWeek2(){
+  function apply(){
+    const q = $('#wk2-search').value.trim().toUpperCase();
+
+    // Collapse the two team-perspective rows ESPN/the pipeline produces per
+    // game into one row per actual game, keeping both sides' data.
+    const games = new Map();
+    (DATA.week2 || []).forEach(r=>{
+      const gid = r['Game ID'];
+      if(!gid) return;
+      if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+      const isHome = r['Home/Away'] === 'Home';
+      games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+    });
+
+    let gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away);
+
+    if(q){
+      gameList = gameList.filter(g=>{
+        const home = g.sides.home, away = g.sides.away;
+        return [home.Team, home.Opponent, away.Team, away.Opponent].some(t=>
+          t.toUpperCase().includes(q) || teamName(t).toUpperCase().includes(q)
+        );
+      });
+    }
+
+    gameList.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+    function meterColor(pct){
+      // Same mint-to-coral scale used everywhere else: high value (defense
+      // allows a lot) = good matchup = mint; low value = coral.
+      const good = [51,214,166], bad = [255,92,108];
+      const r = Math.round(bad[0] + (good[0]-bad[0])*pct);
+      const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
+      const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    // Rest & schedule context: days since a team's last completed game.
+    function getTeamRestInfo(team, gameDate){
+      const weeks = (DATA.teamWeek || []).filter(r=>r.Team===team);
+      if(!weeks.length) return null;
+      let lastGame = null;
+      weeks.forEach(r=>{
+        const d = new Date(r.Date);
+        if(!isNaN(d) && (!lastGame || d > lastGame)) lastGame = d;
+      });
+      if(!lastGame) return null;
+      const gd = new Date(gameDate);
+      if(isNaN(gd)) return null;
+      const days = Math.round((gd - lastGame) / (1000*60*60*24));
+      if(days <= 0) return null;
+      let label, cls;
+      if(days <= 4){ label = `Short week &middot; ${days}d rest`; cls='rest-short'; }
+      else if(days >= 12){ label = `Off bye &middot; ${days}d rest`; cls='rest-bye'; }
+      else { label = `${days}d rest`; cls='rest-normal'; }
+      return {days, label, cls};
+    }
+
+    // Static division map -- doesn't change during a season.
+    const TEAM_DIVISIONS = {
+      ARI:'NFC West', ATL:'NFC South', BAL:'AFC North', BUF:'AFC East',
+      CAR:'NFC South', CHI:'NFC North', CIN:'AFC North', CLE:'AFC North',
+      DAL:'NFC East', DEN:'AFC West', DET:'NFC North', GB:'NFC North',
+      HOU:'AFC South', IND:'AFC South', JAX:'AFC South', KC:'AFC West',
+      LAC:'AFC West', LAR:'NFC West', LV:'AFC West', MIA:'AFC East',
+      MIN:'NFC North', NE:'AFC East', NO:'NFC South', NYG:'NFC East',
+      NYJ:'AFC East', PHI:'NFC East', PIT:'AFC North', SEA:'NFC West',
+      SF:'NFC West', TB:'NFC South', TEN:'AFC South', WSH:'NFC East',
+    };
+
+    // INT margin (takeaways - giveaways) from data already loaded. NOTE:
+    // this is interceptions only -- fumbles aren't tracked in the pipeline
+    // yet, so this is a partial turnover picture, not the full thing.
+    function getTeamIntMargin(team){
+      const forced = (DATA.playerGame || []).filter(r=>r.Opponent===team).reduce((s,r)=>s+num(r['Interceptions']),0);
+      const thrown = (DATA.playerGame || []).filter(r=>r.Team===team).reduce((s,r)=>s+num(r['Interceptions']),0);
+      return forced - thrown;
+    }
+    function intMarginBadge(team){
+      const margin = getTeamIntMargin(team);
+      if(margin === 0) return `<span class="context-chip">INT margin: even</span>`;
+      const color = margin > 0 ? 'var(--mint)' : 'var(--red)';
+      return `<span class="context-chip" style="color:${color};">INT margin: ${margin > 0 ? '+' : ''}${margin}</span>`;
+    }
+
+    function injuryBadge(team){
+      const rows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
+      if(!rows.length) return '';
+      const outCount = rows.filter(r=>/out|doubtful/i.test(r.Status || '')).length;
+      const names = rows.map(r=>`${r.Player} (${r.Status})`).join(', ');
+      return `<span class="context-chip" style="${outCount ? 'color:var(--red);' : ''}" title="${names}">${rows.length} injur${rows.length===1?'y':'ies'}${outCount ? ` &middot; ${outCount} OUT` : ''}</span>`;
+    }
+
+    // EPA matchup context: this offense's EPA/play next to what THIS
+    // SPECIFIC opposing defense has allowed -- the exact "Team A offense
+    // vs Team B defense" comparison, shown as two real numbers side by
+    // side, not combined into a prediction.
+    function getTeamEpa(team, side){
+      const row = (DATA.epa || []).find(r=>r.Team===team && r.Side===side);
+      return row ? {epa: num(row['EPA/Play']), gp: num(row['Games Played'])} : null;
+    }
+    function epaMatchupLine(offenseTeam, defenseTeam){
+      const off = getTeamEpa(offenseTeam, 'Offense');
+      const def = getTeamEpa(defenseTeam, 'Defense');
+      if(!off && !def) return '';
+      const smallSample = (off && off.gp < 4) || (def && def.gp < 4);
+      const parts = [];
+      if(off) parts.push(`${offenseTeam} off: ${fmt(off.epa,3)} EPA/play`);
+      if(def) parts.push(`${defenseTeam} D allows: ${fmt(def.epa,3)} EPA/play`);
+      return `<div class="context-row"><span class="context-chip" title="EPA/play: real per-play efficiency, shown as-is -- not combined into a prediction">${parts.join(' &middot; ')}${smallSample ? ' (small sample)' : ''}</span></div>`;
+    }
+
+    // Closest active milestone for a player, if any (a player can be
+    // tracked toward more than one stat's milestone -- show whichever is
+    // nearest so this stays useful, not cluttered). Only counts as "close"
+    // if within 20% of that stat's milestone step (e.g. within 10 for a
+    // 50-TD milestone, within 200 for a 1000-yard one) -- otherwise a
+    // player merely on-track toward some future round number isn't
+    // meaningfully "chasing" it yet.
+    function getClosestMilestone(player){
+      const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+      const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+      if(!close.length) return null;
+      return close.reduce((closest, m) =>
+        (!closest || num(m.Remaining) < num(closest.Remaining)) ? m : closest
+      , null);
+    }
+    function milestoneBadge(player){
+      const m = getClosestMilestone(player);
+      if(!m) return '';
+      const remaining = num(m.Remaining);
+      return `<span class="milestone-badge">&#127919; ${remaining} ${m.Stat} from ${m.Milestone}</span>`;
+    }
+
+    // A real lineup breakdown per team: 1 QB, 2 RB, 3 WR, 2 TE, each the
+    // top producer(s) at that position this season -- ranked by the yardage
+    // relevant to that position (not a fantasy points formula).
+    const LINEUP_SLOTS = {QB:1, RB:2, WR:3, TE:2};
+    const RANK_VALUE_BY_POS = {
+      QB: g => num(g['Pass Yards']),
+      RB: g => num(g['Rush Yards']) + num(g['Receiving Yards']),
+      WR: g => num(g['Receiving Yards']),
+      TE: g => num(g['Receiving Yards']),
+    };
+
+    function getTopPlayers(team){
+      const byPlayer = {};
+      (DATA.playerGame || []).filter(r=>r.Team===team).forEach(r=>{
+        if(!byPlayer[r.Player]) byPlayer[r.Player] = {Player:r.Player, Position:r.Position, games:[]};
+        byPlayer[r.Player].games.push(r);
+      });
+      const summarized = Object.values(byPlayer).map(p=>{
+        const valueFn = RANK_VALUE_BY_POS[p.Position] || (()=>0);
+        return {...p, rankValue: p.games.reduce((s,g)=>s+valueFn(g), 0)};
+      });
+
+      const lineup = [];
+      Object.entries(LINEUP_SLOTS).forEach(([pos, count])=>{
+        const atPos = summarized
+          .filter(p=>p.Position===pos)
+          .sort((a,b)=>b.rankValue - a.rankValue)
+          .slice(0, count);
+        lineup.push(...atPos);
+      });
+      return lineup;
+    }
+
+    // Real box-score line summed across their games, formatted by what's
+    // actually relevant to their position rather than a generic PPG number.
+    function statLine(player){
+      const sum = key => player.games.reduce((s,g)=>s+num(g[key]),0);
+      const passAtt=sum('Pass Attempts'), passCmp=sum('Pass Completions'), passYds=sum('Pass Yards'), passTD=sum('Pass TD'), int=sum('Interceptions');
+      const rushAtt=sum('Rush Attempts'), rushYds=sum('Rush Yards'), rushTD=sum('Rush TD');
+      const rec=sum('Receptions'), recYds=sum('Receiving Yards'), recTD=sum('Receiving TD'), targets=sum('Targets');
+
+      const parts = [];
+      if(passAtt > 0) parts.push(`${Math.round(passCmp)}/${Math.round(passAtt)}, ${Math.round(passYds)} yds, ${Math.round(passTD)} TD${int>0?`, ${Math.round(int)} INT`:''}`);
+      if(rushAtt > 0) parts.push(`${Math.round(rushAtt)} car, ${Math.round(rushYds)} yds${rushTD>0?`, ${Math.round(rushTD)} TD`:''}`);
+      if(rec > 0 || recYds > 0 || targets > 0) parts.push(`${Math.round(rec)} rec${targets>0?` (${Math.round(targets)} tgt)`:''}, ${Math.round(recYds)} yds${recTD>0?`, ${Math.round(recTD)} TD`:''}`);
+      return parts.join(' &middot; ') || 'No stats yet';
+    }
+
+    // Raw stat that actually matters for each position -- yards and
+    // touchdowns allowed, the kind of thing a betting line is built on --
+    // instead of a fantasy-points conversion.
+    const MATCHUP_STAT_BY_POS = {
+      QB: {primary:'Pass Yards Allowed Per Game', primaryLabel:'pass yds/g', secondary:'Pass TD Allowed Per Game', secondaryLabel:'pass TD/g'},
+      RB: {primary:'Rush Yards Allowed Per Game', primaryLabel:'rush yds/g', secondary:'Rush TD Allowed Per Game', secondaryLabel:'rush TD/g'},
+      WR: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
+      TE: {primary:'Receiving Yards Allowed Per Game', primaryLabel:'rec yds/g', secondary:'Receptions Allowed Per Game', secondaryLabel:'rec/g'},
+    };
+
+    function teamContextHtml(team, defenseTeam, gameDate){
+      const rest = getTeamRestInfo(team, gameDate);
+      const margin = getTeamIntMargin(team);
+      const off = getTeamEpa(team, 'Offense');
+      const def = getTeamEpa(defenseTeam, 'Defense');
+      const injRows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
+
+      const items = [
+        {label: 'Rest', value: rest ? rest.label.replace(/<[^>]*>/g,'') : 'No data yet', color: rest?.cls==='rest-short' ? 'var(--red)' : rest?.cls==='rest-bye' ? 'var(--mint)' : null},
+        {label: 'INT Margin', value: margin===0 ? 'Even' : (margin>0 ? `+${margin}` : `${margin}`), color: margin>0 ? 'var(--mint)' : margin<0 ? 'var(--red)' : null},
+      ];
+      if(off) items.push({label: `${team} Offensive EPA/Play`, value: `${fmt(off.epa,3)}${off.gp<4 ? ' (small sample)' : ''}`});
+      if(def) items.push({label: `${defenseTeam} Defensive EPA/Play Allowed`, value: `${fmt(def.epa,3)}${def.gp<4 ? ' (small sample)' : ''}`});
+
+      // Injuries get their own row per player (name + position), not a
+      // single count -- the position comes from the player-game data since
+      // the injury feed itself doesn't carry it.
+      const injuryListHtml = injRows.length ? injRows.map(r=>{
+        const posRow = (DATA.playerGame || []).find(p=>p.Player===r.Player && p.Team===team);
+        const pos = posRow ? posRow.Position : '';
+        const isOut = /out|doubtful/i.test(r.Status || '');
+        return `
+          <div class="player-preview">
+            <div class="player-preview-head">
+              <span class="player-preview-name">${r.Player}</span>
+              <span class="player-preview-pos">${pos}</span>
+            </div>
+            <div class="player-preview-stats" style="${isOut ? 'color:var(--red);' : ''}">${r.Status}${r.Injury ? ` &middot; ${r.Injury}` : ''}</div>
+          </div>`;
+      }).join('') : `
+        <div class="player-preview">
+          <div class="player-preview-head"><span class="player-preview-name">Injuries</span></div>
+          <div class="player-preview-stats">None listed</div>
+        </div>`;
+
+      return `
+        <div class="matchup-side-label" title="${teamName(team)} offense vs ${teamName(defenseTeam)} defense">
+          <b>${team}</b> offense vs <b>${defenseTeam}</b> D
+        </div>
+        ${items.map(it=>`
+          <div class="player-preview">
+            <div class="player-preview-head">
+              <span class="player-preview-name">${it.label}</span>
+            </div>
+            <div class="player-preview-stats" style="${it.color ? `color:${it.color};` : ''}">${it.value}</div>
+          </div>
+        `).join('')}
+        ${injuryListHtml}
+      `;
+    }
+
+    function playerListHtml(team, defenseTeam){
+      const topPlayers = getTopPlayers(team);
+      return `
+        <div class="matchup-side-label"><b>${team}</b> top players</div>
+        ${topPlayers.length ? topPlayers.map(p=>{
+          const cfg = MATCHUP_STAT_BY_POS[p.Position];
+          const dvp = cfg ? (DATA.defVsPos || []).find(d=>d.Defense===defenseTeam && d.Position===p.Position) : null;
+          let matchupTag = '';
+          if(dvp){
+            const allAtPos = (DATA.defVsPos || []).filter(d=>d.Position===p.Position);
+            const primaryVal = num(dvp[cfg.primary]);
+            const maxPrimary = Math.max(1, ...allAtPos.map(d=>num(d[cfg.primary])));
+            const pct = Math.min(1, primaryVal / maxPrimary);
+            const color = meterColor(pct);
+            const secondaryVal = fmt(num(dvp[cfg.secondary]));
+            matchupTag = `<span class="player-preview-matchup" style="color:${color};">${defenseTeam} allows ${fmt(primaryVal)} ${cfg.primaryLabel}, ${secondaryVal} ${cfg.secondaryLabel}</span>`;
+          }
+          const rz = (DATA.redzone || []).find(r=>r.Player===p.Player && r.Team===team);
+          let rzBadge = '';
+          if(rz){
+            const rzParts = [];
+            if(num(rz['RZ Targets']) > 0) rzParts.push(`${Math.round(num(rz['RZ Targets']))} RZ tgt (${Math.round(num(rz['RZ Target Share'])*100)}% share)`);
+            if(num(rz['RZ Rush Attempts']) > 0) rzParts.push(`${Math.round(num(rz['RZ Rush Attempts']))} RZ car (${Math.round(num(rz['RZ Rush Share'])*100)}% share)`);
+            if(rzParts.length) rzBadge = `<span class="player-preview-matchup" style="color:var(--gold);">${rzParts.join(' &middot; ')}</span>`;
+          }
+          return `
+          <div class="player-preview">
+            <div class="player-preview-head">
+              <span class="player-preview-name">${p.Player}</span>
+              <span class="player-preview-pos">${p.Position}</span>
+            </div>
+            <div class="player-preview-stats">${statLine(p)}</div>
+            ${matchupTag}
+            ${rzBadge}
+            ${milestoneBadge(p.Player)}
+          </div>`;
+        }).join('') : '<div class="empty" style="padding:8px 0;">No player stats logged yet.</div>'}
+      `;
+    }
+
+    $('#wk2-days').innerHTML = gameList.length ? gameList.map(g=>{
+      const home = g.sides.home, away = g.sides.away;
+      const dt = new Date(g.date);
+      const dayStr = isNaN(dt) ? 'TBD' : dt.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+      const timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+      const mlBadge = ml => (ml !== '' && ml != null && !isNaN(num(ml))) ? `<span class="ml-badge">${num(ml)>0?'+':''}${Math.round(num(ml))}</span>` : '';
+      const spread = home.Spread || away.Spread || '';
+      const overUnder = home['Over/Under'] || away['Over/Under'] || '';
+      const isDivisional = TEAM_DIVISIONS[away.Team] && TEAM_DIVISIONS[away.Team] === TEAM_DIVISIONS[home.Team];
+
+      return `
+      <div class="matchup-card" data-away="${away.Team}" data-home="${home.Team}">
+        <div class="matchup-head">
+          <div class="matchup-teams">
+            ${teamName(away.Team)}${mlBadge(away['Team Moneyline'])}<span class="at">@</span>${teamName(home.Team)}${mlBadge(home['Team Moneyline'])}
+            ${isDivisional ? `<span class="div-badge">DIV</span>` : ''}
+          </div>
+          <div class="matchup-time">${dayStr}${timeStr ? ' &middot; '+timeStr : ''}</div>
+        </div>
+        ${(spread || overUnder) ? `
+        <div class="odds-strip">
+          ${spread ? `<span class="odds-chip">${spread}</span>` : ''}
+          ${overUnder ? `<span class="odds-chip">O/U ${overUnder}</span>` : ''}
+        </div>` : ''}
+        <div class="wk2-four-col">
+          <div>${teamContextHtml(away.Team, home.Team, g.date)}</div>
+          <div>${playerListHtml(away.Team, home.Team)}</div>
+          <div>${teamContextHtml(home.Team, away.Team, g.date)}</div>
+          <div>${playerListHtml(home.Team, away.Team)}</div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">No matchups match your filter.</div>';
+  }
+
+  $('#wk2-search').addEventListener('input', apply);
+  apply();
+}
+
+// ---------- TAB: MATCHUP EXPLORER ----------
+const MATCHUP_POSITIONS = ['QB','RB','TE','WR'];
+function renderMatchup(){
+  const teams = [...new Set(DATA.teamSummary.map(r=>r.Team))].sort();
+  const defaultOff = teams.includes('DAL') ? 'DAL' : teams[0];
+  const defaultDef = teams.includes('NYG') ? 'NYG' : teams[1];
+  return `
+  <div class="panel">
+    <div class="panel-title">Matchup Explorer</div>
+    <div class="panel-note">Pick an offense, a defense, and a position. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
+    <div class="controls">
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
+      <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
+      <span style="color:var(--gold);font-family:var(--display);font-size:14px;">VS</span>
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">DEFENSE</label>
+      <select id="mu-def">${teams.map(t=>`<option value="${t}" ${t===defaultDef?'selected':''}>${teamName(t)}</option>`).join('')}</select>
+      <div class="pill-group" id="mu-pos-pills">
+        ${MATCHUP_POSITIONS.map((p,i)=>`<span class="pill ${i===0?'active':''}" data-pos="${p}">${p}</span>`).join('')}
+      </div>
+    </div>
+    <div id="mu-rank"></div>
+    <div class="mu-grid">
+      <div>
+        <div class="panel-title" id="mu-off-title" style="font-size:16px;"></div>
+        <div id="mu-off-table"></div>
+      </div>
+      <div>
+        <div class="panel-title" id="mu-def-title" style="font-size:16px;"></div>
+        <div id="mu-def-table"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+const MATCHUP_COLS = {
+  base: [
+    {key:'Week', label:'Week', numeric:true},
+    {key:'Player', label:'Player'},
+    {key:'Position', label:'Pos'},
+    {key:'Team', label:'Team', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
+    {key:'Opponent', label:'Opp', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
+  ],
+  QB: [
+    {key:'Pass Completions', label:'Cmp', numeric:true},
+    {key:'Pass Attempts', label:'Att', numeric:true},
+    {key:'Pass Yards', label:'Pass Yds', numeric:true},
+    {key:'Pass TD', label:'Pass TD', numeric:true},
+    {key:'Interceptions', label:'INT', numeric:true},
+    {key:'Rush Attempts', label:'Rush Att', numeric:true},
+    {key:'Rush Yards', label:'Rush Yds', numeric:true},
+    {key:'Rush TD', label:'Rush TD', numeric:true},
+  ],
+  RB: [
+    {key:'Rush Attempts', label:'Rush Att', numeric:true},
+    {key:'Rush Yards', label:'Rush Yds', numeric:true},
+    {key:'Rush TD', label:'Rush TD', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+  ],
+  TE: [
+    {key:'Targets', label:'Tgt', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+  ],
+  WR: [
+    {key:'Targets', label:'Tgt', numeric:true},
+    {key:'Receptions', label:'Rec', numeric:true},
+    {key:'Receiving Yards', label:'Rec Yds', numeric:true},
+    {key:'Receiving TD', label:'Rec TD', numeric:true},
+  ],
+};
+
+function mountMatchup(){
+  let pos = MATCHUP_POSITIONS[0];
+  function apply(){
+    const off = $('#mu-off').value;
+    const def = $('#mu-def').value;
+    const cols = [...MATCHUP_COLS.base, ...MATCHUP_COLS[pos]];
+
+    const offRows = DATA.playerGame.filter(r=>r.Team===off && r.Position===pos);
+    // Exclude the offense's own team here -- the point of this table is to
+    // show OTHER teams' performances against the defense, for comparison.
+    // Without this, a team that already played this defense sees its own
+    // game mirrored back in both tables.
+    const defRows = DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off);
+
+    $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
+    $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
+
+    buildTable($('#mu-off-table'), cols, offRows, {defaultSort:'Week', defaultDir:'asc'});
+    buildTable($('#mu-def-table'), cols, defRows, {defaultSort:'Week', defaultDir:'asc'});
+
+    const defVs = DATA.defVsPos.find(r=>r.Defense===def && r.Position===pos);
+    const allAtPos = DATA.defVsPos.filter(r=>r.Position===pos);
+    const rankStat = DEFENSE_RANK_STAT[pos];
+    if(defVs && rankStat){
+      const sorted = [...allAtPos].sort((a,b)=> num(b[rankStat]) - num(a[rankStat]));
+      const rank = sorted.findIndex(r=>r.Defense===def) + 1;
+      const maxRank = sorted.length;
+      const statVal = fmt(defVs[rankStat]);
+      const statLabel = rankStat.replace(' Allowed Per Game', '/g allowed');
+      $('#mu-rank').innerHTML = `<div style="margin-bottom:14px;"><span class="heat" style="${heatColor(rank, maxRank)}">${teamChip(def)} ranks #${rank} of ${maxRank} vs ${pos} &middot; ${statVal} ${statLabel}</span></div>`;
+    } else {
+      $('#mu-rank').innerHTML = '';
+    }
+  }
+  $('#mu-off').addEventListener('change', apply);
+  $('#mu-def').addEventListener('change', apply);
+  $$('#mu-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#mu-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: STREAKS ----------
+// Consecutive-game streaks by position -- the kind of trend line betting
+// props are built on ("hit the over in N straight games"). "Any TD" is
+// tracked for every position since anytime-TD is the single most-bet
+// streak of all.
+const STREAK_DEFS = {
+  QB: [
+    {key:'passTD2', label:'2+ Pass TD', check:r=>num(r['Pass TD'])>=2},
+    {key:'pass250', label:'250+ Pass Yds', check:r=>num(r['Pass Yards'])>=250},
+    {key:'rushTD', label:'Any TD', highlight:true, check:r=>num(r['Rush TD'])>=1},
+  ],
+  RB: [
+    {key:'rush100', label:'100+ Rush Yds', check:r=>num(r['Rush Yards'])>=100},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Rush TD'])>=1 || num(r['Receiving TD'])>=1},
+  ],
+  WR: [
+    {key:'rec75', label:'75+ Rec Yds', check:r=>num(r['Receiving Yards'])>=75},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Receiving TD'])>=1 || num(r['Rush TD'])>=1},
+  ],
+  TE: [
+    {key:'rec50', label:'50+ Rec Yds', check:r=>num(r['Receiving Yards'])>=50},
+    {key:'anyTD', label:'Any TD', highlight:true, check:r=>num(r['Receiving TD'])>=1},
+  ],
+};
+
+function computeStreaks(){
+  const byPlayer = {};
+  (DATA.playerGame || []).forEach(r=>{
+    const key = r.Player + '|' + r.Team;
+    if(!byPlayer[key]) byPlayer[key] = {Player:r.Player, Team:r.Team, Position:r.Position, games:[]};
+    byPlayer[key].games.push(r);
+  });
+
+  const results = [];
+  Object.values(byPlayer).forEach(p=>{
+    const defs = STREAK_DEFS[p.Position];
+    if(!defs) return;
+    const sortedGames = [...p.games].sort((a,b)=>num(a.Week) - num(b.Week));
+
+    defs.forEach(def=>{
+      // Walk backward from the most recent game; streak breaks the first
+      // time a game fails the condition.
+      let streak = 0;
+      for(let i = sortedGames.length - 1; i >= 0; i--){
+        if(def.check(sortedGames[i])) streak++;
+        else break;
+      }
+      if(streak >= 2){
+        results.push({
+          Player: p.Player, Team: p.Team, Position: p.Position,
+          StreakType: def.label, StreakLength: streak, highlight: !!def.highlight,
+        });
+      }
+    });
+  });
+
+  return results.sort((a,b)=> b.StreakLength - a.StreakLength);
+}
+
+function renderStreaks(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Active Streaks</div>
+    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are touchdown streaks (for QBs, rushing TDs specifically -- passing TDs are tracked separately under "2+ Pass TD").</div>
+    <div class="controls">
+      <input type="text" id="streak-search" placeholder="Search player...">
+      <select id="streak-type"><option value="">All streak types</option></select>
+      <div class="pill-group" id="streak-pos-pills">
+        <span class="pill active" data-pos="">ALL</span>
+        <span class="pill" data-pos="QB">QB</span>
+        <span class="pill" data-pos="RB">RB</span>
+        <span class="pill" data-pos="WR">WR</span>
+        <span class="pill" data-pos="TE">TE</span>
+      </div>
+    </div>
+    <div id="streaks-table"></div>
+  </div>`;
+}
+
+function mountStreaks(){
+  const allStreaks = computeStreaks();
+  const container = $('#streaks-table');
+
+  const typeOptions = [...new Set(allStreaks.map(r=>r.StreakType))].sort();
+  const typeSelect = $('#streak-type');
+  typeSelect.innerHTML = '<option value="">All streak types</option>' +
+    typeOptions.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+  const cols = [
+    {key:'StreakLength', label:'Streak', numeric:true, render:(v, row)=>
+      `<span class="heat" style="${row.highlight ? 'background:rgba(227,169,59,0.22);border:1px solid rgba(227,169,59,0.6);' : 'background:rgba(51,214,166,0.18);border:1px solid rgba(51,214,166,0.5);'}">${v} games</span>`
+    },
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Position', label:'Pos'},
+    {key:'StreakType', label:'Streak Type'},
+  ];
+
+  let pos = '';
+  function apply(){
+    const q = $('#streak-search').value.trim().toLowerCase();
+    const streakType = typeSelect.value;
+    const filtered = allStreaks.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!pos || r.Position === pos) &&
+      (!streakType || r.StreakType === streakType)
+    );
+    buildTable(container, cols, filtered, {defaultSort:'StreakLength', defaultDir:'desc'});
+    if(!filtered.length){
+      container.innerHTML = '<div class="empty">No active streaks match your filters.</div>';
+    }
+  }
+
+  $('#streak-search').addEventListener('input', apply);
+  typeSelect.addEventListener('change', apply);
+  $$('#streak-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#streak-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      pos = p.dataset.pos;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: MILESTONE WATCH ----------
+// This tab is powered by data/nfl_2026_milestones.csv, generated by
+// 07_milestone_watch.py -- TRUE career totals, built from nflverse's public
+// dataset (prior seasons) plus this season's totals from your own ESPN
+// pipeline. No manual list to maintain, no ESPN endpoint guesswork.
+function renderMilestones(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Milestone Watch</div>
+    <div class="panel-note">
+      True career totals -- prior seasons from nflverse's public dataset, this season's
+      games added automatically from your own pipeline. Closest to the milestone sorts first.
+      ${!DATA.milestones || !DATA.milestones.length ? '<br><br><b>No milestone data yet</b> -- run the pipeline (07_milestone_watch.py) to populate this.' : ''}
+    </div>
+    <div class="controls">
+      <input type="text" id="ms-search" placeholder="Search player...">
+      <select id="ms-stat"><option value="">All stats</option></select>
+    </div>
+    <div id="milestones-table"></div>
+  </div>`;
+}
+function mountMilestones(){
+  const container = $('#milestones-table');
+  const raw = DATA.milestones || [];
+  if(!raw.length){
+    container.innerHTML = '<div class="empty">No milestone data yet. Run 07_milestone_watch.py.</div>';
+    return;
+  }
+
+  const rows = raw.map(m=>({
+    Player: m.Player, Team: m.Team, Position: m.Position, Stat: m.Stat,
+    current: num(m['Current Total']),
+    target: num(m['Milestone']),
+    remaining: num(m['Remaining']),
+  }));
+
+  const statOptions = [...new Set(rows.map(r=>r.Stat))].sort();
+  const statSelect = $('#ms-stat');
+  statSelect.innerHTML = '<option value="">All stats</option>' + statOptions.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  const maxRemaining = Math.max(5, ...rows.map(r=>Math.max(1, r.remaining)));
+  const cols = [
+    {key:'remaining', label:'To Go', numeric:true, render:(v)=>
+      `<span class="heat" style="${heatColor(Math.round(Math.max(1,v)), Math.round(maxRemaining))}">${v}</span>`
+    },
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Position', label:'Pos'},
+    {key:'Stat', label:'Stat'},
+    {key:'current', label:'Career Total', numeric:true},
+    {key:'target', label:'Milestone', numeric:true},
+  ];
+
+  let pos = '';
+  function apply(){
+    const q = $('#ms-search').value.trim().toLowerCase();
+    const statFilter = statSelect.value;
+    const filtered = rows.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!statFilter || r.Stat === statFilter)
+    );
+    buildTable(container, cols, filtered, {defaultSort:'remaining', defaultDir:'asc'});
+  }
+  $('#ms-search').addEventListener('input', apply);
+  statSelect.addEventListener('change', apply);
+  apply();
+}
+
+// ---------- TAB: INJURY REPORT ----------
+// Powered by data/nfl_2026_injury_report.csv, generated by
+// 08_injury_report.py. Optional file -- shows an empty state if it hasn't
+// run successfully yet rather than breaking anything.
+function renderInjuries(){
+  const teams = [...new Set((DATA.playerGame || []).map(r=>r.Team))].sort();
+  return `
+  <div class="panel">
+    <div class="panel-title">Injury Report</div>
+    <div class="panel-note">
+      League-wide current injury statuses, pulled from ESPN and refreshed by the pipeline.
+      ${!DATA.injuries || !DATA.injuries.length ? '<br><br><b>No injury data yet</b> -- run the pipeline (08_injury_report.py) to populate this.' : ''}
+    </div>
+    <div class="controls">
+      <input type="text" id="inj-search" placeholder="Search player...">
+      <select id="inj-team"><option value="">All teams</option>${teams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('')}</select>
+      <div class="pill-group" id="inj-status-pills">
+        <span class="pill active" data-status="">All statuses</span>
+      </div>
+    </div>
+    <div id="injuries-table"></div>
+  </div>`;
+}
+function mountInjuries(){
+  const container = $('#injuries-table');
+  const raw = (DATA.injuries || []).filter(isRelevantInjury);
+  if(!raw.length){
+    container.innerHTML = '<div class="empty">No injury data yet. Run 08_injury_report.py.</div>';
+    return;
+  }
+
+  const statusOptions = [...new Set(raw.map(r=>r.Status).filter(Boolean))].sort();
+  const pillGroup = $('#inj-status-pills');
+  pillGroup.innerHTML = '<span class="pill active" data-status="">All statuses</span>' +
+    statusOptions.map(s=>`<span class="pill" data-status="${s}">${s}</span>`).join('');
+
+  const cols = [
+    {key:'Status', label:'Status', render:(v)=>{
+      const isOut = /out|doubtful/i.test(v || '');
+      return `<span class="heat" style="${isOut ? 'background:rgba(255,92,108,0.2);border:1px solid rgba(255,92,108,0.55);' : 'background:rgba(227,169,59,0.18);border:1px solid rgba(227,169,59,0.5);'}">${v || 'Unknown'}</span>`;
+    }},
+    {key:'Player', label:'Player'},
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'Injury', label:'Injury'},
+  ];
+
+  let status = '';
+  function apply(){
+    const q = $('#inj-search').value.trim().toLowerCase();
+    const team = $('#inj-team').value;
+    const filtered = raw.filter(r=>
+      (!q || r.Player.toLowerCase().includes(q)) &&
+      (!team || r.Team === team) &&
+      (!status || r.Status === status)
+    );
+    buildTable(container, cols, filtered, {defaultSort:'Team', defaultDir:'asc'});
+  }
+
+  $('#inj-search').addEventListener('input', apply);
+  $('#inj-team').addEventListener('change', apply);
+  $$('#inj-status-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#inj-status-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      status = p.dataset.status;
+      apply();
+    });
+  });
+  apply();
+}
+
+// ---------- TAB: EPA / EFFICIENCY ----------
+// Powered by data/nfl_2026_team_epa.csv, generated by 09_epa_efficiency.py
+// from nflverse's real play-by-play data. EPA (Expected Points Added per
+// play) and success rate are much better indicators of true team quality
+// than raw yards/points, since they account for down/distance/field
+// position on every play instead of just game totals.
+function renderEpa(){
+  return `
+  <div class="panel">
+    <div class="panel-title">EPA / Efficiency</div>
+    <div class="panel-note">
+      Expected Points Added per play and success rate, from real play-by-play data --
+      not a formula to add together and predict a score, just a read on how efficient
+      each side has actually been. <b>Early-season numbers are noisy</b> -- treat anything
+      under ~4 games played with real caution. Click a team to see pass/rush splits and
+      recent (last 3 games) form. Mint = strong, coral = weak.
+      ${!DATA.epa || !DATA.epa.length ? '<br><br><b>No EPA data yet</b> -- run the pipeline (09_epa_efficiency.py) to populate this.' : ''}
+    </div>
+    <div class="controls">
+      <input type="text" id="epa-search" placeholder="Search team...">
+    </div>
+    <div id="epa-table"></div>
+  </div>`;
+}
+
+function mountEpa(){
+  const container = $('#epa-table');
+  const raw = DATA.epa || [];
+  if(!raw.length){
+    container.innerHTML = '<div class="empty">No EPA data yet. Run 09_epa_efficiency.py.</div>';
+    return;
+  }
+
+  // Combine the Offense and Defense rows nflverse-side produces per team
+  // into one row per team, offense and defense side by side.
+  const byTeam = {};
+  raw.forEach(r=>{
+    if(!byTeam[r.Team]) byTeam[r.Team] = {Team: r.Team};
+    const side = r.Side === 'Offense' ? 'off' : 'def';
+    byTeam[r.Team][`${side}EpaPlay`] = num(r['EPA/Play']);
+    byTeam[r.Team][`${side}Success`] = num(r['Success Rate']);
+    byTeam[r.Team][`${side}PassEpa`] = num(r['Pass EPA/Play']);
+    byTeam[r.Team][`${side}RushEpa`] = num(r['Rush EPA/Play']);
+    byTeam[r.Team][`${side}Last3Epa`] = num(r['Last3 EPA/Play']);
+    byTeam[r.Team][`${side}Last3Success`] = num(r['Last3 Success Rate']);
+    byTeam[r.Team].gamesPlayed = num(r['Games Played']);
+  });
+  const teams = Object.values(byTeam);
+
+  const maxOffEpa = Math.max(...teams.map(t=>Math.abs(t.offEpaPlay || 0)), 0.01);
+  const maxDefEpa = Math.max(...teams.map(t=>Math.abs(t.defEpaPlay || 0)), 0.01);
+
+  function epaColor(val, maxAbs, higherIsBetter){
+    const pct = Math.max(-1, Math.min(1, val / maxAbs));
+    const scaled = higherIsBetter ? (pct + 1) / 2 : (1 - pct) / 2;
+    return meterColorGlobal(scaled);
+  }
+  // Shared mint-to-coral scale, matching the rest of the app.
+  function meterColorGlobal(pct){
+    const good = [51,214,166], bad = [255,92,108];
+    const r = Math.round(bad[0] + (good[0]-bad[0])*pct);
+    const g = Math.round(bad[1] + (good[1]-bad[1])*pct);
+    const b = Math.round(bad[2] + (good[2]-bad[2])*pct);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  const expanded = new Set();
+
+  function apply(){
+    const q = $('#epa-search').value.trim().toLowerCase();
+    const filtered = teams
+      .filter(t=> !q || t.Team.toLowerCase().includes(q) || teamName(t.Team).toLowerCase().includes(q))
+      .sort((a,b)=> (b.offEpaPlay||0) - (a.offEpaPlay||0));
+
+    const headHtml = `<tr>
+      <th></th><th>Team</th><th>GP</th>
+      <th>Off EPA/Play</th><th>Off Success%</th>
+      <th>Def EPA/Play Allowed</th><th>Def Success% Allowed</th>
+    </tr>`;
+
+    const bodyHtml = filtered.map(t=>{
+      const isOpen = expanded.has(t.Team);
+      const smallSample = t.gamesPlayed < 4;
+      const rowHtml = `
+        <tr class="epa-row" data-team="${t.Team}" style="cursor:pointer;">
+          <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
+          <td>${teamChip(t.Team)}${smallSample ? '<span class="context-chip" style="margin-left:6px;">small sample</span>' : ''}</td>
+          <td class="num">${t.gamesPlayed}</td>
+          <td class="num"><span class="heat" style="background:${epaColor(t.offEpaPlay,maxOffEpa,true)}30;border:1px solid ${epaColor(t.offEpaPlay,maxOffEpa,true)};">${fmt(t.offEpaPlay,3)}</span></td>
+          <td class="num">${fmt((t.offSuccess||0)*100,1)}%</td>
+          <td class="num"><span class="heat" style="background:${epaColor(t.defEpaPlay,maxDefEpa,false)}30;border:1px solid ${epaColor(t.defEpaPlay,maxDefEpa,false)};">${fmt(t.defEpaPlay,3)}</span></td>
+          <td class="num">${fmt((t.defSuccess||0)*100,1)}%</td>
+        </tr>`;
+
+      const detailHtml = isOpen ? `
+        <tr class="def-detail-row">
+          <td colspan="7" style="background:var(--field-deep);padding:10px 16px;">
+            <div style="display:flex;gap:24px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;">
+              <div>
+                <div style="color:var(--chalk-dim);margin-bottom:4px;">OFFENSE SPLITS</div>
+                <div>Pass EPA/play: <b style="color:var(--chalk);">${fmt(t.offPassEpa,3)}</b></div>
+                <div>Rush EPA/play: <b style="color:var(--chalk);">${fmt(t.offRushEpa,3)}</b></div>
+                <div>Last 3 games EPA/play: <b style="color:var(--chalk);">${fmt(t.offLast3Epa,3)}</b> (${fmt((t.offLast3Success||0)*100,1)}% success)</div>
+              </div>
+              <div>
+                <div style="color:var(--chalk-dim);margin-bottom:4px;">DEFENSE SPLITS (allowed)</div>
+                <div>Pass EPA/play: <b style="color:var(--chalk);">${fmt(t.defPassEpa,3)}</b></div>
+                <div>Rush EPA/play: <b style="color:var(--chalk);">${fmt(t.defRushEpa,3)}</b></div>
+                <div>Last 3 games EPA/play: <b style="color:var(--chalk);">${fmt(t.defLast3Epa,3)}</b> (${fmt((t.defLast3Success||0)*100,1)}% success)</div>
+              </div>
+            </div>
+          </td>
+        </tr>` : '';
+
+      return rowHtml + detailHtml;
+    }).join('');
+
+    container.innerHTML = `<div class="table-scroll"><table><thead>${headHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+
+    $$('.epa-row', container).forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        const team = tr.dataset.team;
+        if(expanded.has(team)) expanded.delete(team);
+        else expanded.add(team);
+        apply();
+      });
+    });
+  }
+
+  $('#epa-search').addEventListener('input', apply);
+  apply();
+}
+
+// ---------- TAB: BEST PICKS ----------
+// Ranked matchup edges for this week's games. Combines: how a player's own
+// season production compares to what the opposing defense allows at their
+// position (the core signal), whether both are trending the right way over
+// the last 3 games (a modest boost, not a separate score), and any
+// milestone they're closing in on (called out, also a small boost so it
+// helps break ties toward more newsworthy picks). Out/Doubtful players are
+// excluded entirely -- a great matchup on paper means nothing if they
+// don't play.
+const PICKS_STAT_KEY = { QB: 'Pass Yards', RB: 'Rush Yards', WR: 'Receiving Yards', TE: 'Receiving Yards' };
+const PICKS_POSITIONS = ['QB','RB','WR','TE'];
+
+function getPlayerSeasonAndLast3(playerName, position){
+  const statKey = PICKS_STAT_KEY[position];
+  const games = (DATA.playerGame || []).filter(r=>r.Player===playerName && r.Position===position)
+    .sort((a,b)=>num(a.Week)-num(b.Week));
+  if(!games.length) return null;
+  const seasonAvg = games.reduce((s,g)=>s+num(g[statKey]),0) / games.length;
+  const last3 = games.slice(-3);
+  const last3Avg = last3.reduce((s,g)=>s+num(g[statKey]),0) / last3.length;
+  return {statKey, seasonAvg, last3Avg, gamesPlayed: games.length};
+}
+
+function getDefenseSeasonAndLast3(defense, position){
+  const rankStat = DEFENSE_RANK_STAT[position];
+  const row = (DATA.defVsPos || []).find(r=>r.Defense===defense && r.Position===position);
+  if(!row) return null;
+  const seasonAllowed = num(row[rankStat]);
+  const rankTotalKey = rankStat.replace(' Per Game', '');
+  const rawKey = DEFENSE_STAT_RAW_MAP[rankTotalKey];
+  const log = getDefenseWeeklyLog(defense, position);
+  const last3 = log.slice(-3);
+  const last3Allowed = last3.length ? last3.reduce((s,w)=>s+num(w[rawKey]),0)/last3.length : seasonAllowed;
+  return {seasonAllowed, last3Allowed};
+}
+
+function getClosestMilestoneGlobal(player){
+  const entries = (DATA.milestones || []).filter(m=>m.Player===player);
+  const close = entries.filter(m => num(m.Remaining) <= (MILESTONE_STEP_JS[m.Stat] || 50) * MILESTONE_CLOSE_FRACTION);
+  if(!close.length) return null;
+  return close.reduce((c,m)=>(!c || num(m.Remaining) < num(c.Remaining)) ? m : c, null);
+}
+
+function isPlayerOut(player){
+  return (DATA.injuries || []).some(r=>r.Player===player && /out|doubtful/i.test(r.Status || ''));
+}
+
+// League-wide percentile per position: 1.0 = the top producer at that
+// position this season, 0.0 = the lowest. This is what separates a
+// genuinely good player facing a bad defense from just anyone facing one.
+function buildPlayerPercentileRanks(){
+  const ranks = {};
+  PICKS_POSITIONS.forEach(pos=>{
+    const statKey = PICKS_STAT_KEY[pos];
+    const byPlayer = {};
+    (DATA.playerGame || []).filter(r=>r.Position===pos).forEach(r=>{
+      if(!byPlayer[r.Player]) byPlayer[r.Player] = [];
+      byPlayer[r.Player].push(num(r[statKey]));
+    });
+    const avgs = Object.entries(byPlayer).map(([player, vals]) => ({player, avg: vals.reduce((s,v)=>s+v,0)/vals.length}));
+    avgs.sort((a,b)=>b.avg-a.avg);
+    const n = avgs.length;
+    ranks[pos] = {};
+    avgs.forEach((e,i)=>{ ranks[pos][e.player] = n>1 ? 1 - i/(n-1) : 1; });
+  });
+  return ranks;
+}
+
+// Same idea for defenses: 1.0 = allows the most at this position (weakest,
+// best matchup), 0.0 = allows the least.
+function buildDefensePercentileRanks(){
+  const ranks = {};
+  PICKS_POSITIONS.forEach(pos=>{
+    const rankStat = DEFENSE_RANK_STAT[pos];
+    const rows = (DATA.defVsPos || []).filter(r=>r.Position===pos);
+    const sorted = [...rows].sort((a,b)=>num(b[rankStat]) - num(a[rankStat]));
+    const n = sorted.length;
+    ranks[pos] = {};
+    sorted.forEach((r,i)=>{ ranks[pos][r.Defense] = n>1 ? 1 - i/(n-1) : 1; });
+  });
+  return ranks;
+}
+
+function computeGamePicks(awayTeam, homeTeam, playerPercentiles, defensePercentiles){
+  const sides = [[awayTeam, homeTeam], [homeTeam, awayTeam]]; // [offenseTeam, defenseTeam]
+  const candidates = [];
+
+  sides.forEach(([offenseTeam, defenseTeam])=>{
+    const players = [...new Set(
+      (DATA.playerGame || []).filter(r=>r.Team===offenseTeam && PICKS_POSITIONS.includes(r.Position)).map(r=>r.Player)
+    )];
+
+    players.forEach(player=>{
+      if(isPlayerOut(player)) return;
+      const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===offenseTeam);
+      const position = posRow.Position;
+
+      const playerTrend = getPlayerSeasonAndLast3(player, position);
+      const defTrend = getDefenseSeasonAndLast3(defenseTeam, position);
+      if(!playerTrend || !defTrend) return;
+
+      const playerPct = playerPercentiles[position]?.[player] ?? 0;
+      const defPct = defensePercentiles[position]?.[defenseTeam] ?? 0;
+      let score = playerPct * defPct;
+
+      const defenseTrendUp = defTrend.last3Allowed > defTrend.seasonAllowed * 1.1;
+      const playerTrendUp = playerTrend.last3Avg > playerTrend.seasonAvg * 1.1;
+      if(defenseTrendUp) score *= 1.1;
+      if(playerTrendUp) score *= 1.1;
+
+      const milestone = getClosestMilestoneGlobal(player);
+      if(milestone) score *= 1.05;
+
+      candidates.push({
+        player, position, team: offenseTeam, opponent: defenseTeam,
+        statLabel: playerTrend.statKey,
+        playerSeasonAvg: playerTrend.seasonAvg, playerLast3Avg: playerTrend.last3Avg,
+        defenseSeasonAllowed: defTrend.seasonAllowed, defenseLast3Allowed: defTrend.last3Allowed,
+        defenseTrendUp, playerTrendUp, milestone, score,
+      });
+    });
+  });
+
+  candidates.sort((a,b)=>b.score-a.score);
+  return candidates.slice(0,5);
+}
+
+function renderPicks(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Best Picks</div>
+    <div class="panel-note">
+      Ranked matchup edges for this week's games -- how a player's own season production compares to what
+      the opposing defense allows at their position, whether both are trending the right way over the last
+      3 games, and any milestone they're closing in on. Out/Doubtful players are excluded. This is a data
+      lens built from your own pulled stats, not a guarantee -- always check for the latest injury news
+      before acting on anything here.
+    </div>
+    <div id="picks-list"></div>
+  </div>`;
+}
+
+function mountPicks(){
+  const container = $('#picks-list');
+
+  const games = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+    const isHome = r['Home/Away'] === 'Home';
+    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away)
+    .sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  if(!gameList.length){
+    container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>';
+    return;
+  }
+
+  const playerPercentiles = buildPlayerPercentileRanks();
+  const defensePercentiles = buildDefensePercentileRanks();
+
+  const sections = gameList.map(g=>{
+    const away = g.sides.away.Team, home = g.sides.home.Team;
+    const picks = computeGamePicks(away, home, playerPercentiles, defensePercentiles);
+    if(!picks.length) return '';
+
+    return `
+      <div class="log-pos-group" style="margin-bottom:20px;">
+        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Player</th><th>Pos</th><th>Team</th><th>Opp</th>
+              <th>Season Avg</th><th>Last 3 Avg</th>
+              <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
+              <th>Notes</th>
+            </tr></thead>
+            <tbody>
+              ${picks.map(p=>`
+                <tr>
+                  <td>${p.player}</td>
+                  <td>${p.position}</td>
+                  <td>${teamChip(p.team)}</td>
+                  <td>${teamChip(p.opponent)}</td>
+                  <td class="num">${fmt(p.playerSeasonAvg)}</td>
+                  <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                  <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
+                  <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                  <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).filter(Boolean);
+
+  container.innerHTML = sections.length ? sections.join('') :
+    '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
+}
+
+// ---------- ROUTER ----------
+const renderers = {
+  overview: {render: renderOverview, mount: mountOverview},
+  live: {render: renderLive, mount: mountLive},
+  matchup: {render: renderMatchup, mount: mountMatchup},
+  teams: {render: renderTeams, mount: mountTeams},
+  teamweek: {render: renderTeamWeek, mount: mountTeamWeek},
+  players: {render: renderPlayers, mount: mountPlayers},
+  defense: {render: renderDefense, mount: mountDefense},
+  sos: {render: renderSOS, mount: mountSOS},
+  week2: {render: renderWeek2, mount: mountWeek2},
+  streaks: {render: renderStreaks, mount: mountStreaks},
+  milestones: {render: renderMilestones, mount: mountMilestones},
+  injuries: {render: renderInjuries, mount: mountInjuries},
+  epa: {render: renderEpa, mount: mountEpa},
+  picks: {render: renderPicks, mount: mountPicks},
+};
+function showTab(tab){
+  $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  const r = renderers[tab];
+  $('#content').innerHTML = r.render();
+  r.mount();
+}
+async function loadCSV(path){
+  const res = await fetch(path, {cache: 'no-store'});
+  if(!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
+  const text = await res.text();
+  const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
+  return parsed.data;
+}
+
+// Core files (everything the ESPN pipeline generates) should still show the
+// full error page if they fail -- something's genuinely wrong. But
+// milestones.csv depends on an external nflverse download on top of ESPN,
+// so it's more prone to an occasional failure and shouldn't be able to
+// take down the whole dashboard just because it's missing or briefly broken.
+const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone'];
+async function loadCSVLenient(key, path){
+  try {
+    return await loadCSV(path);
+  } catch(err){
+    if(OPTIONAL_CSV_KEYS.includes(key)){
+      console.warn(`Optional file ${path} unavailable, continuing without it:`, err);
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function init(){
+  try {
+    const entries = await Promise.all(
+      Object.entries(CSV_FILES).map(async ([key, path]) => [key, await loadCSVLenient(key, path)])
+    );
+    DATA = Object.fromEntries(entries);
+  } catch(err){
+    console.error(err);
+    $('#content').innerHTML = `<div class="empty" style="padding:60px 20px;">
+      Couldn't load data (${err.message}).<br><br>
+      This page fetches its CSVs from a <code>data/</code> folder next to it, so it needs
+      to be served over http(s) -- opening the file directly (file://) won't work in most
+      browsers. Run a local server (e.g. <code>python3 -m http.server</code> in this folder)
+      or view it via its hosted URL, and make sure <code>data/</code> contains the required CSVs.
+    </div>`;
+    return;
+  }
+
+  LATEST_RESULTS_WEEK = DATA.teamWeek && DATA.teamWeek.length
+    ? Math.max(...DATA.teamWeek.map(r=>num_(r.Week)))
+    : (DATA.playerGame && DATA.playerGame.length ? Math.max(...DATA.playerGame.map(r=>num_(r.Week))) : null);
+  PREVIEW_WEEK = DATA.week2 && DATA.week2.length ? num_(DATA.week2[0].Week) : (LATEST_RESULTS_WEEK ? LATEST_RESULTS_WEEK + 1 : null);
+
+  $$('#tabs button').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+  $('#ticker-track').addEventListener('click', (e)=>{
+    const item = e.target.closest('.ticker-item');
+    if(item) goToGameDetails(item.dataset.away, item.dataset.home);
+  });
+  renderHero();
+  renderTicker();
+  showTab('overview');
+}
+init();
+</script>
+</body>
+</html>
