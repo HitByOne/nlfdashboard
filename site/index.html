@@ -2409,16 +2409,39 @@ function renderPicks(){
     <div class="panel-note">
       Ranked matchup edges for this week's games -- how a player's own season production compares to what
       the opposing defense allows at their position, whether both are trending the right way over the last
-      3 games, and any milestone they're closing in on. Out/Doubtful players are excluded. This is a data
-      lens built from your own pulled stats, not a guarantee -- always check for the latest injury news
-      before acting on anything here.
+      3 games, and any milestone they're closing in on. Out/Doubtful players are excluded. Click a pick to
+      see that player's full week-by-week game log. This is a data lens built from your own pulled stats,
+      not a guarantee -- always check for the latest injury news before acting on anything here.
     </div>
     <div id="picks-list"></div>
   </div>`;
 }
 
+function playerGameLogHtml(player, position){
+  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position===position)
+    .sort((a,b)=>num(a.Week)-num(b.Week));
+  if(!games.length) return '<div class="empty" style="padding:8px 0;">No game log available.</div>';
+
+  const cols = MATCHUP_COLS[position] || [];
+  return `
+    <table>
+      <thead><tr><th>Wk</th><th>Opp</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${games.map(g=>`
+          <tr>
+            <td class="num">${g.Week}</td>
+            <td>${teamChip(g.Opponent)}</td>
+            ${cols.map(c=>`<td class="num">${fmt(num(g[c.key]))}</td>`).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 function mountPicks(){
   const container = $('#picks-list');
+  const expandedPicks = new Set(); // keyed by "player|team", persists across re-renders
 
   const games = new Map();
   (DATA.week2 || []).forEach(r=>{
@@ -2439,45 +2462,70 @@ function mountPicks(){
   const playerPercentiles = buildPlayerPercentileRanks();
   const defensePercentiles = buildDefensePercentileRanks();
 
-  const sections = gameList.map(g=>{
-    const away = g.sides.away.Team, home = g.sides.home.Team;
-    const picks = computeGamePicks(away, home, playerPercentiles, defensePercentiles);
-    if(!picks.length) return '';
+  function apply(){
+    const sections = gameList.map(g=>{
+      const away = g.sides.away.Team, home = g.sides.home.Team;
+      const picks = computeGamePicks(away, home, playerPercentiles, defensePercentiles);
+      if(!picks.length) return '';
 
-    return `
-      <div class="log-pos-group" style="margin-bottom:20px;">
-        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th>Player</th><th>Pos</th><th>Team</th><th>Opp</th><th>Stat</th>
-              <th>Season Avg</th><th>Last 3 Avg</th>
-              <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
-              <th>Notes</th>
-            </tr></thead>
-            <tbody>
-              ${picks.map(p=>`
-                <tr>
-                  <td>${p.player}</td>
-                  <td>${p.position}</td>
-                  <td>${teamChip(p.team)}</td>
-                  <td>${teamChip(p.opponent)}</td>
-                  <td style="font-weight:600;color:var(--gold);">${p.statLabel}</td>
-                  <td class="num">${fmt(p.playerSeasonAvg)}</td>
-                  <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
-                  <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
-                  <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
-                  <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-  }).filter(Boolean);
+      return `
+        <div class="log-pos-group" style="margin-bottom:20px;">
+          <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th></th><th>Player</th><th>Pos</th><th>Team</th><th>Opp</th><th>Stat</th>
+                <th>Season Avg</th><th>Last 3 Avg</th>
+                <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
+                <th>Notes</th>
+              </tr></thead>
+              <tbody>
+                ${picks.map(p=>{
+                  const pickKey = `${p.player}|${p.team}`;
+                  const isOpen = expandedPicks.has(pickKey);
+                  const rowHtml = `
+                    <tr class="pick-row" data-pick-key="${pickKey}" style="cursor:pointer;">
+                      <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
+                      <td>${p.player}</td>
+                      <td>${p.position}</td>
+                      <td>${teamChip(p.team)}</td>
+                      <td>${teamChip(p.opponent)}</td>
+                      <td style="font-weight:600;color:var(--gold);">${p.statLabel}</td>
+                      <td class="num">${fmt(p.playerSeasonAvg)}</td>
+                      <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                      <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
+                      <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
+                      <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
+                    </tr>`;
+                  const detailHtml = isOpen ? `
+                    <tr class="def-detail-row">
+                      <td colspan="11" style="background:var(--field-deep);padding:10px 16px;">
+                        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
+                        ${playerGameLogHtml(p.player, p.position)}
+                      </td>
+                    </tr>` : '';
+                  return rowHtml + detailHtml;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }).filter(Boolean);
 
-  container.innerHTML = sections.length ? sections.join('') :
-    '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
+    container.innerHTML = sections.length ? sections.join('') :
+      '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
+
+    $$('.pick-row', container).forEach(tr=>{
+      tr.addEventListener('click', ()=>{
+        const key = tr.dataset.pickKey;
+        if(expandedPicks.has(key)) expandedPicks.delete(key);
+        else expandedPicks.add(key);
+        apply();
+      });
+    });
+  }
+
+  apply();
 }
 
 // ---------- ROUTER ----------
