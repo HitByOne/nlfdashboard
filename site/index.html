@@ -437,6 +437,8 @@
       <button data-tab="injuries">Injury Report</button>
       <button data-tab="epa">EPA / Efficiency</button>
     <button data-tab="picks">Best Picks</button>
+    <button data-tab="power">Power Rankings</button>
+    <button data-tab="coaching">Coaching Tendencies</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -482,6 +484,7 @@ const CSV_FILES = {
   gameTeamStats: 'data/nfl_2026_game_team_stats.csv',
   gameQbStats:   'data/nfl_2026_game_qb_stats.csv',
   redzone:       'data/nfl_2026_redzone_usage.csv',
+  coaching:      'data/nfl_2026_coaching_tendencies.csv',
 };
 
 const TEAM_NAMES = {
@@ -2528,6 +2531,136 @@ function mountPicks(){
   apply();
 }
 
+// ---------- TAB: POWER RANKINGS ----------
+// Combines three things already computed elsewhere into one ranked list:
+// net EPA/play (offense minus defense allowed -- the single best predictor
+// of true team quality), real win-loss record (from actual final scores in
+// gameTeamStats, not a touchdown-count proxy), and strength of schedule.
+// Each is converted to a league-wide percentile and blended transparently
+// (50% EPA, 30% record, 20% SOS) so the ranking is explainable, not a black
+// box -- every component is shown in the table, not just the final score.
+function computePowerRankings(){
+  const teams = [...new Set((DATA.teamSummary || []).map(r=>r.Team))];
+
+  const records = {};
+  (DATA.gameTeamStats || []).forEach(r=>{
+    if(!records[r.Team]) records[r.Team] = {wins:0, losses:0, ties:0};
+    const diff = num(r['Final Score']) - num(r['Opponent Score']);
+    if(diff > 0) records[r.Team].wins++;
+    else if(diff < 0) records[r.Team].losses++;
+    else records[r.Team].ties++;
+  });
+
+  const epaByTeam = {};
+  (DATA.epa || []).forEach(r=>{
+    if(!epaByTeam[r.Team]) epaByTeam[r.Team] = {};
+    epaByTeam[r.Team][r.Side] = num(r['EPA/Play']);
+  });
+
+  const sosByTeam = {};
+  (DATA.sos || []).forEach(r=>{ sosByTeam[r.Team] = num(r['Played SOS']); });
+
+  const rows = teams.map(team=>{
+    const off = epaByTeam[team]?.Offense ?? 0;
+    const def = epaByTeam[team]?.Defense ?? 0;
+    const rec = records[team] || {wins:0, losses:0, ties:0};
+    const gp = rec.wins + rec.losses + rec.ties;
+    return {
+      team, off, def, netEpa: off - def,
+      wins: rec.wins, losses: rec.losses, ties: rec.ties, gp,
+      winPct: gp > 0 ? (rec.wins + rec.ties*0.5) / gp : null,
+      sos: sosByTeam[team] ?? null,
+    };
+  });
+
+  function addPercentile(items, valueFn, outKey, fallback){
+    const withValue = items.filter(r => valueFn(r) !== null);
+    const sorted = [...withValue].sort((a,b)=> valueFn(b) - valueFn(a));
+    const n = sorted.length;
+    sorted.forEach((r,i)=>{ r[outKey] = n>1 ? 1 - i/(n-1) : 1; });
+    items.forEach(r=>{ if(valueFn(r) === null) r[outKey] = fallback; });
+  }
+
+  addPercentile(rows, r=>r.netEpa, 'epaPct', 0.5);
+  addPercentile(rows, r=>r.winPct, 'winPct_pct', 0.5);
+  addPercentile(rows, r=>r.sos, 'sosPct', 0.5);
+
+  rows.forEach(r=>{ r.powerScore = r.epaPct*0.5 + r.winPct_pct*0.3 + r.sosPct*0.2; });
+  rows.sort((a,b)=> b.powerScore - a.powerScore);
+  return rows;
+}
+
+function renderPowerRankings(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Power Rankings</div>
+    <div class="panel-note">
+      Blends net EPA/play (50% -- the single best predictor of true quality), real win-loss record from
+      actual final scores (30%), and strength of schedule (20%) into one ranked list. Every component is
+      shown below, not hidden inside one score -- a team can be ranked highly on efficiency while its
+      record hasn't caught up yet, or vice versa.
+      ${!DATA.gameTeamStats || !DATA.gameTeamStats.length ? '<br><br><b>No real-score record data yet</b> -- run 10_game_stats.py to populate win-loss records (rankings still work from EPA/SOS alone until then).' : ''}
+    </div>
+    <div id="power-table"></div>
+  </div>`;
+}
+
+function mountPowerRankings(){
+  const rows = computePowerRankings();
+  const cols = [
+    {key:'powerScore', label:'Rank', numeric:true, render:(v,row)=>{
+      const rank = rows.indexOf(row) + 1;
+      return `<span class="heat" style="${heatColor(rank, rows.length)}">#${rank}</span>`;
+    }},
+    {key:'team', label:'Team', render:teamChip},
+    {key:'netEpa', label:'Net EPA/Play', numeric:true, render:v=>fmt(v,3)},
+    {key:'off', label:'Off EPA/Play', numeric:true, render:v=>fmt(v,3)},
+    {key:'def', label:'Def EPA/Play Allowed', numeric:true, render:v=>fmt(v,3)},
+    {key:'wins', label:'Record', render:(v,row)=> row.gp > 0 ? `${row.wins}-${row.losses}${row.ties?`-${row.ties}`:''}` : 'No data'},
+    {key:'sos', label:'SOS', numeric:true, render:v=> v===null ? 'No data' : fmt(v,3)},
+  ];
+  buildTable($('#power-table'), cols, rows, {defaultSort:'powerScore', defaultDir:'desc'});
+}
+
+// ---------- TAB: COACHING TENDENCIES ----------
+function renderCoaching(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Coaching Tendencies</div>
+    <div class="panel-note">
+      Pass Rate Over Expectation (proxy) -- each team's pass rate in neutral game-script situations
+      (1st-3rd quarter, game within one score, 1st/2nd down) compared to the league average in those
+      same situations. Positive = more pass-heavy than league average, negative = more run-heavy.
+      Also shown: red zone pass rate and 4th down go-for-it rate. Small samples early in a season are
+      noisy -- check the play counts shown before reading too much into a single number.
+      ${!DATA.coaching || !DATA.coaching.length ? '<br><br><b>No coaching tendency data yet</b> -- run the pipeline (12_coaching_tendencies.py) to populate this.' : ''}
+    </div>
+    <div id="coaching-table"></div>
+  </div>`;
+}
+
+function mountCoaching(){
+  const rows = DATA.coaching || [];
+  if(!rows.length){
+    $('#coaching-table').innerHTML = '<div class="empty">No coaching tendency data yet. Run 12_coaching_tendencies.py.</div>';
+    return;
+  }
+  const cols = [
+    {key:'Team', label:'Team', render:teamChip},
+    {key:'PROE Proxy', label:'PROE Proxy', numeric:true, render:v=>{
+      const n = num(v);
+      const color = n > 0.03 ? 'var(--gold)' : n < -0.03 ? 'var(--chalk-dim)' : 'var(--chalk)';
+      return `<span style="color:${color};">${n>0?'+':''}${fmt(n,3)}</span>`;
+    }},
+    {key:'Neutral Pass Rate', label:'Neutral Pass Rate', numeric:true, render:v=>`${fmt(num(v)*100,1)}%`},
+    {key:'Red Zone Pass Rate', label:'RZ Pass Rate', numeric:true, render:v=> v==null||v===''?'No data':`${fmt(num(v)*100,1)}%`},
+    {key:'4th Down Go Rate', label:'4th Down Go Rate', numeric:true, render:v=> v==null||v===''?'No data':`${fmt(num(v)*100,1)}%`},
+    {key:'Neutral Script Plays', label:'Sample (Neutral Plays)', numeric:true},
+    {key:'4th Down Decisions', label:'Sample (4th Downs)', numeric:true},
+  ];
+  buildTable($('#coaching-table'), cols, rows, {defaultSort:'PROE Proxy', defaultDir:'desc'});
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -2544,6 +2677,8 @@ const renderers = {
   injuries: {render: renderInjuries, mount: mountInjuries},
   epa: {render: renderEpa, mount: mountEpa},
   picks: {render: renderPicks, mount: mountPicks},
+  power: {render: renderPowerRankings, mount: mountPowerRankings},
+  coaching: {render: renderCoaching, mount: mountCoaching},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
@@ -2564,7 +2699,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
