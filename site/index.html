@@ -2248,27 +2248,49 @@ function mountEpa(){
 // helps break ties toward more newsworthy picks). Out/Doubtful players are
 // excluded entirely -- a great matchup on paper means nothing if they
 // don't play.
-const PICKS_STAT_KEY = { QB: 'Pass Yards', RB: 'Rush Yards', WR: 'Receiving Yards', TE: 'Receiving Yards' };
+// Each position can be evaluated on more than one stat -- a pick isn't
+// forced into one fixed category (RB always "Rush Yards", etc.). Every
+// applicable stat for a player is scored, and whichever gives the
+// strongest combined signal (their own quality x this defense's weakness
+// at that specific stat) becomes their pick, shown with which stat it was.
+const PICKS_STAT_OPTIONS = {
+  QB: [
+    {key:'Pass Yards', label:'Pass Yards', defenseKey:'Pass Yards Allowed Per Game'},
+    {key:'Pass TD', label:'Pass TD', defenseKey:'Pass TD Allowed Per Game'},
+  ],
+  RB: [
+    {key:'Rush Yards', label:'Rush Yards', defenseKey:'Rush Yards Allowed Per Game'},
+    {key:'Receiving Yards', label:'Receiving Yards', defenseKey:'Receiving Yards Allowed Per Game'},
+    {key:'Receptions', label:'Receptions', defenseKey:'Receptions Allowed Per Game'},
+  ],
+  WR: [
+    {key:'Receiving Yards', label:'Receiving Yards', defenseKey:'Receiving Yards Allowed Per Game'},
+    {key:'Receptions', label:'Receptions', defenseKey:'Receptions Allowed Per Game'},
+    {key:'Receiving TD', label:'Receiving TD', defenseKey:'Receiving TD Allowed Per Game'},
+  ],
+  TE: [
+    {key:'Receiving Yards', label:'Receiving Yards', defenseKey:'Receiving Yards Allowed Per Game'},
+    {key:'Receptions', label:'Receptions', defenseKey:'Receptions Allowed Per Game'},
+  ],
+};
 const PICKS_POSITIONS = ['QB','RB','WR','TE'];
 
-function getPlayerSeasonAndLast3(playerName, position){
-  const statKey = PICKS_STAT_KEY[position];
+function getPlayerSeasonAndLast3(playerName, position, statKey){
   const games = (DATA.playerGame || []).filter(r=>r.Player===playerName && r.Position===position)
     .sort((a,b)=>num(a.Week)-num(b.Week));
   if(!games.length) return null;
   const seasonAvg = games.reduce((s,g)=>s+num(g[statKey]),0) / games.length;
   const last3 = games.slice(-3);
   const last3Avg = last3.reduce((s,g)=>s+num(g[statKey]),0) / last3.length;
-  return {statKey, seasonAvg, last3Avg, gamesPlayed: games.length};
+  return {seasonAvg, last3Avg, gamesPlayed: games.length};
 }
 
-function getDefenseSeasonAndLast3(defense, position){
-  const rankStat = DEFENSE_RANK_STAT[position];
+function getDefenseSeasonAndLast3(defense, position, statOption){
   const row = (DATA.defVsPos || []).find(r=>r.Defense===defense && r.Position===position);
   if(!row) return null;
-  const seasonAllowed = num(row[rankStat]);
-  const rankTotalKey = rankStat.replace(' Per Game', '');
-  const rawKey = DEFENSE_STAT_RAW_MAP[rankTotalKey];
+  const seasonAllowed = num(row[statOption.defenseKey]);
+  const totalKey = statOption.defenseKey.replace(' Per Game', '');
+  const rawKey = DEFENSE_STAT_RAW_MAP[totalKey] || statOption.key;
   const log = getDefenseWeeklyLog(defense, position);
   const last3 = log.slice(-3);
   const last3Allowed = last3.length ? last3.reduce((s,w)=>s+num(w[rawKey]),0)/last3.length : seasonAllowed;
@@ -2286,38 +2308,41 @@ function isPlayerOut(player){
   return (DATA.injuries || []).some(r=>r.Player===player && /out|doubtful/i.test(r.Status || ''));
 }
 
-// League-wide percentile per position: 1.0 = the top producer at that
-// position this season, 0.0 = the lowest. This is what separates a
-// genuinely good player facing a bad defense from just anyone facing one.
+// League-wide percentile per position PER STAT: 1.0 = the top producer at
+// that position in that specific stat this season, 0.0 = the lowest.
 function buildPlayerPercentileRanks(){
   const ranks = {};
   PICKS_POSITIONS.forEach(pos=>{
-    const statKey = PICKS_STAT_KEY[pos];
-    const byPlayer = {};
-    (DATA.playerGame || []).filter(r=>r.Position===pos).forEach(r=>{
-      if(!byPlayer[r.Player]) byPlayer[r.Player] = [];
-      byPlayer[r.Player].push(num(r[statKey]));
-    });
-    const avgs = Object.entries(byPlayer).map(([player, vals]) => ({player, avg: vals.reduce((s,v)=>s+v,0)/vals.length}));
-    avgs.sort((a,b)=>b.avg-a.avg);
-    const n = avgs.length;
     ranks[pos] = {};
-    avgs.forEach((e,i)=>{ ranks[pos][e.player] = n>1 ? 1 - i/(n-1) : 1; });
+    (PICKS_STAT_OPTIONS[pos] || []).forEach(opt=>{
+      const byPlayer = {};
+      (DATA.playerGame || []).filter(r=>r.Position===pos).forEach(r=>{
+        if(!byPlayer[r.Player]) byPlayer[r.Player] = [];
+        byPlayer[r.Player].push(num(r[opt.key]));
+      });
+      const avgs = Object.entries(byPlayer).map(([player, vals]) => ({player, avg: vals.reduce((s,v)=>s+v,0)/vals.length}));
+      avgs.sort((a,b)=>b.avg-a.avg);
+      const n = avgs.length;
+      ranks[pos][opt.key] = {};
+      avgs.forEach((e,i)=>{ ranks[pos][opt.key][e.player] = n>1 ? 1 - i/(n-1) : 1; });
+    });
   });
   return ranks;
 }
 
-// Same idea for defenses: 1.0 = allows the most at this position (weakest,
-// best matchup), 0.0 = allows the least.
+// Same idea for defenses, per stat: 1.0 = allows the most of that specific
+// stat at this position (weakest, best matchup), 0.0 = allows the least.
 function buildDefensePercentileRanks(){
   const ranks = {};
   PICKS_POSITIONS.forEach(pos=>{
-    const rankStat = DEFENSE_RANK_STAT[pos];
-    const rows = (DATA.defVsPos || []).filter(r=>r.Position===pos);
-    const sorted = [...rows].sort((a,b)=>num(b[rankStat]) - num(a[rankStat]));
-    const n = sorted.length;
     ranks[pos] = {};
-    sorted.forEach((r,i)=>{ ranks[pos][r.Defense] = n>1 ? 1 - i/(n-1) : 1; });
+    (PICKS_STAT_OPTIONS[pos] || []).forEach(opt=>{
+      const rows = (DATA.defVsPos || []).filter(r=>r.Position===pos);
+      const sorted = [...rows].sort((a,b)=>num(b[opt.defenseKey]) - num(a[opt.defenseKey]));
+      const n = sorted.length;
+      ranks[pos][opt.key] = {};
+      sorted.forEach((r,i)=>{ ranks[pos][opt.key][r.Defense] = n>1 ? 1 - i/(n-1) : 1; });
+    });
   });
   return ranks;
 }
@@ -2335,30 +2360,41 @@ function computeGamePicks(awayTeam, homeTeam, playerPercentiles, defensePercenti
       if(isPlayerOut(player)) return;
       const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===offenseTeam);
       const position = posRow.Position;
+      const statOptions = PICKS_STAT_OPTIONS[position] || [];
 
-      const playerTrend = getPlayerSeasonAndLast3(player, position);
-      const defTrend = getDefenseSeasonAndLast3(defenseTeam, position);
-      if(!playerTrend || !defTrend) return;
+      // Evaluate every applicable stat for this player and keep whichever
+      // gives the strongest combined signal -- that becomes their pick.
+      let best = null;
+      statOptions.forEach(opt=>{
+        const playerTrend = getPlayerSeasonAndLast3(player, position, opt.key);
+        const defTrend = getDefenseSeasonAndLast3(defenseTeam, position, opt);
+        if(!playerTrend || !defTrend) return;
+        if(playerTrend.seasonAvg <= 0) return; // this player doesn't actually produce this stat
 
-      const playerPct = playerPercentiles[position]?.[player] ?? 0;
-      const defPct = defensePercentiles[position]?.[defenseTeam] ?? 0;
-      let score = playerPct * defPct;
+        const playerPct = playerPercentiles[position]?.[opt.key]?.[player] ?? 0;
+        const defPct = defensePercentiles[position]?.[opt.key]?.[defenseTeam] ?? 0;
+        let score = playerPct * defPct;
 
-      const defenseTrendUp = defTrend.last3Allowed > defTrend.seasonAllowed * 1.1;
-      const playerTrendUp = playerTrend.last3Avg > playerTrend.seasonAvg * 1.1;
-      if(defenseTrendUp) score *= 1.1;
-      if(playerTrendUp) score *= 1.1;
+        const defenseTrendUp = defTrend.last3Allowed > defTrend.seasonAllowed * 1.1;
+        const playerTrendUp = playerTrend.last3Avg > playerTrend.seasonAvg * 1.1;
+        if(defenseTrendUp) score *= 1.1;
+        if(playerTrendUp) score *= 1.1;
 
-      const milestone = getClosestMilestoneGlobal(player);
-      if(milestone) score *= 1.05;
-
-      candidates.push({
-        player, position, team: offenseTeam, opponent: defenseTeam,
-        statLabel: playerTrend.statKey,
-        playerSeasonAvg: playerTrend.seasonAvg, playerLast3Avg: playerTrend.last3Avg,
-        defenseSeasonAllowed: defTrend.seasonAllowed, defenseLast3Allowed: defTrend.last3Allowed,
-        defenseTrendUp, playerTrendUp, milestone, score,
+        const entry = {
+          player, position, team: offenseTeam, opponent: defenseTeam,
+          statLabel: opt.label,
+          playerSeasonAvg: playerTrend.seasonAvg, playerLast3Avg: playerTrend.last3Avg,
+          defenseSeasonAllowed: defTrend.seasonAllowed, defenseLast3Allowed: defTrend.last3Allowed,
+          defenseTrendUp, playerTrendUp, score,
+        };
+        if(!best || score > best.score) best = entry;
       });
+
+      if(!best) return;
+      const milestone = getClosestMilestoneGlobal(player);
+      if(milestone) best.score *= 1.05;
+      best.milestone = milestone;
+      candidates.push(best);
     });
   });
 
@@ -2414,7 +2450,7 @@ function mountPicks(){
         <div class="table-scroll">
           <table>
             <thead><tr>
-              <th>Player</th><th>Pos</th><th>Team</th><th>Opp</th>
+              <th>Player</th><th>Pos</th><th>Team</th><th>Opp</th><th>Stat</th>
               <th>Season Avg</th><th>Last 3 Avg</th>
               <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
               <th>Notes</th>
@@ -2426,6 +2462,7 @@ function mountPicks(){
                   <td>${p.position}</td>
                   <td>${teamChip(p.team)}</td>
                   <td>${teamChip(p.opponent)}</td>
+                  <td style="font-weight:600;color:var(--gold);">${p.statLabel}</td>
                   <td class="num">${fmt(p.playerSeasonAvg)}</td>
                   <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
                   <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
