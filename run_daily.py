@@ -74,6 +74,10 @@ def main(force_week: int | None = None):
     # and game stats -- non-critical for the same reason.
     run("11_redzone_usage.py", critical=False)
 
+    # Coaching tendencies depends on the same external nflverse download as
+    # EPA, game stats, and red zone usage -- non-critical for the same reason.
+    run("12_coaching_tendencies.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
