@@ -449,6 +449,7 @@
     <button data-tab="coaching">Coaching Tendencies</button>
     <button data-tab="predictions">Predictions</button>
     <button data-tab="mypicks">My Picks</button>
+    <button data-tab="mikes">Mike's Template</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -2986,6 +2987,165 @@ function mountMyPicks(){
   apply();
 }
 
+// ---------- TAB: MIKE'S TEMPLATE ----------
+// Implements a specific weekly selection methodology in full: find a clear
+// game-script favorite (moderate spread) facing a run defense that's below
+// average, with a bell-cow RB getting real touch volume, and build
+// conservative floor-based tickets around that -- explicitly avoiding
+// anytime-TD props and anything beyond a 2-leg ticket.
+const TEMPLATE_SPREAD_MIN = 3, TEMPLATE_SPREAD_MAX = 7.5;
+const TEMPLATE_MIN_TOUCHES = 15;
+const TEMPLATE_RB_FLOORS = [40, 50];
+
+// The Spread column is a single shared string like "DAL -3.5" (team +
+// number), not a separately-signed value per team row -- parse it and
+// return the correct signed spread for whichever team is asked about
+// (negative = favored, positive = underdog), regardless of which team the
+// string itself is anchored to.
+function parseSpreadForTeam(team, spreadStr){
+  if(!spreadStr) return null;
+  const match = String(spreadStr).trim().match(/^([A-Za-z]+)\s*([+-]?\d+\.?\d*)$/);
+  if(!match) return null;
+  const anchorTeam = match[1].toUpperCase();
+  const value = parseFloat(match[2]);
+  if(isNaN(value)) return null;
+  return anchorTeam === team ? value : -value;
+}
+
+function isBottomHalfRunDefense(team){
+  const rows = (DATA.defVsPos || []).filter(r=>r.Position==='RB');
+  if(!rows.length) return null;
+  const values = rows.map(r=>num(r['Rush Yards Allowed Per Game'])).sort((a,b)=>a-b);
+  const median = values[Math.floor(values.length/2)];
+  const teamRow = rows.find(r=>r.Defense===team);
+  if(!teamRow) return null;
+  const teamValue = num(teamRow['Rush Yards Allowed Per Game']);
+  return {isBottomHalf: teamValue > median, teamValue, leagueMedian: median};
+}
+
+// RB1 = the team's highest season touch-volume back (rush attempts + receptions).
+function getTeamRB1(team){
+  const byPlayer = {};
+  (DATA.playerGame || []).filter(r=>r.Team===team && r.Position==='RB').forEach(r=>{
+    if(!byPlayer[r.Player]) byPlayer[r.Player] = {player:r.Player, games:[]};
+    byPlayer[r.Player].games.push(r);
+  });
+  const withVolume = Object.values(byPlayer).map(p=>{
+    const totalTouches = p.games.reduce((s,g)=>s+num(g['Rush Attempts'])+num(g['Receptions']),0);
+    return {...p, avgTouches: totalTouches / p.games.length, gamesPlayed: p.games.length};
+  });
+  withVolume.sort((a,b)=>b.avgTouches-a.avgTouches);
+  return withVolume[0] || null;
+}
+
+function getRushYardsFloorRate(player, threshold){
+  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position==='RB');
+  if(!games.length) return null;
+  const hits = games.filter(g=>num(g['Rush Yards']) >= threshold).length;
+  return {hits, total: games.length, rate: hits / games.length};
+}
+
+function computeMikesTemplatePicks(){
+  const games = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {sides:{}});
+    const isHome = r['Home/Away'] === 'Home';
+    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away);
+
+  const results = [];
+  gameList.forEach(g=>{
+    const home = g.sides.home, away = g.sides.away;
+    const spreadStr = home.Spread || away.Spread || '';
+
+    [[home.Team, away.Team], [away.Team, home.Team]].forEach(([team, opponent])=>{
+      const spread = parseSpreadForTeam(team, spreadStr);
+      if(spread === null) return;
+      // Step 1: a clear-but-not-blowout favorite, -3 to -7.5.
+      if(!(spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX)) return;
+
+      const runDef = isBottomHalfRunDefense(opponent);
+      if(!runDef || !runDef.isBottomHalf) return;
+
+      const rb1 = getTeamRB1(team);
+      if(!rb1 || rb1.avgTouches < TEMPLATE_MIN_TOUCHES) return;
+
+      const floors = TEMPLATE_RB_FLOORS.map(threshold => ({
+        threshold, ...getRushYardsFloorRate(rb1.player, threshold),
+      }));
+
+      results.push({
+        team, opponent, spread,
+        runDefValue: runDef.teamValue, leagueMedian: runDef.leagueMedian,
+        rb1: rb1.player, avgTouches: rb1.avgTouches, floors,
+      });
+    });
+  });
+
+  return results;
+}
+
+function renderMikesTemplate(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Mike's Template</div>
+    <div class="panel-note">
+      A specific weekly selection methodology, applied automatically: a team favored by 3 to 7.5 points,
+      facing an opponent that allows more rushing yards than the league median, with a lead back getting
+      15+ touches per game on average. Shows that back's actual season hit rate at 40+ and 50+ rushing
+      yards as the floor bet, plus the game line as the complement -- never an anytime-TD prop, never
+      more than 2 legs. <b>One real gap:</b> this data can't isolate offensive line health specifically
+      (only skill-position injuries are tracked) -- check the team's full injury list manually before
+      acting on the O-line-health part of the audit.
+    </div>
+    <div id="mikes-template-list"></div>
+  </div>`;
+}
+
+function mountMikesTemplate(){
+  const container = $('#mikes-template-list');
+  const picks = computeMikesTemplatePicks();
+
+  if(!picks.length){
+    container.innerHTML = '<div class="empty">No games clear the full checklist this week -- try again once more games/stats are logged, or the spreads shift.</div>';
+    return;
+  }
+
+  container.innerHTML = picks.map(p=>{
+    const injRows = (DATA.injuries || []).filter(r=>r.Team===p.team && isRelevantInjury(r));
+    const injHtml = injRows.length ? injRows.map(r=>`${r.Player} (${r.Status})`).join(', ') : 'None listed';
+
+    return `
+    <div class="log-pos-group" style="margin-bottom:20px;">
+      <div class="log-pos-label" style="font-size:14px;">${teamName(p.team)} favored by ${Math.abs(p.spread)} vs ${teamName(p.opponent)}</div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">1. GAME SCRIPT / MATCHUP AUDIT</div>
+        <div class="player-preview-stats">Spread: ${p.team} ${p.spread} (within -3 to -7.5 range)</div>
+        <div class="player-preview-stats">${p.opponent} run defense: ${fmt(p.runDefValue)} rush yds/g allowed (league median ${fmt(p.leagueMedian)}) -- bottom-half against the run</div>
+        <div class="player-preview-stats">RB1: <b style="color:var(--chalk);">${p.rb1}</b>, ${fmt(p.avgTouches)} touches/game season average (15+ threshold met)</div>
+        <div class="player-preview-stats" style="color:var(--gold);">O-line health / touch distribution: not verifiable from this data -- check manually. ${p.team} injuries: ${injHtml}</div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">2. MARKET SELECTION</div>
+        ${p.floors.map(f=>`<div class="player-preview-stats">${p.rb1} ${f.threshold}+ Rush Yds: hit ${f.hits} of ${f.total} games this season (${fmt(f.rate*100,0)}%)</div>`).join('')}
+        <div class="player-preview-stats">Complement: ${p.team} spread (${p.spread}) or moneyline</div>
+      </div>
+
+      <div>
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">3. SUGGESTED TICKET STRUCTURE</div>
+        <div class="player-preview-stats">Option A (straight, 1 unit): ${p.rb1} ${p.floors[0].threshold}+ Rush Yds</div>
+        <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.rb1} ${p.floors[0].threshold}+ Rush Yds</div>
+        <div class="player-preview-stats" style="color:var(--chalk-dim);">No anytime TD included. Max 2 legs.</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -3006,6 +3166,7 @@ const renderers = {
   coaching: {render: renderCoaching, mount: mountCoaching},
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
+  mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
