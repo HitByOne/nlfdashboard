@@ -296,6 +296,14 @@
     color:var(--gold);border:1px solid var(--gold-deep);border-radius:3px;
     padding:1px 5px;margin-left:6px;vertical-align:middle;
   }
+  .save-pick-btn{
+    font-family:var(--mono);font-size:10px;color:var(--gold);
+    background:var(--field-deep);border:1px solid var(--gold-deep);
+    border-radius:3px;padding:4px 9px;cursor:pointer;white-space:nowrap;
+    transition:background .15s;
+  }
+  .save-pick-btn:hover{background:rgba(227,169,59,0.12);}
+  .save-pick-btn:disabled{color:var(--mint);border-color:var(--mint);cursor:default;background:rgba(51,214,166,0.1);}
   .context-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .context-chip{
     font-family:var(--mono);font-size:10.5px;color:var(--chalk-dim);
@@ -440,6 +448,7 @@
     <button data-tab="power">Power Rankings</button>
     <button data-tab="coaching">Coaching Tendencies</button>
     <button data-tab="predictions">Predictions</button>
+    <button data-tab="mypicks">My Picks</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -450,6 +459,40 @@
 
 <script>
 let DATA = { teamSummary:[], teamWeek:[], playerGame:[], defVsPos:[], sos:[], week2:[] };
+
+// ---------- MY PICKS (localStorage, per-browser -- not synced across devices) ----------
+const MY_PICKS_KEY = 'nfl_dashboard_my_picks';
+
+function getMyPicks(){
+  try {
+    return JSON.parse(localStorage.getItem(MY_PICKS_KEY) || '[]');
+  } catch(e) {
+    console.warn('Could not read saved picks:', e);
+    return [];
+  }
+}
+function saveMyPicksList(list){
+  try {
+    localStorage.setItem(MY_PICKS_KEY, JSON.stringify(list));
+  } catch(e) {
+    console.warn('Could not save picks (storage may be full or disabled):', e);
+  }
+}
+function isPickSaved(pick){
+  return getMyPicks().some(p => p.player===pick.player && p.stat===pick.stat && p.source===pick.source && p.week===pick.week);
+}
+function addToMyPicks(pick){
+  if(isPickSaved(pick)) return false;
+  const list = getMyPicks();
+  list.push({...pick, addedAt: new Date().toISOString()});
+  saveMyPicksList(list);
+  return true;
+}
+function removeFromMyPicks(index){
+  const list = getMyPicks();
+  list.splice(index, 1);
+  saveMyPicksList(list);
+}
 
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
 // player is genuinely "close" to a milestone (within 20% of the step size)
@@ -2491,12 +2534,14 @@ function mountPicks(){
                 <th></th><th>Player</th><th>Pos</th><th>Team</th><th>Opp</th><th>Stat</th>
                 <th>Season Avg</th><th>Last 3 Avg</th>
                 <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
-                <th>Notes</th>
+                <th>Notes</th><th></th>
               </tr></thead>
               <tbody>
                 ${picks.map(p=>{
                   const pickKey = `${p.player}|${p.team}`;
                   const isOpen = expandedPicks.has(pickKey);
+                  const week = g.sides.away.Week;
+                  const saved = isPickSaved({source:'Best Picks', player:p.player, stat:p.statLabel, week});
                   const rowHtml = `
                     <tr class="pick-row" data-pick-key="${pickKey}" style="cursor:pointer;">
                       <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
@@ -2510,10 +2555,11 @@ function mountPicks(){
                       <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
                       <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
                       <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
+                      <td><button class="save-pick-btn" ${saved?'disabled':''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.statLabel}" data-week="${week}" data-summary="Season avg ${fmt(p.playerSeasonAvg)}, opp allows ${fmt(p.defenseSeasonAllowed)}/g (L3: ${fmt(p.defenseLast3Allowed)})">${saved?'&#10003; Saved':'+ Add'}</button></td>
                     </tr>`;
                   const detailHtml = isOpen ? `
                     <tr class="def-detail-row">
-                      <td colspan="11" style="background:var(--field-deep);padding:10px 16px;">
+                      <td colspan="12" style="background:var(--field-deep);padding:10px 16px;">
                         <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
                         ${playerGameLogHtml(p.player, p.position)}
                       </td>
@@ -2528,6 +2574,18 @@ function mountPicks(){
 
     container.innerHTML = sections.length ? sections.join('') :
       '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
+
+    $$('.save-pick-btn', container).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        addToMyPicks({
+          source: 'Best Picks', player: btn.dataset.player, position: btn.dataset.position,
+          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: btn.dataset.stat,
+          week: btn.dataset.week, summary: btn.dataset.summary,
+        });
+        apply();
+      });
+    });
 
     $$('.pick-row', container).forEach(tr=>{
       tr.addEventListener('click', ()=>{
@@ -2798,61 +2856,134 @@ function mountPredictions(){
   const powerByTeam = {};
   powerRows.forEach(r=>{ powerByTeam[r.team] = r; });
 
-  container.innerHTML = gameList.map(g=>{
-    const away = g.sides.away.Team, home = g.sides.home.Team;
-    const outcome = predictGameOutcome(away, home, powerByTeam);
+  function apply(){
+    container.innerHTML = gameList.map(g=>{
+      const away = g.sides.away.Team, home = g.sides.home.Team;
+      const week = g.sides.away.Week;
+      const outcome = predictGameOutcome(away, home, powerByTeam);
 
-    const outcomeHtml = outcome ? `
-      <div class="context-row" style="margin-bottom:14px;">
-        <span class="context-chip" style="${outcome.homeWinProb>=0.5?'color:var(--mint);':'color:var(--red);'}">
-          ${outcome.homeWinProb>=0.5 ? teamName(home) : teamName(away)} favored, ${fmt(Math.max(outcome.homeWinProb,outcome.awayWinProb)*100,0)}% win probability
-        </span>
-        <span class="context-chip">Est. margin: ${fmt(Math.abs(outcome.predictedMargin),1)} pts</span>
-        <span class="context-chip">Net EPA/play: ${away} ${fmt(outcome.awayNetEpa,3)} vs ${home} ${fmt(outcome.homeNetEpa,3)}</span>
-      </div>
-    ` : `<div class="empty" style="padding:8px 0;">Not enough EPA data yet to estimate this game.</div>`;
+      const outcomeHtml = outcome ? `
+        <div class="context-row" style="margin-bottom:14px;">
+          <span class="context-chip" style="${outcome.homeWinProb>=0.5?'color:var(--mint);':'color:var(--red);'}">
+            ${outcome.homeWinProb>=0.5 ? teamName(home) : teamName(away)} favored, ${fmt(Math.max(outcome.homeWinProb,outcome.awayWinProb)*100,0)}% win probability
+          </span>
+          <span class="context-chip">Est. margin: ${fmt(Math.abs(outcome.predictedMargin),1)} pts</span>
+          <span class="context-chip">Net EPA/play: ${away} ${fmt(outcome.awayNetEpa,3)} vs ${home} ${fmt(outcome.homeNetEpa,3)}</span>
+        </div>
+      ` : `<div class="empty" style="padding:8px 0;">Not enough EPA data yet to estimate this game.</div>`;
 
-    function teamProjectionHtml(team, opponent){
-      const lineup = pickProjectionPlayers(team);
+      function teamProjectionHtml(team, opponent){
+        const lineup = pickProjectionPlayers(team);
+        return `
+          <div class="matchup-side-label"><b>${team}</b> projected vs <b>${opponent}</b></div>
+          ${lineup.length ? lineup.map(p=>{
+            const statOptions = PICKS_STAT_OPTIONS[p.position] || [];
+            const projections = statOptions.map(opt=>{
+              const proj = projectPlayerStat(p.player, p.position, opt, opponent);
+              return proj ? {label: opt.label, ...proj} : null;
+            }).filter(Boolean);
+
+            if(!projections.length) return '';
+
+            return `
+              <div class="player-preview">
+                <div class="player-preview-head">
+                  <span class="player-preview-name">${p.player}</span>
+                  <span class="player-preview-pos">${p.position}</span>
+                </div>
+                ${projections.map(proj=>{
+                  const diff = proj.projected - proj.seasonAvg;
+                  const diffColor = diff > proj.seasonAvg*0.05 ? 'var(--mint)' : diff < -proj.seasonAvg*0.05 ? 'var(--red)' : 'var(--chalk-dim)';
+                  const saved = isPickSaved({source:'Predictions', player:p.player, stat:proj.label, week});
+                  const summary = `Projected ${fmt(proj.projected)} ${proj.label} vs ${opponent} (season avg ${fmt(proj.seasonAvg)}, ${fmt(proj.matchupFactor,2)}x matchup factor)`;
+                  return `<div class="player-preview-stats">${proj.label}: <b style="color:var(--chalk);">${fmt(proj.projected)}</b> (season avg ${fmt(proj.seasonAvg)}) <span style="color:${diffColor};">${fmt(proj.matchupFactor,2)}x</span>${proj.gamesPlayed < 6 ? ` <span style="color:var(--chalk-dim);">(dampened, opp. has ${proj.gamesPlayed} games)</span>` : ''}
+                    <button class="save-pick-btn" style="margin-left:8px;padding:1px 7px;font-size:9px;" ${saved?'disabled':''} data-player="${p.player}" data-position="${p.position}" data-team="${team}" data-opponent="${opponent}" data-stat="${proj.label}" data-week="${week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>
+                  </div>`;
+                }).join('')}
+              </div>`;
+          }).join('') : '<div class="empty" style="padding:8px 0;">Not enough data to project this team yet.</div>'}
+        `;
+      }
+
       return `
-        <div class="matchup-side-label"><b>${team}</b> projected vs <b>${opponent}</b></div>
-        ${lineup.length ? lineup.map(p=>{
-          const statOptions = PICKS_STAT_OPTIONS[p.position] || [];
-          const projections = statOptions.map(opt=>{
-            const proj = projectPlayerStat(p.player, p.position, opt, opponent);
-            return proj ? {label: opt.label, ...proj} : null;
-          }).filter(Boolean);
+        <div class="matchup-card" style="margin-bottom:20px;">
+          <div class="matchup-head">
+            <div class="matchup-teams">${teamName(away)}<span class="at">@</span>${teamName(home)}</div>
+          </div>
+          <div style="padding:16px 20px 0;">${outcomeHtml}</div>
+          <div class="matchup-body">
+            <div class="matchup-side">${teamProjectionHtml(away, home)}</div>
+            <div class="matchup-side">${teamProjectionHtml(home, away)}</div>
+          </div>
+      </div>`;
+    }).join('');
 
-          if(!projections.length) return '';
+    $$('.save-pick-btn', container).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        addToMyPicks({
+          source: 'Predictions', player: btn.dataset.player, position: btn.dataset.position,
+          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: btn.dataset.stat,
+          week: btn.dataset.week, summary: btn.dataset.summary,
+        });
+        apply();
+      });
+    });
+  }
 
-          return `
-            <div class="player-preview">
-              <div class="player-preview-head">
-                <span class="player-preview-name">${p.player}</span>
-                <span class="player-preview-pos">${p.position}</span>
-              </div>
-              ${projections.map(proj=>{
-                const diff = proj.projected - proj.seasonAvg;
-                const diffColor = diff > proj.seasonAvg*0.05 ? 'var(--mint)' : diff < -proj.seasonAvg*0.05 ? 'var(--red)' : 'var(--chalk-dim)';
-                return `<div class="player-preview-stats">${proj.label}: <b style="color:var(--chalk);">${fmt(proj.projected)}</b> (season avg ${fmt(proj.seasonAvg)}) <span style="color:${diffColor};">${fmt(proj.matchupFactor,2)}x</span>${proj.gamesPlayed < 6 ? ` <span style="color:var(--chalk-dim);">(dampened, opp. has ${proj.gamesPlayed} games)</span>` : ''}</div>`;
-              }).join('')}
-            </div>`;
-        }).join('') : '<div class="empty" style="padding:8px 0;">Not enough data to project this team yet.</div>'}
-      `;
+  apply();
+}
+
+// ---------- TAB: MY PICKS ----------
+function renderMyPicks(){
+  return `
+  <div class="panel">
+    <div class="panel-title">My Picks</div>
+    <div class="panel-note">
+      Picks you've saved from Best Picks or Predictions. Saved in this browser only (via local storage) --
+      not synced across devices, and clearing your browser data will clear this too.
+    </div>
+    <div id="mypicks-table"></div>
+  </div>`;
+}
+
+function mountMyPicks(){
+  const container = $('#mypicks-table');
+
+  function apply(){
+    const picks = getMyPicks();
+    if(!picks.length){
+      container.innerHTML = '<div class="empty">No picks saved yet -- use the "+ Add" button on Best Picks or Predictions.</div>';
+      return;
     }
 
-    return `
-      <div class="matchup-card" style="margin-bottom:20px;">
-        <div class="matchup-head">
-          <div class="matchup-teams">${teamName(away)}<span class="at">@</span>${teamName(home)}</div>
-        </div>
-        <div style="padding:16px 20px 0;">${outcomeHtml}</div>
-        <div class="matchup-body">
-          <div class="matchup-side">${teamProjectionHtml(away, home)}</div>
-          <div class="matchup-side">${teamProjectionHtml(home, away)}</div>
-        </div>
-      </div>`;
-  }).join('');
+    const cols = [
+      {key:'source', label:'Source'},
+      {key:'player', label:'Player'},
+      {key:'position', label:'Pos'},
+      {key:'team', label:'Team', render:teamChip},
+      {key:'opponent', label:'Opp', render:teamChip},
+      {key:'stat', label:'Stat'},
+      {key:'week', label:'Wk', numeric:true},
+      {key:'summary', label:'Details'},
+      {key:'_remove', label:'', render:(v,row)=>{
+        const idx = picks.indexOf(row);
+        return `<button class="save-pick-btn" data-remove-idx="${idx}">Remove</button>`;
+      }},
+    ];
+
+    buildTable(container, cols, picks, {defaultSort:'week', defaultDir:'desc'});
+
+    $$('.save-pick-btn', container).forEach(btn=>{
+      if(btn.dataset.removeIdx === undefined) return;
+      btn.addEventListener('click', ()=>{
+        removeFromMyPicks(parseInt(btn.dataset.removeIdx, 10));
+        apply();
+      });
+    });
+  }
+
+  apply();
 }
 
 // ---------- ROUTER ----------
@@ -2874,6 +3005,7 @@ const renderers = {
   power: {render: renderPowerRankings, mount: mountPowerRankings},
   coaching: {render: renderCoaching, mount: mountCoaching},
   predictions: {render: renderPredictions, mount: mountPredictions},
+  mypicks: {render: renderMyPicks, mount: mountMyPicks},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
