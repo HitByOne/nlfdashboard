@@ -2993,9 +2993,19 @@ function mountMyPicks(){
 // average, with a bell-cow RB getting real touch volume, and build
 // conservative floor-based tickets around that -- explicitly avoiding
 // anytime-TD props and anything beyond a 2-leg ticket.
+//
+// The spread/touch-volume checks below are shown as CONTEXT, not a hard
+// AND-gate -- requiring all three simultaneously (moderate spread + bottom-
+// half run D + 15+ touches) left almost nothing this early in a season.
+// The real signal this version leans on is convergence: a player's own
+// season hit rate at a yardage floor AND the opponent's own history of
+// giving up that much to the opposing lead back, checked together across a
+// range of thresholds, surfacing whichever floor is genuinely strong on
+// both sides -- not just a defense's season-average rank.
 const TEMPLATE_SPREAD_MIN = 3, TEMPLATE_SPREAD_MAX = 7.5;
 const TEMPLATE_MIN_TOUCHES = 15;
-const TEMPLATE_RB_FLOORS = [40, 50];
+const TEMPLATE_RB_FLOOR_CANDIDATES = [40, 50, 60, 70, 80, 90, 100];
+const TEMPLATE_STRONG_RATE = 0.65; // "genuinely strong" hit rate threshold on both sides
 
 // The Spread column is a single shared string like "DAL -3.5" (team +
 // number), not a separately-signed value per team row -- parse it and
@@ -3038,11 +3048,48 @@ function getTeamRB1(team){
   return withVolume[0] || null;
 }
 
-function getRushYardsFloorRate(player, threshold){
+function getPlayerRushFloorRate(player, threshold){
   const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position==='RB');
   if(!games.length) return null;
   const hits = games.filter(g=>num(g['Rush Yards']) >= threshold).length;
   return {hits, total: games.length, rate: hits / games.length};
+}
+
+// The defense's own history: for every game they've played, what did the
+// OPPOSING team's leading rusher actually gain? Then check how often that
+// leading-rusher number has cleared a given threshold -- "has this defense
+// given up 70+ to the opposing lead back in every game" is a much sharper,
+// game-by-game signal than a season-average allowed rank.
+function getDefenseLeadRusherFloorRate(defense, threshold){
+  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position==='RB');
+  const byWeek = {};
+  rows.forEach(r=>{
+    const wk = r.Week;
+    const yds = num(r['Rush Yards']);
+    if(!(wk in byWeek) || yds > byWeek[wk]) byWeek[wk] = yds;
+  });
+  const weeklyMax = Object.values(byWeek);
+  if(!weeklyMax.length) return null;
+  const hits = weeklyMax.filter(y=>y >= threshold).length;
+  return {hits, total: weeklyMax.length, rate: hits / weeklyMax.length};
+}
+
+// Find the highest floor where BOTH the player's own hit rate AND the
+// defense's history of giving up that much to the lead back are strong --
+// that's the genuine convergence pick, not just a low, easy number.
+function findBestConvergenceFloor(player, defense){
+  let best = null;
+  TEMPLATE_RB_FLOOR_CANDIDATES.forEach(threshold=>{
+    const playerRate = getPlayerRushFloorRate(player, threshold);
+    const defenseRate = getDefenseLeadRusherFloorRate(defense, threshold);
+    if(!playerRate || !defenseRate) return;
+    if(playerRate.rate >= TEMPLATE_STRONG_RATE && defenseRate.rate >= TEMPLATE_STRONG_RATE){
+      // Prefer the HIGHEST qualifying threshold (a stronger, more specific
+      // line), not just the first/lowest one that clears the bar.
+      if(!best || threshold > best.threshold) best = {threshold, playerRate, defenseRate};
+    }
+  });
+  return best;
 }
 
 function computeMikesTemplatePicks(){
@@ -3062,29 +3109,30 @@ function computeMikesTemplatePicks(){
     const spreadStr = home.Spread || away.Spread || '';
 
     [[home.Team, away.Team], [away.Team, home.Team]].forEach(([team, opponent])=>{
-      const spread = parseSpreadForTeam(team, spreadStr);
-      if(spread === null) return;
-      // Step 1: a clear-but-not-blowout favorite, -3 to -7.5.
-      if(!(spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX)) return;
-
-      const runDef = isBottomHalfRunDefense(opponent);
-      if(!runDef || !runDef.isBottomHalf) return;
-
       const rb1 = getTeamRB1(team);
-      if(!rb1 || rb1.avgTouches < TEMPLATE_MIN_TOUCHES) return;
+      if(!rb1) return;
 
-      const floors = TEMPLATE_RB_FLOORS.map(threshold => ({
-        threshold, ...getRushYardsFloorRate(rb1.player, threshold),
-      }));
+      const convergence = findBestConvergenceFloor(rb1.player, opponent);
+      if(!convergence) return; // no threshold cleared the bar on both sides -- not shown at all
+
+      const spread = parseSpreadForTeam(team, spreadStr);
+      const runDef = isBottomHalfRunDefense(opponent);
 
       results.push({
         team, opponent, spread,
-        runDefValue: runDef.teamValue, leagueMedian: runDef.leagueMedian,
-        rb1: rb1.player, avgTouches: rb1.avgTouches, floors,
+        spreadInRange: spread !== null && spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX,
+        runDef,
+        rb1: rb1.player, avgTouches: rb1.avgTouches, touchesMet: rb1.avgTouches >= TEMPLATE_MIN_TOUCHES,
+        convergence,
       });
     });
   });
 
+  // Strongest convergence first: higher floor, then higher combined hit rate.
+  results.sort((a,b)=>
+    b.convergence.threshold - a.convergence.threshold ||
+    (b.convergence.playerRate.rate + b.convergence.defenseRate.rate) - (a.convergence.playerRate.rate + a.convergence.defenseRate.rate)
+  );
   return results;
 }
 
@@ -3093,13 +3141,14 @@ function renderMikesTemplate(){
   <div class="panel">
     <div class="panel-title">Mike's Template</div>
     <div class="panel-note">
-      A specific weekly selection methodology, applied automatically: a team favored by 3 to 7.5 points,
-      facing an opponent that allows more rushing yards than the league median, with a lead back getting
-      15+ touches per game on average. Shows that back's actual season hit rate at 40+ and 50+ rushing
-      yards as the floor bet, plus the game line as the complement -- never an anytime-TD prop, never
-      more than 2 legs. <b>One real gap:</b> this data can't isolate offensive line health specifically
-      (only skill-position injuries are tracked) -- check the team's full injury list manually before
-      acting on the O-line-health part of the audit.
+      The core signal here is convergence: a running back's own season hit rate at a rushing floor AND
+      this specific opponent's history of giving up that much to the opposing lead back in every game so
+      far -- checked together across a range of floors (40 to 100 yards) so the line shown is the highest
+      one that's genuinely strong on both sides, not just an easy number. Spread (-3 to -7.5) and touch
+      volume (15+/game) are shown as context, not a hard requirement -- this early in a season, demanding
+      all three at once left almost nothing. <b>One real gap:</b> this data can't isolate offensive line
+      health specifically (only skill-position injuries are tracked) -- check the team's full injury list
+      manually before acting on that part of the audit.
     </div>
     <div id="mikes-template-list"></div>
   </div>`;
@@ -3110,36 +3159,37 @@ function mountMikesTemplate(){
   const picks = computeMikesTemplatePicks();
 
   if(!picks.length){
-    container.innerHTML = '<div class="empty">No games clear the full checklist this week -- try again once more games/stats are logged, or the spreads shift.</div>';
+    container.innerHTML = '<div class="empty">No RB this week has a floor that\'s strong on both their own side and this specific opponent\'s history -- check back once more games/stats are logged.</div>';
     return;
   }
 
   container.innerHTML = picks.map(p=>{
     const injRows = (DATA.injuries || []).filter(r=>r.Team===p.team && isRelevantInjury(r));
     const injHtml = injRows.length ? injRows.map(r=>`${r.Player} (${r.Status})`).join(', ') : 'None listed';
+    const c = p.convergence;
 
     return `
     <div class="log-pos-group" style="margin-bottom:20px;">
-      <div class="log-pos-label" style="font-size:14px;">${teamName(p.team)} favored by ${Math.abs(p.spread)} vs ${teamName(p.opponent)}</div>
+      <div class="log-pos-label" style="font-size:14px;">${p.rb1} (${teamName(p.team)}) vs ${teamName(p.opponent)} -- ${c.threshold}+ Rush Yds</div>
 
       <div style="margin-bottom:12px;">
-        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">1. GAME SCRIPT / MATCHUP AUDIT</div>
-        <div class="player-preview-stats">Spread: ${p.team} ${p.spread} (within -3 to -7.5 range)</div>
-        <div class="player-preview-stats">${p.opponent} run defense: ${fmt(p.runDefValue)} rush yds/g allowed (league median ${fmt(p.leagueMedian)}) -- bottom-half against the run</div>
-        <div class="player-preview-stats">RB1: <b style="color:var(--chalk);">${p.rb1}</b>, ${fmt(p.avgTouches)} touches/game season average (15+ threshold met)</div>
-        <div class="player-preview-stats" style="color:var(--gold);">O-line health / touch distribution: not verifiable from this data -- check manually. ${p.team} injuries: ${injHtml}</div>
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">CONVERGENCE SIGNAL</div>
+        <div class="player-preview-stats">${p.rb1} has hit ${c.threshold}+ rush yds in <b style="color:var(--mint);">${c.playerRate.hits} of ${c.playerRate.total}</b> games this season (${fmt(c.playerRate.rate*100,0)}%)</div>
+        <div class="player-preview-stats">${p.opponent} has allowed ${c.threshold}+ rush yds to the opposing lead back in <b style="color:var(--mint);">${c.defenseRate.hits} of ${c.defenseRate.total}</b> games (${fmt(c.defenseRate.rate*100,0)}%)</div>
       </div>
 
       <div style="margin-bottom:12px;">
-        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">2. MARKET SELECTION</div>
-        ${p.floors.map(f=>`<div class="player-preview-stats">${p.rb1} ${f.threshold}+ Rush Yds: hit ${f.hits} of ${f.total} games this season (${fmt(f.rate*100,0)}%)</div>`).join('')}
-        <div class="player-preview-stats">Complement: ${p.team} spread (${p.spread}) or moneyline</div>
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">GAME SCRIPT CONTEXT</div>
+        <div class="player-preview-stats">Spread: ${p.spread !== null ? `${p.team} ${p.spread}` : 'No data'} ${p.spreadInRange ? '<span style="color:var(--mint);">(in -3 to -7.5 range)</span>' : '<span style="color:var(--chalk-dim);">(outside -3 to -7.5 range)</span>'}</div>
+        <div class="player-preview-stats">${p.opponent} season run D: ${p.runDef ? `${fmt(p.runDef.teamValue)} rush yds/g allowed (league median ${fmt(p.runDef.leagueMedian)})` : 'No data'}</div>
+        <div class="player-preview-stats">${p.rb1} touch volume: ${fmt(p.avgTouches)}/game season average ${p.touchesMet ? '<span style="color:var(--mint);">(15+ met)</span>' : '<span style="color:var(--chalk-dim);">(under 15)</span>'}</div>
+        <div class="player-preview-stats" style="color:var(--gold);">O-line health: not verifiable from this data -- check manually. ${p.team} injuries: ${injHtml}</div>
       </div>
 
       <div>
-        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">3. SUGGESTED TICKET STRUCTURE</div>
-        <div class="player-preview-stats">Option A (straight, 1 unit): ${p.rb1} ${p.floors[0].threshold}+ Rush Yds</div>
-        <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.rb1} ${p.floors[0].threshold}+ Rush Yds</div>
+        <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">SUGGESTED TICKET STRUCTURE</div>
+        <div class="player-preview-stats">Option A (straight, 1 unit): ${p.rb1} ${c.threshold}+ Rush Yds</div>
+        <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.rb1} ${c.threshold}+ Rush Yds</div>
         <div class="player-preview-stats" style="color:var(--chalk-dim);">No anytime TD included. Max 2 legs.</div>
       </div>
     </div>`;
