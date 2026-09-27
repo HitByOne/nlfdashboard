@@ -450,6 +450,7 @@
     <button data-tab="predictions">Predictions</button>
     <button data-tab="mypicks">My Picks</button>
     <button data-tab="mikes">Mike's Template</button>
+    <button data-tab="anytimetd">Anytime TD Props</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -3004,8 +3005,15 @@ function mountMyPicks(){
 // both sides -- not just a defense's season-average rank.
 const TEMPLATE_SPREAD_MIN = 3, TEMPLATE_SPREAD_MAX = 7.5;
 const TEMPLATE_MIN_TOUCHES = 15;
-const TEMPLATE_RB_FLOOR_CANDIDATES = [40, 50, 60, 70, 80, 90, 100];
 const TEMPLATE_STRONG_RATE = 0.65; // "genuinely strong" hit rate threshold on both sides
+
+// Which stat and which floor candidates to test, per position.
+const TEMPLATE_STAT_BY_POS = {
+  QB: {key:'Pass Yards', floors:[200, 225, 250, 275, 300, 325, 350]},
+  RB: {key:'Rush Yards', floors:[40, 50, 60, 70, 80, 90, 100]},
+  WR: {key:'Receiving Yards', floors:[40, 50, 60, 70, 80, 90, 100]},
+  TE: {key:'Receiving Yards', floors:[30, 40, 50, 60, 70, 80]},
+};
 
 // The Spread column is a single shared string like "DAL -3.5" (team +
 // number), not a separately-signed value per team row -- parse it and
@@ -3033,59 +3041,65 @@ function isBottomHalfRunDefense(team){
   return {isBottomHalf: teamValue > median, teamValue, leagueMedian: median};
 }
 
-// RB1 = the team's highest season touch-volume back (rush attempts + receptions).
-function getTeamRB1(team){
+// The team's highest-volume player at a given position -- volume defined
+// by whatever's most relevant to that position (pass attempts for QB,
+// touches for RB, targets for WR/TE).
+function getTeamTopVolumePlayer(team, position){
   const byPlayer = {};
-  (DATA.playerGame || []).filter(r=>r.Team===team && r.Position==='RB').forEach(r=>{
+  (DATA.playerGame || []).filter(r=>r.Team===team && r.Position===position).forEach(r=>{
     if(!byPlayer[r.Player]) byPlayer[r.Player] = {player:r.Player, games:[]};
     byPlayer[r.Player].games.push(r);
   });
   const withVolume = Object.values(byPlayer).map(p=>{
-    const totalTouches = p.games.reduce((s,g)=>s+num(g['Rush Attempts'])+num(g['Receptions']),0);
-    return {...p, avgTouches: totalTouches / p.games.length, gamesPlayed: p.games.length};
+    let totalVolume;
+    if(position === 'QB') totalVolume = p.games.reduce((s,g)=>s+num(g['Pass Attempts']),0);
+    else if(position === 'RB') totalVolume = p.games.reduce((s,g)=>s+num(g['Rush Attempts'])+num(g['Receptions']),0);
+    else totalVolume = p.games.reduce((s,g)=>s+num(g['Targets']),0);
+    return {...p, avgVolume: totalVolume / p.games.length};
   });
-  withVolume.sort((a,b)=>b.avgTouches-a.avgTouches);
+  withVolume.sort((a,b)=>b.avgVolume-a.avgVolume);
   return withVolume[0] || null;
 }
 
-function getPlayerRushFloorRate(player, threshold){
-  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position==='RB');
+function getPlayerStatFloorRate(player, position, statKey, threshold){
+  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position===position);
   if(!games.length) return null;
-  const hits = games.filter(g=>num(g['Rush Yards']) >= threshold).length;
+  const hits = games.filter(g=>num(g[statKey]) >= threshold).length;
   return {hits, total: games.length, rate: hits / games.length};
 }
 
 // The defense's own history: for every game they've played, what did the
-// OPPOSING team's leading rusher actually gain? Then check how often that
-// leading-rusher number has cleared a given threshold -- "has this defense
-// given up 70+ to the opposing lead back in every game" is a much sharper,
-// game-by-game signal than a season-average allowed rank.
-function getDefenseLeadRusherFloorRate(defense, threshold){
-  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position==='RB');
+// OPPOSING team's leading player AT THIS POSITION actually gain in this
+// stat? Then check how often that leading number has cleared a given
+// threshold -- "has this defense given up 70+ to the opposing lead back in
+// every game" (or 250+ passing to the opposing QB, or 70+ receiving to the
+// opposing WR1) is a much sharper, game-by-game signal than a season-
+// average allowed rank.
+function getDefenseLeadPlayerFloorRate(defense, position, statKey, threshold){
+  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position===position);
   const byWeek = {};
   rows.forEach(r=>{
     const wk = r.Week;
-    const yds = num(r['Rush Yards']);
-    if(!(wk in byWeek) || yds > byWeek[wk]) byWeek[wk] = yds;
+    const val = num(r[statKey]);
+    if(!(wk in byWeek) || val > byWeek[wk]) byWeek[wk] = val;
   });
   const weeklyMax = Object.values(byWeek);
   if(!weeklyMax.length) return null;
-  const hits = weeklyMax.filter(y=>y >= threshold).length;
+  const hits = weeklyMax.filter(v=>v >= threshold).length;
   return {hits, total: weeklyMax.length, rate: hits / weeklyMax.length};
 }
 
 // Find the highest floor where BOTH the player's own hit rate AND the
-// defense's history of giving up that much to the lead back are strong --
-// that's the genuine convergence pick, not just a low, easy number.
-function findBestConvergenceFloor(player, defense){
+// defense's history of giving up that much to the lead player at this
+// position are strong -- that's the genuine convergence pick, not just a
+// low, easy number.
+function findBestConvergenceFloor(player, position, statKey, floors, defense){
   let best = null;
-  TEMPLATE_RB_FLOOR_CANDIDATES.forEach(threshold=>{
-    const playerRate = getPlayerRushFloorRate(player, threshold);
-    const defenseRate = getDefenseLeadRusherFloorRate(defense, threshold);
+  floors.forEach(threshold=>{
+    const playerRate = getPlayerStatFloorRate(player, position, statKey, threshold);
+    const defenseRate = getDefenseLeadPlayerFloorRate(defense, position, statKey, threshold);
     if(!playerRate || !defenseRate) return;
     if(playerRate.rate >= TEMPLATE_STRONG_RATE && defenseRate.rate >= TEMPLATE_STRONG_RATE){
-      // Prefer the HIGHEST qualifying threshold (a stronger, more specific
-      // line), not just the first/lowest one that clears the bar.
       if(!best || threshold > best.threshold) best = {threshold, playerRate, defenseRate};
     }
   });
@@ -3109,21 +3123,25 @@ function computeMikesTemplatePicks(){
     const spreadStr = home.Spread || away.Spread || '';
 
     [[home.Team, away.Team], [away.Team, home.Team]].forEach(([team, opponent])=>{
-      const rb1 = getTeamRB1(team);
-      if(!rb1) return;
+      PICKS_POSITIONS.forEach(position=>{
+        const statCfg = TEMPLATE_STAT_BY_POS[position];
+        const topPlayer = getTeamTopVolumePlayer(team, position);
+        if(!topPlayer) return;
 
-      const convergence = findBestConvergenceFloor(rb1.player, opponent);
-      if(!convergence) return; // no threshold cleared the bar on both sides -- not shown at all
+        const convergence = findBestConvergenceFloor(topPlayer.player, position, statCfg.key, statCfg.floors, opponent);
+        if(!convergence) return; // no threshold cleared the bar on both sides -- not shown at all
 
-      const spread = parseSpreadForTeam(team, spreadStr);
-      const runDef = isBottomHalfRunDefense(opponent);
+        const spread = parseSpreadForTeam(team, spreadStr);
+        const runDef = position === 'RB' ? isBottomHalfRunDefense(opponent) : null;
 
-      results.push({
-        team, opponent, spread,
-        spreadInRange: spread !== null && spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX,
-        runDef,
-        rb1: rb1.player, avgTouches: rb1.avgTouches, touchesMet: rb1.avgTouches >= TEMPLATE_MIN_TOUCHES,
-        convergence,
+        results.push({
+          team, opponent, position, statLabel: statCfg.key,
+          spread, spreadInRange: spread !== null && spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX,
+          runDef,
+          player: topPlayer.player, avgVolume: topPlayer.avgVolume,
+          touchesMet: position === 'RB' ? topPlayer.avgVolume >= TEMPLATE_MIN_TOUCHES : null,
+          convergence,
+        });
       });
     });
   });
@@ -3141,14 +3159,15 @@ function renderMikesTemplate(){
   <div class="panel">
     <div class="panel-title">Mike's Template</div>
     <div class="panel-note">
-      The core signal here is convergence: a running back's own season hit rate at a rushing floor AND
-      this specific opponent's history of giving up that much to the opposing lead back in every game so
-      far -- checked together across a range of floors (40 to 100 yards) so the line shown is the highest
-      one that's genuinely strong on both sides, not just an easy number. Spread (-3 to -7.5) and touch
-      volume (15+/game) are shown as context, not a hard requirement -- this early in a season, demanding
-      all three at once left almost nothing. <b>One real gap:</b> this data can't isolate offensive line
-      health specifically (only skill-position injuries are tracked) -- check the team's full injury list
-      manually before acting on that part of the audit.
+      The core signal here is convergence, applied across every skill position: a player's own season hit
+      rate at a stat floor (rush yards for RB, receiving yards for WR/TE, pass yards for QB) AND this
+      specific opponent's history of giving up that much to the opposing lead player at that position in
+      every game so far -- checked across a range of floors so the line shown is the highest one that's
+      genuinely strong on both sides, not just an easy number. Spread (-3 to -7.5) and volume are shown as
+      context, not a hard requirement -- this early in a season, demanding everything at once left almost
+      nothing. <b>One real gap:</b> this data can't isolate offensive line health specifically (only
+      skill-position injuries are tracked) -- check the team's full injury list manually before acting on
+      that part of the audit.
     </div>
     <div id="mikes-template-list"></div>
   </div>`;
@@ -3159,7 +3178,7 @@ function mountMikesTemplate(){
   const picks = computeMikesTemplatePicks();
 
   if(!picks.length){
-    container.innerHTML = '<div class="empty">No RB this week has a floor that\'s strong on both their own side and this specific opponent\'s history -- check back once more games/stats are logged.</div>';
+    container.innerHTML = '<div class="empty">No player this week has a floor that\'s strong on both their own side and this specific opponent\'s history -- check back once more games/stats are logged.</div>';
     return;
   }
 
@@ -3167,33 +3186,148 @@ function mountMikesTemplate(){
     const injRows = (DATA.injuries || []).filter(r=>r.Team===p.team && isRelevantInjury(r));
     const injHtml = injRows.length ? injRows.map(r=>`${r.Player} (${r.Status})`).join(', ') : 'None listed';
     const c = p.convergence;
+    const statShort = p.statLabel.replace(' Yards',' Yds');
 
     return `
     <div class="log-pos-group" style="margin-bottom:20px;">
-      <div class="log-pos-label" style="font-size:14px;">${p.rb1} (${teamName(p.team)}) vs ${teamName(p.opponent)} -- ${c.threshold}+ Rush Yds</div>
+      <div class="log-pos-label" style="font-size:14px;">${p.player} (${p.position}, ${teamName(p.team)}) vs ${teamName(p.opponent)} -- ${c.threshold}+ ${statShort}</div>
 
       <div style="margin-bottom:12px;">
         <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">CONVERGENCE SIGNAL</div>
-        <div class="player-preview-stats">${p.rb1} has hit ${c.threshold}+ rush yds in <b style="color:var(--mint);">${c.playerRate.hits} of ${c.playerRate.total}</b> games this season (${fmt(c.playerRate.rate*100,0)}%)</div>
-        <div class="player-preview-stats">${p.opponent} has allowed ${c.threshold}+ rush yds to the opposing lead back in <b style="color:var(--mint);">${c.defenseRate.hits} of ${c.defenseRate.total}</b> games (${fmt(c.defenseRate.rate*100,0)}%)</div>
+        <div class="player-preview-stats">${p.player} has hit ${c.threshold}+ ${statShort} in <b style="color:var(--mint);">${c.playerRate.hits} of ${c.playerRate.total}</b> games this season (${fmt(c.playerRate.rate*100,0)}%)</div>
+        <div class="player-preview-stats">${p.opponent} has allowed ${c.threshold}+ ${statShort} to the opposing lead ${p.position} in <b style="color:var(--mint);">${c.defenseRate.hits} of ${c.defenseRate.total}</b> games (${fmt(c.defenseRate.rate*100,0)}%)</div>
       </div>
 
       <div style="margin-bottom:12px;">
         <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">GAME SCRIPT CONTEXT</div>
         <div class="player-preview-stats">Spread: ${p.spread !== null ? `${p.team} ${p.spread}` : 'No data'} ${p.spreadInRange ? '<span style="color:var(--mint);">(in -3 to -7.5 range)</span>' : '<span style="color:var(--chalk-dim);">(outside -3 to -7.5 range)</span>'}</div>
-        <div class="player-preview-stats">${p.opponent} season run D: ${p.runDef ? `${fmt(p.runDef.teamValue)} rush yds/g allowed (league median ${fmt(p.runDef.leagueMedian)})` : 'No data'}</div>
-        <div class="player-preview-stats">${p.rb1} touch volume: ${fmt(p.avgTouches)}/game season average ${p.touchesMet ? '<span style="color:var(--mint);">(15+ met)</span>' : '<span style="color:var(--chalk-dim);">(under 15)</span>'}</div>
+        ${p.runDef ? `<div class="player-preview-stats">${p.opponent} season run D: ${fmt(p.runDef.teamValue)} rush yds/g allowed (league median ${fmt(p.runDef.leagueMedian)})</div>` : ''}
+        <div class="player-preview-stats">${p.player} volume: ${fmt(p.avgVolume)}/game season average ${p.touchesMet !== null ? (p.touchesMet ? '<span style="color:var(--mint);">(15+ touches met)</span>' : '<span style="color:var(--chalk-dim);">(under 15 touches)</span>') : ''}</div>
         <div class="player-preview-stats" style="color:var(--gold);">O-line health: not verifiable from this data -- check manually. ${p.team} injuries: ${injHtml}</div>
       </div>
 
       <div>
         <div style="font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin-bottom:6px;">SUGGESTED TICKET STRUCTURE</div>
-        <div class="player-preview-stats">Option A (straight, 1 unit): ${p.rb1} ${c.threshold}+ Rush Yds</div>
-        <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.rb1} ${c.threshold}+ Rush Yds</div>
+        <div class="player-preview-stats">Option A (straight, 1 unit): ${p.player} ${c.threshold}+ ${statShort}</div>
+        <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.player} ${c.threshold}+ ${statShort}</div>
         <div class="player-preview-stats" style="color:var(--chalk-dim);">No anytime TD included. Max 2 legs.</div>
       </div>
     </div>`;
   }).join('');
+}
+
+// ---------- TAB: ANYTIME TD PROPS ----------
+// Same convergence philosophy as Mike's Template, applied to touchdowns
+// specifically: for each team, which player is most likely to score,
+// based on their own season rate of scoring at least one TD (rushing or
+// receiving combined) AND how often the upcoming opponent has allowed
+// ANY player at that position to score against them, game by game.
+const TD_STRONG_RATE = 0.5; // lower bar than yardage floors -- TDs are inherently rarer events
+
+function getPlayerAnytimeTDRate(player, position){
+  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position===position);
+  if(!games.length) return null;
+  const hits = games.filter(g => (num(g['Rush TD']) + num(g['Receiving TD'])) >= 1).length;
+  return {hits, total: games.length, rate: hits / games.length};
+}
+
+// Per week, did ANY opposing player at this position score against this
+// defense? Rate across all their games so far.
+function getDefenseAllowsAnyTDRate(defense, position){
+  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position===position);
+  const byWeek = {};
+  rows.forEach(r=>{
+    const wk = r.Week;
+    const scored = (num(r['Rush TD']) + num(r['Receiving TD'])) >= 1 ? 1 : 0;
+    byWeek[wk] = Math.max(byWeek[wk] || 0, scored);
+  });
+  const weeks = Object.values(byWeek);
+  if(!weeks.length) return null;
+  const hits = weeks.filter(v=>v >= 1).length;
+  return {hits, total: weeks.length, rate: hits / weeks.length};
+}
+
+function computeAnytimeTDPicks(){
+  const games = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {sides:{}});
+    const isHome = r['Home/Away'] === 'Home';
+    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away);
+
+  const results = [];
+  gameList.forEach(g=>{
+    const home = g.sides.home.Team, away = g.sides.away.Team;
+
+    [[home, away], [away, home]].forEach(([team, opponent])=>{
+      // Every eligible skill player on the team is a candidate, not just
+      // the top-volume one -- a WR2 who scores often is still relevant here.
+      const players = [...new Set(
+        (DATA.playerGame || []).filter(r=>r.Team===team && PICKS_POSITIONS.includes(r.Position)).map(r=>r.Player)
+      )];
+
+      let best = null;
+      players.forEach(player=>{
+        if(isPlayerOut(player)) return;
+        const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===team);
+        const position = posRow.Position;
+
+        const playerRate = getPlayerAnytimeTDRate(player, position);
+        const defenseRate = getDefenseAllowsAnyTDRate(opponent, position);
+        if(!playerRate || !defenseRate) return;
+
+        const score = playerRate.rate * defenseRate.rate;
+        if(!best || score > best.score){
+          best = {player, position, playerRate, defenseRate, score};
+        }
+      });
+
+      if(!best || best.score <= 0) return;
+      results.push({team, opponent, ...best});
+    });
+  });
+
+  results.sort((a,b)=>b.score-a.score);
+  return results;
+}
+
+function renderAnytimeTD(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Anytime TD Props</div>
+    <div class="panel-note">
+      For each team, the player most likely to score based on two things multiplied together: their own
+      season rate of scoring at least one TD (rushing or receiving combined) per game, and how often the
+      upcoming opponent has let ANY player at that position score against them, game by game. Out/Doubtful
+      players are excluded. TD scoring is inherently streaky and lower-sample than yardage stats -- treat
+      these as a starting point for research, not a settled answer.
+    </div>
+    <div id="anytime-td-list"></div>
+  </div>`;
+}
+
+function mountAnytimeTD(){
+  const container = $('#anytime-td-list');
+  const picks = computeAnytimeTDPicks();
+
+  if(!picks.length){
+    container.innerHTML = '<div class="empty">No strong anytime-TD signals yet -- check back once more games/stats are logged.</div>';
+    return;
+  }
+
+  const cols = [
+    {key:'player', label:'Player'},
+    {key:'position', label:'Pos'},
+    {key:'team', label:'Team', render:teamChip},
+    {key:'opponent', label:'Opp', render:teamChip},
+    {key:'_playerRate', label:'Player TD Rate', numeric:true, render:(v,row)=>`${row.playerRate.hits}/${row.playerRate.total} (${fmt(row.playerRate.rate*100,0)}%)`},
+    {key:'_defenseRate', label:'Opp Allows TD Rate', numeric:true, render:(v,row)=>`${row.defenseRate.hits}/${row.defenseRate.total} (${fmt(row.defenseRate.rate*100,0)}%)`},
+    {key:'score', label:'Combined', numeric:true, render:v=>fmt(v*100,0)+'%'},
+  ];
+  buildTable(container, cols, picks, {defaultSort:'score', defaultDir:'desc'});
 }
 
 // ---------- ROUTER ----------
@@ -3217,6 +3351,7 @@ const renderers = {
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
+  anytimetd: {render: renderAnytimeTD, mount: mountAnytimeTD},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
