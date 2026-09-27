@@ -439,6 +439,7 @@
     <button data-tab="picks">Best Picks</button>
     <button data-tab="power">Power Rankings</button>
     <button data-tab="coaching">Coaching Tendencies</button>
+    <button data-tab="predictions">Predictions</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -2671,6 +2672,163 @@ function mountCoaching(){
   buildTable($('#coaching-table'), cols, rows, {defaultSort:'PROE Proxy', defaultDir:'desc'});
 }
 
+// ---------- TAB: PREDICTIONS ----------
+// A transparent, simplified model -- not a professional forecasting
+// system. Every input and formula is shown inline rather than hidden
+// behind a single output number, matching how the rest of this app treats
+// "predictive"-feeling features (see Best Picks, EPA/Efficiency). Real
+// outcomes involve injuries, weather, coaching decisions, and randomness
+// this model doesn't fully capture -- treat this as an illustrative
+// estimate built from your own season data, not a guarantee.
+const HOME_FIELD_ADVANTAGE = 2.0;   // points -- a widely-cited long-run NFL average
+const AVG_PLAYS_PER_GAME = 65;      // rough average plays/team/game, used only to translate an EPA/play gap into an approximate point margin
+const MARGIN_SCALE = 14;            // spread-to-win-probability curve steepness, calibrated to typical NFL game-margin variance (~13-14 pt standard deviation)
+
+function predictGameOutcome(awayTeam, homeTeam, powerByTeam){
+  const away = powerByTeam[awayTeam];
+  const home = powerByTeam[homeTeam];
+  if(!away || !home) return null;
+
+  const epaDiff = home.netEpa - away.netEpa;
+  const predictedMargin = epaDiff * AVG_PLAYS_PER_GAME + HOME_FIELD_ADVANTAGE; // positive = home favored
+  const homeWinProb = 1 / (1 + Math.pow(10, -predictedMargin / MARGIN_SCALE));
+
+  return {
+    predictedMargin, homeWinProb, awayWinProb: 1 - homeWinProb,
+    homeNetEpa: home.netEpa, awayNetEpa: away.netEpa,
+  };
+}
+
+// Matchup-adjusted stat projection: blend a player's season and recent-form
+// average, then scale by how this specific opponent compares to the
+// league average at that stat/position.
+function projectPlayerStat(player, position, statOption, opponent){
+  const playerTrend = getPlayerSeasonAndLast3(player, position, statOption.key);
+  const defTrend = getDefenseSeasonAndLast3(opponent, position, statOption);
+  if(!playerTrend || !defTrend || playerTrend.seasonAvg <= 0) return null;
+
+  const allRows = (DATA.defVsPos || []).filter(r=>r.Position===position);
+  if(!allRows.length) return null;
+  const leagueAvgAllowed = allRows.reduce((s,r)=>s+num(r[statOption.defenseKey]),0) / allRows.length;
+  const matchupFactor = leagueAvgAllowed > 0 ? defTrend.seasonAllowed / leagueAvgAllowed : 1;
+
+  const blendedAvg = playerTrend.seasonAvg * 0.6 + playerTrend.last3Avg * 0.4;
+  const projected = blendedAvg * matchupFactor;
+
+  return {projected, seasonAvg: playerTrend.seasonAvg, matchupFactor};
+}
+
+function pickProjectionPlayers(team){
+  const byPlayer = {};
+  (DATA.playerGame || []).filter(r=>r.Team===team && PICKS_POSITIONS.includes(r.Position)).forEach(r=>{
+    if(!byPlayer[r.Player]) byPlayer[r.Player] = {player:r.Player, position:r.Position, games:[]};
+    byPlayer[r.Player].games.push(r);
+  });
+  const primaryStatFor = pos => (PICKS_STAT_OPTIONS[pos] || [])[0];
+  const withVolume = Object.values(byPlayer).map(p=>{
+    const opt = primaryStatFor(p.position);
+    const total = opt ? p.games.reduce((s,g)=>s+num(g[opt.key]),0) : 0;
+    return {...p, volume: total};
+  });
+  const LINEUP_SLOTS = {QB:1, RB:2, WR:2, TE:1};
+  const lineup = [];
+  Object.entries(LINEUP_SLOTS).forEach(([pos, count])=>{
+    lineup.push(...withVolume.filter(p=>p.position===pos).sort((a,b)=>b.volume-a.volume).slice(0, count));
+  });
+  return lineup;
+}
+
+function renderPredictions(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Predictions</div>
+    <div class="panel-note">
+      A simplified, fully transparent model -- not a professional betting line. Win probability comes from
+      the EPA/play gap between the two teams (the same metric behind Power Rankings), converted to an
+      approximate point margin and a standard home-field adjustment (~2 pts). Player stat projections blend
+      each player's season and last-3-game average, scaled by how this specific opponent compares to the
+      league average at that stat. Real games involve injuries, weather, coaching decisions, and randomness
+      this model can't see -- treat every number here as an estimate to weigh, not a guarantee.
+    </div>
+    <div id="predictions-list"></div>
+  </div>`;
+}
+
+function mountPredictions(){
+  const container = $('#predictions-list');
+
+  const games = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+    const isHome = r['Home/Away'] === 'Home';
+    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away)
+    .sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  if(!gameList.length){
+    container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>';
+    return;
+  }
+
+  const powerRows = computePowerRankings();
+  const powerByTeam = {};
+  powerRows.forEach(r=>{ powerByTeam[r.team] = r; });
+
+  container.innerHTML = gameList.map(g=>{
+    const away = g.sides.away.Team, home = g.sides.home.Team;
+    const outcome = predictGameOutcome(away, home, powerByTeam);
+
+    const outcomeHtml = outcome ? `
+      <div class="context-row" style="margin-bottom:14px;">
+        <span class="context-chip" style="${outcome.homeWinProb>=0.5?'color:var(--mint);':'color:var(--red);'}">
+          ${outcome.homeWinProb>=0.5 ? teamName(home) : teamName(away)} favored, ${fmt(Math.max(outcome.homeWinProb,outcome.awayWinProb)*100,0)}% win probability
+        </span>
+        <span class="context-chip">Est. margin: ${fmt(Math.abs(outcome.predictedMargin),1)} pts</span>
+        <span class="context-chip">Net EPA/play: ${away} ${fmt(outcome.awayNetEpa,3)} vs ${home} ${fmt(outcome.homeNetEpa,3)}</span>
+      </div>
+    ` : `<div class="empty" style="padding:8px 0;">Not enough EPA data yet to estimate this game.</div>`;
+
+    function teamProjectionHtml(team, opponent){
+      const lineup = pickProjectionPlayers(team);
+      return `
+        <div class="matchup-side-label"><b>${team}</b> projected vs <b>${opponent}</b></div>
+        ${lineup.length ? lineup.map(p=>{
+          const opt = (PICKS_STAT_OPTIONS[p.position] || [])[0];
+          if(!opt) return '';
+          const proj = projectPlayerStat(p.player, p.position, opt, opponent);
+          if(!proj) return '';
+          const diff = proj.projected - proj.seasonAvg;
+          const diffColor = diff > proj.seasonAvg*0.05 ? 'var(--mint)' : diff < -proj.seasonAvg*0.05 ? 'var(--red)' : 'var(--chalk-dim)';
+          return `
+            <div class="player-preview">
+              <div class="player-preview-head">
+                <span class="player-preview-name">${p.player}</span>
+                <span class="player-preview-pos">${p.position}</span>
+              </div>
+              <div class="player-preview-stats">Projected ${opt.label}: <b style="color:var(--chalk);">${fmt(proj.projected)}</b> (season avg ${fmt(proj.seasonAvg)})</div>
+              <span class="player-preview-matchup" style="color:${diffColor};">Matchup factor: ${fmt(proj.matchupFactor,2)}x league average allowed</span>
+            </div>`;
+        }).join('') : '<div class="empty" style="padding:8px 0;">Not enough data to project this team yet.</div>'}
+      `;
+    }
+
+    return `
+      <div class="matchup-card" style="margin-bottom:20px;">
+        <div class="matchup-head">
+          <div class="matchup-teams">${teamName(away)}<span class="at">@</span>${teamName(home)}</div>
+        </div>
+        <div style="padding:16px 20px 0;">${outcomeHtml}</div>
+        <div class="matchup-body stacked">
+          <div class="matchup-side">${teamProjectionHtml(away, home)}</div>
+          <div class="matchup-side">${teamProjectionHtml(home, away)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -2689,6 +2847,7 @@ const renderers = {
   picks: {render: renderPicks, mount: mountPicks},
   power: {render: renderPowerRankings, mount: mountPowerRankings},
   coaching: {render: renderCoaching, mount: mountCoaching},
+  predictions: {render: renderPredictions, mount: mountPredictions},
 };
 function showTab(tab){
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
