@@ -1402,6 +1402,12 @@ function renderWeek2(){
 }
 
 function mountWeek2(){
+  // Computed once per mount (not per team/game) since it's the same
+  // league-wide ranking regardless of which game is being shown.
+  const powerRankRows = computePowerRankings();
+  const powerRankLookup = {};
+  powerRankRows.forEach((r,i)=>{ powerRankLookup[r.team] = {rank: i+1, total: powerRankRows.length, score: r.powerScore}; });
+
   function apply(){
     const q = $('#wk2-search').value.trim().toUpperCase();
 
@@ -1601,7 +1607,11 @@ function mountWeek2(){
       const def = getTeamEpa(defenseTeam, 'Defense');
       const injRows = (DATA.injuries || []).filter(r=>r.Team===team && isRelevantInjury(r));
 
+      const powerInfo = powerRankLookup[team];
+      const powerColor = powerInfo ? (powerInfo.rank <= powerInfo.total/3 ? 'var(--mint)' : powerInfo.rank > powerInfo.total*2/3 ? 'var(--red)' : null) : null;
+
       const items = [
+        {label: 'Power Rank', value: powerInfo ? `#${powerInfo.rank} of ${powerInfo.total}` : 'No data yet', color: powerColor},
         {label: 'Rest', value: rest ? rest.label.replace(/<[^>]*>/g,'') : 'No data yet', color: rest?.cls==='rest-short' ? 'var(--red)' : rest?.cls==='rest-bye' ? 'var(--mint)' : null},
         {label: 'INT Margin', value: margin===0 ? 'Even' : (margin>0 ? `+${margin}` : `${margin}`), color: margin>0 ? 'var(--mint)' : margin<0 ? 'var(--red)' : null},
       ];
