@@ -2940,10 +2940,40 @@ function mountPredictions(){
 function renderMyPicks(){
   return `
   <div class="panel">
+    <div class="panel-title">Custom Matchup Checker</div>
+    <div class="panel-note">
+      Type any player and a stat threshold to check their own season hit rate at that number, and (if
+      they have an upcoming opponent loaded) how that opponent has fared against the position at the same
+      number, game by game -- the exact same convergence check used in Mike's Template, just for whatever
+      number you want to test instead of an auto-picked one.
+    </div>
+    <div class="controls">
+      <input type="text" id="checker-player" list="checker-player-list" placeholder="Type a player name...">
+      <datalist id="checker-player-list"></datalist>
+      <select id="checker-stat">
+        <option value="Pass Yards">Pass Yards</option>
+        <option value="Pass TD">Pass TD</option>
+        <option value="Interceptions">Interceptions</option>
+        <option value="Rush Yards">Rush Yards</option>
+        <option value="Rush TD">Rush TD</option>
+        <option value="Receiving Yards">Receiving Yards</option>
+        <option value="Receiving TD">Receiving TD</option>
+        <option value="Receptions">Receptions</option>
+      </select>
+      <input type="number" id="checker-threshold" placeholder="Threshold (e.g. 65)" style="width:120px;">
+      <button class="save-pick-btn" id="checker-btn">Check</button>
+    </div>
+    <div id="checker-result"></div>
+  </div>
+
+  <div class="panel">
     <div class="panel-title">My Picks</div>
     <div class="panel-note">
       Picks you've saved from Best Picks or Predictions. Saved in this browser only (via local storage) --
       not synced across devices, and clearing your browser data will clear this too.
+    </div>
+    <div class="controls">
+      <button class="save-pick-btn" id="clear-all-picks-btn">Clear All Picks</button>
     </div>
     <div id="mypicks-table"></div>
   </div>`;
@@ -2951,6 +2981,56 @@ function renderMyPicks(){
 
 function mountMyPicks(){
   const container = $('#mypicks-table');
+  const resultEl = $('#checker-result');
+
+  // Autocomplete list of every player name currently tracked.
+  const allPlayers = [...new Set((DATA.playerGame || []).map(r=>r.Player))].sort();
+  $('#checker-player-list').innerHTML = allPlayers.map(p=>`<option value="${p}">`).join('');
+
+  $('#checker-btn').addEventListener('click', ()=>{
+    const player = $('#checker-player').value.trim();
+    const statKey = $('#checker-stat').value;
+    const threshold = parseFloat($('#checker-threshold').value);
+
+    if(!player || isNaN(threshold)){
+      resultEl.innerHTML = '<div class="empty">Enter a player name and a number to check.</div>';
+      return;
+    }
+
+    const posRow = (DATA.playerGame || []).find(r=>r.Player===player);
+    if(!posRow){
+      resultEl.innerHTML = `<div class="empty">No games logged for "${player}" -- check the spelling (autocomplete shows valid names).</div>`;
+      return;
+    }
+    const position = posRow.Position;
+    const team = posRow.Team;
+
+    const playerRate = getPlayerStatFloorRate(player, position, statKey, threshold);
+    if(!playerRate){
+      resultEl.innerHTML = `<div class="empty">No games logged for ${player} at ${position} yet.</div>`;
+      return;
+    }
+
+    const wk2Row = (DATA.week2 || []).find(r=>r.Team===team);
+    const opponent = wk2Row ? wk2Row.Opponent : null;
+    const defenseRate = opponent ? getDefenseLeadPlayerFloorRate(opponent, position, statKey, threshold) : null;
+
+    resultEl.innerHTML = `
+      <div class="log-pos-group">
+        <div class="log-pos-label" style="font-size:14px;">${player} (${position}, ${teamName(team)}) -- ${threshold}+ ${statKey}</div>
+        <div class="player-preview-stats">${player} has hit ${threshold}+ ${statKey} in <b style="color:var(--mint);">${playerRate.hits} of ${playerRate.total}</b> games this season (${fmt(playerRate.rate*100,0)}%)</div>
+        ${defenseRate ? `
+          <div class="player-preview-stats">${teamName(opponent)} (their upcoming opponent) has allowed ${threshold}+ ${statKey} to the opposing lead ${position} in <b style="color:var(--mint);">${defenseRate.hits} of ${defenseRate.total}</b> games (${fmt(defenseRate.rate*100,0)}%)</div>
+        ` : `<div class="player-preview-stats" style="color:var(--chalk-dim);">No upcoming opponent loaded for ${team} yet -- showing player's own rate only.</div>`}
+      </div>`;
+  });
+
+  $('#clear-all-picks-btn').addEventListener('click', ()=>{
+    if(confirm('Clear all saved picks? This cannot be undone.')){
+      saveMyPicksList([]);
+      apply();
+    }
+  });
 
   function apply(){
     const picks = getMyPicks();
