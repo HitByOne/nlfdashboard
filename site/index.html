@@ -2702,6 +2702,17 @@ function predictGameOutcome(awayTeam, homeTeam, powerByTeam){
 // Matchup-adjusted stat projection: blend a player's season and recent-form
 // average, then scale by how this specific opponent compares to the
 // league average at that stat/position.
+//
+// Two safeguards against small-sample volatility (without them, an
+// early-season defense that's had one shootout game can look 2-3x worse
+// than league average from pure noise, and multiplying that into an
+// already-elevated player average compounds into unrealistic numbers --
+// e.g. projecting a 500-yard passing game):
+//   1. The raw matchup factor is capped to [0.6, 1.6] -- a defense truly
+//      being 60% better or worse than average is already extreme; beyond
+//      that is far more likely noise than a real, stable tendency.
+//   2. The factor is shrunk toward neutral (1.0) based on how many games
+//      this defense has actually played, fully trusted only by 6 games in.
 function projectPlayerStat(player, position, statOption, opponent){
   const playerTrend = getPlayerSeasonAndLast3(player, position, statOption.key);
   const defTrend = getDefenseSeasonAndLast3(opponent, position, statOption);
@@ -2710,12 +2721,19 @@ function projectPlayerStat(player, position, statOption, opponent){
   const allRows = (DATA.defVsPos || []).filter(r=>r.Position===position);
   if(!allRows.length) return null;
   const leagueAvgAllowed = allRows.reduce((s,r)=>s+num(r[statOption.defenseKey]),0) / allRows.length;
-  const matchupFactor = leagueAvgAllowed > 0 ? defTrend.seasonAllowed / leagueAvgAllowed : 1;
+
+  const defRow = allRows.find(r=>r.Defense===opponent);
+  const gamesPlayed = defRow ? num(defRow['Games Played']) : 0;
+
+  let rawFactor = leagueAvgAllowed > 0 ? defTrend.seasonAllowed / leagueAvgAllowed : 1;
+  rawFactor = Math.max(0.6, Math.min(1.6, rawFactor));
+  const shrinkWeight = Math.min(1, gamesPlayed / 6);
+  const matchupFactor = 1 + (rawFactor - 1) * shrinkWeight;
 
   const blendedAvg = playerTrend.seasonAvg * 0.6 + playerTrend.last3Avg * 0.4;
   const projected = blendedAvg * matchupFactor;
 
-  return {projected, seasonAvg: playerTrend.seasonAvg, matchupFactor};
+  return {projected, seasonAvg: playerTrend.seasonAvg, matchupFactor, gamesPlayed};
 }
 
 function pickProjectionPlayers(team){
@@ -2747,8 +2765,11 @@ function renderPredictions(){
       the EPA/play gap between the two teams (the same metric behind Power Rankings), converted to an
       approximate point margin and a standard home-field adjustment (~2 pts). Player stat projections blend
       each player's season and last-3-game average, scaled by how this specific opponent compares to the
-      league average at that stat. Real games involve injuries, weather, coaching decisions, and randomness
-      this model can't see -- treat every number here as an estimate to weigh, not a guarantee.
+      league average at that stat -- that matchup factor is capped and dampened early in a season (shown
+      as "dampened" until the opponent has 6+ games logged), since a defense's allowed stats are genuinely
+      noisy on a small sample and can otherwise compound into unrealistic projections. Real games involve
+      injuries, weather, coaching decisions, and randomness this model can't see -- treat every number here
+      as an estimate to weigh, not a guarantee.
     </div>
     <div id="predictions-list"></div>
   </div>`;
@@ -2796,20 +2817,25 @@ function mountPredictions(){
       return `
         <div class="matchup-side-label"><b>${team}</b> projected vs <b>${opponent}</b></div>
         ${lineup.length ? lineup.map(p=>{
-          const opt = (PICKS_STAT_OPTIONS[p.position] || [])[0];
-          if(!opt) return '';
-          const proj = projectPlayerStat(p.player, p.position, opt, opponent);
-          if(!proj) return '';
-          const diff = proj.projected - proj.seasonAvg;
-          const diffColor = diff > proj.seasonAvg*0.05 ? 'var(--mint)' : diff < -proj.seasonAvg*0.05 ? 'var(--red)' : 'var(--chalk-dim)';
+          const statOptions = PICKS_STAT_OPTIONS[p.position] || [];
+          const projections = statOptions.map(opt=>{
+            const proj = projectPlayerStat(p.player, p.position, opt, opponent);
+            return proj ? {label: opt.label, ...proj} : null;
+          }).filter(Boolean);
+
+          if(!projections.length) return '';
+
           return `
             <div class="player-preview">
               <div class="player-preview-head">
                 <span class="player-preview-name">${p.player}</span>
                 <span class="player-preview-pos">${p.position}</span>
               </div>
-              <div class="player-preview-stats">Projected ${opt.label}: <b style="color:var(--chalk);">${fmt(proj.projected)}</b> (season avg ${fmt(proj.seasonAvg)})</div>
-              <span class="player-preview-matchup" style="color:${diffColor};">Matchup factor: ${fmt(proj.matchupFactor,2)}x league average allowed</span>
+              ${projections.map(proj=>{
+                const diff = proj.projected - proj.seasonAvg;
+                const diffColor = diff > proj.seasonAvg*0.05 ? 'var(--mint)' : diff < -proj.seasonAvg*0.05 ? 'var(--red)' : 'var(--chalk-dim)';
+                return `<div class="player-preview-stats">${proj.label}: <b style="color:var(--chalk);">${fmt(proj.projected)}</b> (season avg ${fmt(proj.seasonAvg)}) <span style="color:${diffColor};">${fmt(proj.matchupFactor,2)}x</span>${proj.gamesPlayed < 6 ? ` <span style="color:var(--chalk-dim);">(dampened, opp. has ${proj.gamesPlayed} games)</span>` : ''}</div>`;
+              }).join('')}
             </div>`;
         }).join('') : '<div class="empty" style="padding:8px 0;">Not enough data to project this team yet.</div>'}
       `;
