@@ -467,7 +467,9 @@ const MY_PICKS_KEY = 'nfl_dashboard_my_picks';
 
 function getMyPicks(){
   try {
-    return JSON.parse(localStorage.getItem(MY_PICKS_KEY) || '[]');
+    const list = JSON.parse(localStorage.getItem(MY_PICKS_KEY) || '[]');
+    // Backward-compatible: picks saved before tickets existed default to "Ticket A".
+    return list.map(p => ({...p, ticket: p.ticket || 'Ticket A'}));
   } catch(e) {
     console.warn('Could not read saved picks:', e);
     return [];
@@ -486,7 +488,7 @@ function isPickSaved(pick){
 function addToMyPicks(pick){
   if(isPickSaved(pick)) return false;
   const list = getMyPicks();
-  list.push({...pick, addedAt: new Date().toISOString()});
+  list.push({...pick, ticket: pick.ticket || 'Ticket A', addedAt: new Date().toISOString()});
   saveMyPicksList(list);
   return true;
 }
@@ -494,6 +496,33 @@ function removeFromMyPicks(index){
   const list = getMyPicks();
   list.splice(index, 1);
   saveMyPicksList(list);
+}
+function moveMyPickToTicket(index, newTicket){
+  const list = getMyPicks();
+  if(list[index]) list[index].ticket = newTicket;
+  saveMyPicksList(list);
+}
+function getAllTicketNames(){
+  const known = getKnownTicketNames();
+  const fromPicks = getMyPicks().map(p=>p.ticket || 'Ticket A');
+  return [...new Set([...known, ...fromPicks])].sort();
+}
+
+// Tracked separately from picks so a brand-new, still-empty ticket has
+// somewhere to persist and show up as a move-to option.
+const TICKET_NAMES_KEY = 'nfl_dashboard_ticket_names';
+function getKnownTicketNames(){
+  try {
+    const stored = JSON.parse(localStorage.getItem(TICKET_NAMES_KEY) || '[]');
+    return stored.length ? stored : ['Ticket A'];
+  } catch(e) {
+    return ['Ticket A'];
+  }
+}
+function addNewTicketName(name){
+  const names = getKnownTicketNames();
+  if(!names.includes(name)) names.push(name);
+  try { localStorage.setItem(TICKET_NAMES_KEY, JSON.stringify(names)); } catch(e){}
 }
 
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
@@ -1157,11 +1186,28 @@ function mountTeamWeek(){
     {key:'Total TD Made', label:'TD', numeric:true},
     {key:'Offensive Yards Allowed', label:'Yds Allowed', numeric:true},
     {key:'Total TD Allowed', label:'TD Allowed', numeric:true},
+    {key:'_save', label:'', render:(v,row)=>{
+      const saved = isPickSaved({source:'Team Game Log', player:row.Team, stat:'Game Log', week:row.Week});
+      const summary = `${row.Team} vs ${row.Opponent}: ${row['Offensive Yards']} off yds, ${row['Total TD Made']} TD scored, ${row['Offensive Yards Allowed']} yds allowed, ${row['Total TD Allowed']} TD allowed`;
+      return `<button class="save-pick-btn" ${saved?'disabled':''} data-team="${row.Team}" data-opponent="${row.Opponent}" data-week="${row.Week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>`;
+    }},
   ];
   function apply(){
     const t = $('#tw-team').value;
     const rows = DATA.teamWeek.filter(r=> !t || r.Team === t);
     buildTable($('#tw-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc'});
+
+    $$('.save-pick-btn', $('#tw-table')).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        addToMyPicks({
+          source: 'Team Game Log', player: btn.dataset.team, position: 'TEAM',
+          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: 'Game Log',
+          week: btn.dataset.week, summary: btn.dataset.summary,
+        });
+        apply();
+      });
+    });
   }
   $('#tw-team').addEventListener('change', apply);
   apply();
@@ -1925,6 +1971,16 @@ const STREAK_DEFS = {
   ],
 };
 
+// Team-level scoring streaks -- uses real final scores from gameTeamStats
+// (10_game_stats.py), not a touchdown-count proxy. Offense scoring 20+ is
+// a streak worth knowing; a defense ALLOWING 24+ every game is arguably
+// more useful (a leaky defense trend), so that one's highlighted like the
+// player "Any TD" streaks are.
+const TEAM_STREAK_DEFS = [
+  {key:'off20', label:'20+ Points Scored', check:r=>num(r['Final Score'])>=20},
+  {key:'def24', label:'24+ Points Allowed', highlight:true, check:r=>num(r['Opponent Score'])>=24},
+];
+
 function computeStreaks(){
   const byPlayer = {};
   (DATA.playerGame || []).forEach(r=>{
@@ -1956,6 +2012,29 @@ function computeStreaks(){
     });
   });
 
+  // Team-level scoring streaks, from real final scores.
+  const byTeam = {};
+  (DATA.gameTeamStats || []).forEach(r=>{
+    if(!byTeam[r.Team]) byTeam[r.Team] = [];
+    byTeam[r.Team].push(r);
+  });
+  Object.entries(byTeam).forEach(([team, games])=>{
+    const sortedGames = [...games].sort((a,b)=>num(a.Week) - num(b.Week));
+    TEAM_STREAK_DEFS.forEach(def=>{
+      let streak = 0;
+      for(let i = sortedGames.length - 1; i >= 0; i--){
+        if(def.check(sortedGames[i])) streak++;
+        else break;
+      }
+      if(streak >= 2){
+        results.push({
+          Player: team, Team: team, Position: 'TEAM',
+          StreakType: def.label, StreakLength: streak, highlight: !!def.highlight,
+        });
+      }
+    });
+  });
+
   return results.sort((a,b)=> b.StreakLength - a.StreakLength);
 }
 
@@ -1963,7 +2042,7 @@ function renderStreaks(){
   return `
   <div class="panel">
     <div class="panel-title">Active Streaks</div>
-    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are touchdown streaks (for QBs, rushing TDs specifically -- passing TDs are tracked separately under "2+ Pass TD").</div>
+    <div class="panel-note">Consecutive games (most recent, uninterrupted) a player or team has hit a threshold. Only 2+ game streaks are shown -- as more weeks get logged, these will get more meaningful. Gold rows are touchdown streaks (for QBs, rushing TDs specifically -- passing TDs are tracked separately under "2+ Pass TD") or a defense allowing 24+ points. TEAM filter shows offense/defense scoring streaks from real final scores.</div>
     <div class="controls">
       <input type="text" id="streak-search" placeholder="Search player...">
       <select id="streak-type"><option value="">All streak types</option></select>
@@ -1973,6 +2052,7 @@ function renderStreaks(){
         <span class="pill" data-pos="RB">RB</span>
         <span class="pill" data-pos="WR">WR</span>
         <span class="pill" data-pos="TE">TE</span>
+        <span class="pill" data-pos="TEAM">TEAM</span>
       </div>
     </div>
     <div id="streaks-table"></div>
@@ -2948,8 +3028,15 @@ function renderMyPicks(){
       number you want to test instead of an auto-picked one.
     </div>
     <div class="controls">
-      <input type="text" id="checker-player" list="checker-player-list" placeholder="Type a player name...">
-      <datalist id="checker-player-list"></datalist>
+      <select id="checker-team"><option value="">All teams</option></select>
+      <select id="checker-position">
+        <option value="">All positions</option>
+        <option value="QB">QB</option>
+        <option value="RB">RB</option>
+        <option value="WR">WR</option>
+        <option value="TE">TE</option>
+      </select>
+      <select id="checker-player"><option value="">Select a player...</option></select>
       <select id="checker-stat">
         <option value="Pass Yards">Pass Yards</option>
         <option value="Pass TD">Pass TD</option>
@@ -2969,10 +3056,14 @@ function renderMyPicks(){
   <div class="panel">
     <div class="panel-title">My Picks</div>
     <div class="panel-note">
-      Picks you've saved from Best Picks or Predictions. Saved in this browser only (via local storage) --
-      not synced across devices, and clearing your browser data will clear this too.
+      Picks you've saved from Best Picks, Predictions, or Team Game Log. Grouped into tickets so you can
+      build multiple separate bet slips -- move any pick to a different ticket with its dropdown, or
+      create a new named ticket below. Saved in this browser only (via local storage) -- not synced across
+      devices, and clearing your browser data will clear this too.
     </div>
     <div class="controls">
+      <input type="text" id="new-ticket-name" placeholder="New ticket name (e.g. Ticket B)" style="width:220px;">
+      <button class="save-pick-btn" id="new-ticket-btn">+ New Ticket</button>
       <button class="save-pick-btn" id="clear-all-picks-btn">Clear All Picks</button>
     </div>
     <div id="mypicks-table"></div>
@@ -2983,9 +3074,29 @@ function mountMyPicks(){
   const container = $('#mypicks-table');
   const resultEl = $('#checker-result');
 
-  // Autocomplete list of every player name currently tracked.
-  const allPlayers = [...new Set((DATA.playerGame || []).map(r=>r.Player))].sort();
-  $('#checker-player-list').innerHTML = allPlayers.map(p=>`<option value="${p}">`).join('');
+  // Team dropdown + cascading player dropdown (filtered by team and
+  // position), instead of free-text typing -- avoids typos/ambiguity.
+  const allTeams = [...new Set((DATA.playerGame || []).map(r=>r.Team))].sort();
+  $('#checker-team').innerHTML = '<option value="">All teams</option>' +
+    allTeams.map(t=>`<option value="${t}">${teamName(t)}</option>`).join('');
+
+  function refreshCheckerPlayerList(){
+    const team = $('#checker-team').value;
+    const position = $('#checker-position').value;
+    const players = [...new Set(
+      (DATA.playerGame || [])
+        .filter(r=> (!team || r.Team===team) && (!position || r.Position===position))
+        .map(r=>r.Player)
+    )].sort();
+    const playerSelect = $('#checker-player');
+    const previousValue = playerSelect.value;
+    playerSelect.innerHTML = '<option value="">Select a player...</option>' +
+      players.map(p=>`<option value="${p}">${p}</option>`).join('');
+    if(players.includes(previousValue)) playerSelect.value = previousValue;
+  }
+  refreshCheckerPlayerList();
+  $('#checker-team').addEventListener('change', refreshCheckerPlayerList);
+  $('#checker-position').addEventListener('change', refreshCheckerPlayerList);
 
   $('#checker-btn').addEventListener('click', ()=>{
     const player = $('#checker-player').value.trim();
@@ -2993,13 +3104,13 @@ function mountMyPicks(){
     const threshold = parseFloat($('#checker-threshold').value);
 
     if(!player || isNaN(threshold)){
-      resultEl.innerHTML = '<div class="empty">Enter a player name and a number to check.</div>';
+      resultEl.innerHTML = '<div class="empty">Select a player and enter a number to check.</div>';
       return;
     }
 
     const posRow = (DATA.playerGame || []).find(r=>r.Player===player);
     if(!posRow){
-      resultEl.innerHTML = `<div class="empty">No games logged for "${player}" -- check the spelling (autocomplete shows valid names).</div>`;
+      resultEl.innerHTML = `<div class="empty">No games logged for "${player}".</div>`;
       return;
     }
     const position = posRow.Position;
@@ -3025,6 +3136,17 @@ function mountMyPicks(){
       </div>`;
   });
 
+  $('#new-ticket-btn').addEventListener('click', ()=>{
+    const name = $('#new-ticket-name').value.trim();
+    if(!name){
+      alert('Enter a ticket name first.');
+      return;
+    }
+    addNewTicketName(name);
+    $('#new-ticket-name').value = '';
+    apply();
+  });
+
   $('#clear-all-picks-btn').addEventListener('click', ()=>{
     if(confirm('Clear all saved picks? This cannot be undone.')){
       saveMyPicksList([]);
@@ -3035,27 +3157,64 @@ function mountMyPicks(){
   function apply(){
     const picks = getMyPicks();
     if(!picks.length){
-      container.innerHTML = '<div class="empty">No picks saved yet -- use the "+ Add" button on Best Picks or Predictions.</div>';
+      container.innerHTML = '<div class="empty">No picks saved yet -- use the "+ Add" button on Best Picks, Predictions, or Team Game Log.</div>';
       return;
     }
 
-    const cols = [
-      {key:'source', label:'Source'},
-      {key:'player', label:'Player'},
-      {key:'position', label:'Pos'},
-      {key:'team', label:'Team', render:teamChip},
-      {key:'opponent', label:'Opp', render:teamChip},
-      {key:'stat', label:'Stat'},
-      {key:'week', label:'Wk', numeric:true},
-      {key:'summary', label:'Details'},
-      {key:'_remove', label:'', render:(v,row)=>{
-        const idx = picks.indexOf(row);
-        return `<button class="save-pick-btn" data-remove-idx="${idx}">Remove</button>`;
-      }},
-    ];
+    const ticketNames = getAllTicketNames();
+    const byTicket = {};
+    ticketNames.forEach(t=>{ byTicket[t] = []; });
+    picks.forEach(p=>{
+      const t = p.ticket || 'Ticket A';
+      if(!byTicket[t]) byTicket[t] = [];
+      byTicket[t].push(p);
+    });
 
-    buildTable(container, cols, picks, {defaultSort:'week', defaultDir:'desc'});
+    const nonEmptyTickets = Object.entries(byTicket).filter(([,list])=>list.length);
+    if(!nonEmptyTickets.length){
+      container.innerHTML = '<div class="empty">No picks saved yet -- use the "+ Add" button on Best Picks, Predictions, or Team Game Log.</div>';
+      return;
+    }
 
+    container.innerHTML = nonEmptyTickets.map(([ticket, list])=>{
+      const safeId = ticket.replace(/[^a-zA-Z0-9]/g, '_');
+      return `
+      <div class="log-pos-group" style="margin-bottom:16px;">
+        <div class="log-pos-label" style="font-size:14px;">${ticket} (${list.length} pick${list.length===1?'':'s'})</div>
+        <div class="table-scroll" id="ticket-table-${safeId}"></div>
+      </div>`;
+    }).join('');
+
+    nonEmptyTickets.forEach(([ticket, list])=>{
+      const safeId = ticket.replace(/[^a-zA-Z0-9]/g, '_');
+      const tableContainer = document.getElementById(`ticket-table-${safeId}`);
+      const cols = [
+        {key:'source', label:'Source'},
+        {key:'player', label:'Player'},
+        {key:'position', label:'Pos'},
+        {key:'team', label:'Team', render:teamChip},
+        {key:'opponent', label:'Opp', render:teamChip},
+        {key:'stat', label:'Stat'},
+        {key:'week', label:'Wk', numeric:true},
+        {key:'summary', label:'Details'},
+        {key:'_move', label:'Move to', render:(v,row)=>{
+          const idx = picks.indexOf(row);
+          return `<select class="move-pick-select" data-move-idx="${idx}">${ticketNames.map(t=>`<option value="${t}" ${t===ticket?'selected':''}>${t}</option>`).join('')}</select>`;
+        }},
+        {key:'_remove', label:'', render:(v,row)=>{
+          const idx = picks.indexOf(row);
+          return `<button class="save-pick-btn" data-remove-idx="${idx}">Remove</button>`;
+        }},
+      ];
+      buildTable(tableContainer, cols, list, {defaultSort:'week', defaultDir:'desc'});
+    });
+
+    $$('.move-pick-select', container).forEach(sel=>{
+      sel.addEventListener('change', ()=>{
+        moveMyPickToTicket(parseInt(sel.dataset.moveIdx, 10), sel.value);
+        apply();
+      });
+    });
     $$('.save-pick-btn', container).forEach(btn=>{
       if(btn.dataset.removeIdx === undefined) return;
       btn.addEventListener('click', ()=>{
