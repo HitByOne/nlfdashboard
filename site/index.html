@@ -316,9 +316,13 @@
     font-family:var(--mono);font-size:11px;color:var(--chalk-dim);
     text-align:right;line-height:1.5;
   }
-  .live-card-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);}
+  .live-card-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);}
   .live-stats-col{padding:18px 20px;border-right:1px solid var(--panel-border);}
   .live-playerlog-col{min-width:0;}
+  .live-chip{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;border:1px solid var(--hash);color:var(--chalk-dim);white-space:nowrap;}
+  .live-chip.live-in{color:var(--red);border-color:var(--red);animation:live-pulse 1.6s infinite;}
+  .live-chip.live-post{color:var(--mint);border-color:var(--mint);}
+  @keyframes live-pulse{0%,100%{opacity:1}50%{opacity:.45}}
   @media (max-width:1100px){
     .live-card-columns{grid-template-columns:1fr;}
     .live-stats-col{border-right:none;border-bottom:1px solid var(--panel-border);}
@@ -433,6 +437,7 @@
     <nav class="tabs" id="tabs">
       <button data-tab="overview" class="active">Overview</button>
       <button data-tab="live">Live Matchups</button>
+      <button data-tab="livenow">Live Now</button>
       <button data-tab="matchup">Matchup Explorer</button>
       <button data-tab="teams">Team Summary</button>
       <button data-tab="teamweek">Team Game Log</button>
@@ -651,7 +656,7 @@ function renderTickerGames(games, opts={}){
       : `<span title="${teamName(g.awayAbbr)}">${g.awayAbbr}</span><span class="ticker-score">${g.awayScore}</span>
          <span class="ticker-score">${g.homeScore}</span><span title="${teamName(g.homeAbbr)}">${g.homeAbbr}</span>`;
     return `
-    <div class="ticker-item" data-away="${g.awayAbbr}" data-home="${g.homeAbbr}">
+    <div class="ticker-item" data-away="${g.awayAbbr}" data-home="${g.homeAbbr}" data-state="${g.state || ''}">
       <div class="ticker-time">${label}</div>
       <div class="ticker-teams">${scoreLine}</div>
     </div>`;
@@ -706,8 +711,19 @@ function renderTickerFromCSV(){
 // week), navigate to the dedicated Live Matchups tab instead.
 let pendingHighlightGame = null; // {away, home} -- consumed once by mountLive after navigating there
 
-function goToGameDetails(away, home){
+function goToGameDetails(away, home, state){
   if(!away || !home || away==='?' || home==='?') return;
+
+  // A game that's underway (or just finished) but isn't in the daily
+  // pipeline data yet only exists in ESPN's live feed -- send it to Live Now.
+  const inPipeline = (DATA.teamWeek || []).some(r=>
+    (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
+  );
+  if((state === 'in' || state === 'post') && !inPipeline){
+    pendingHighlightGame = {away, home};
+    showTab('livenow');
+    return;
+  }
 
   const week2Match = (DATA.week2 || []).some(r=>
     (r.Team===away && r.Opponent===home) || (r.Team===home && r.Opponent===away)
@@ -948,14 +964,14 @@ function mountLive(){
             <div class="table-scroll">${statsTable(statsA, statsB, g.teamA, g.teamB)}</div>
           </div>
           <div class="live-playerlog-col">
-            <div class="matchup-body stacked">
+            <div class="matchup-body">
               <div class="matchup-side">${teamPlayerLogShell(g.teamA, g.teamB, g.gid)}</div>
               <div class="matchup-side">${teamPlayerLogShell(g.teamB, g.teamA, g.gid)}</div>
             </div>
           </div>
         </div>
         ` : `
-        <div class="matchup-body stacked">
+        <div class="matchup-body">
           <div class="matchup-side">${simpleSideRecap(g.teamA, g.teamB, week)}</div>
           <div class="matchup-side">${simpleSideRecap(g.teamB, g.teamA, week)}</div>
         </div>`}
@@ -3569,10 +3585,215 @@ function mountAnytimeTD(){
   buildTable(container, cols, picks, {defaultSort:'score', defaultDir:'desc'});
 }
 
+// ---------- TAB: LIVE NOW ----------
+// Real-time box scores pulled straight from ESPN in the browser -- the same
+// host and mechanism the ticker already uses. The daily pipeline can't do
+// this: it deliberately records a week only once EVERY game in it is
+// finished (so it never grabs a half-played Monday night slate), which
+// means in-progress games only exist in ESPN's live feed. Players are
+// grouped by stat category exactly like a printed box score, because
+// ESPN's live boxscore doesn't label positions.
+const ESPN_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=';
+const LIVE_NOW_REFRESH_MS = 45000;
+const liveNowFinalCache = {};   // a final game's box score never changes again -- fetch it once
+
+// LIVE-NOW-HELPERS-START
+const LIVE_NOW_CATEGORIES = ['passing','rushing','receiving'];
+const LIVE_NOW_TEAM_STATS = [
+  ['totalyards','Total Yds'], ['netpassingyards','Pass Yds'], ['rushingyards','Rush Yds'],
+  ['turnovers','TO'], ['thirddowneff','3rd Down'], ['possessiontime','TOP'],
+];
+
+function liveCategoryTableHtml(cat){
+  const athletes = cat.athletes || [];
+  if(!athletes.length) return '';
+  const labels = cat.labels || [];
+  return `
+    <div class="log-pos-group">
+      <div class="log-pos-label">${String(cat.displayName || cat.name || '').toUpperCase()}</div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Player</th>${labels.map(l=>`<th class="num">${l}</th>`).join('')}</tr></thead>
+        <tbody>${athletes.map(a=>`<tr><td>${(a.athlete || {}).displayName || '?'}</td>${(a.stats || []).map(v=>`<td class="num">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// Picks a handful of headline team stats out of ESPN's team statistics list,
+// matched by ESPN's own stat name. Anything not present is simply skipped.
+function livePickTeamStats(statsArr){
+  const byName = {};
+  (statsArr || []).forEach(x=>{ byName[String(x.name || '').toLowerCase()] = x; });
+  return LIVE_NOW_TEAM_STATS
+    .map(([needle, label]) => byName[needle] ? `${label} ${byName[needle].displayValue}` : null)
+    .filter(Boolean);
+}
+
+// Live games first, then finals, then upcoming; kickoff order within each.
+function liveSortGames(games){
+  const order = {in:0, post:1, pre:2};
+  return [...games].sort((a,b)=>
+    (order[a.state] ?? 3) - (order[b.state] ?? 3) || new Date(a.date) - new Date(b.date)
+  );
+}
+
+function liveGameFromEvent(ev, summary){
+  const comp = (ev.competitions || [])[0] || {};
+  const competitors = comp.competitors || [];
+  const home = competitors.find(c=>c.homeAway==='home') || {};
+  const away = competitors.find(c=>c.homeAway==='away') || {};
+  const statusType = (ev.status || {}).type || {};
+  return {
+    id: ev.id, date: ev.date,
+    home: (home.team || {}).abbreviation || '?', away: (away.team || {}).abbreviation || '?',
+    homeScore: home.score, awayScore: away.score,
+    state: statusType.state || 'pre', detail: statusType.shortDetail || '',
+    summary,
+  };
+}
+
+function liveGameCardHtml(g){
+  const statusLabel = g.state === 'in' ? (g.detail || 'LIVE') : g.state === 'post' ? 'Final' : (g.detail || 'Upcoming');
+  const scoreHtml = g.state === 'pre' ? '' :
+    `<div class="matchup-time" style="font-size:16px;color:var(--chalk);">${g.awayScore} &ndash; ${g.homeScore}</div>`;
+  const box = (g.summary || {}).boxscore || {};
+
+  function teamColumn(abbr){
+    const playerBlock = (box.players || []).find(b => (b.team || {}).abbreviation === abbr);
+    const teamBlock = (box.teams || []).find(b => (b.team || {}).abbreviation === abbr);
+    const chips = livePickTeamStats((teamBlock || {}).statistics);
+    const tables = playerBlock
+      ? (playerBlock.statistics || [])
+          .filter(c => LIVE_NOW_CATEGORIES.includes(String(c.name || '').toLowerCase()))
+          .map(liveCategoryTableHtml).join('')
+      : '';
+    return `
+      <div class="matchup-side-label"><b>${abbr}</b> ${teamName(abbr)}</div>
+      ${chips.length ? `<div class="context-row"><span class="context-chip">${chips.join(' &middot; ')}</span></div>` : ''}
+      ${tables || '<div class="empty" style="padding:8px 0;">No player stats yet.</div>'}`;
+  }
+
+  return `
+  <div class="matchup-card" data-away="${g.away}" data-home="${g.home}" data-state="${g.state}">
+    <div class="matchup-head">
+      <div class="matchup-teams">${teamName(g.away)}<span class="at">@</span>${teamName(g.home)}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${scoreHtml}
+        <span class="live-chip live-${g.state}">${statusLabel}</span>
+      </div>
+    </div>
+    ${g.state === 'pre' ? '' : `
+    <div class="matchup-body">
+      <div class="matchup-side">${teamColumn(g.away)}</div>
+      <div class="matchup-side">${teamColumn(g.home)}</div>
+    </div>`}
+  </div>`;
+}
+// LIVE-NOW-HELPERS-END
+
+function renderLiveNow(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Live Now</div>
+    <div class="panel-note">
+      Real-time box scores pulled straight from ESPN in your browser -- separate from the daily pipeline,
+      which only records a week once every game in it is finished. Refreshes automatically every 45
+      seconds while this tab is open. Players are grouped by stat category like a printed box score,
+      since ESPN's live feed doesn't label positions.
+    </div>
+    <div class="controls">
+      <div class="pill-group" id="livenow-pills">
+        <span class="pill active" data-f="all">All</span>
+        <span class="pill" data-f="in">Live</span>
+        <span class="pill" data-f="post">Final</span>
+        <span class="pill" data-f="pre">Upcoming</span>
+      </div>
+      <button class="save-pick-btn" id="livenow-refresh">Refresh now</button>
+      <span id="livenow-updated" style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);"></span>
+    </div>
+    <div class="matchup-grid single-col" id="livenow-list"><div class="empty">Loading live games&hellip;</div></div>
+  </div>`;
+}
+
+function mountLiveNow(){
+  const list = $('#livenow-list');
+  let games = [];
+  let filter = 'all';
+
+  function draw(){
+    const shown = liveSortGames(games).filter(g => filter === 'all' || g.state === filter);
+    list.innerHTML = shown.length ? shown.map(liveGameCardHtml).join('') : '<div class="empty">No games in this view right now.</div>';
+
+    // Arrived here from a ticker click -- scroll to and flash that game.
+    if(pendingHighlightGame){
+      const {away, home} = pendingHighlightGame;
+      const card = document.querySelector(
+        `.matchup-card[data-away="${away}"][data-home="${home}"], .matchup-card[data-away="${home}"][data-home="${away}"]`
+      );
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+        card.classList.remove('card-highlight');
+        void card.offsetWidth;
+        card.classList.add('card-highlight');
+      }
+      pendingHighlightGame = null;
+    }
+  }
+
+  async function fetchJson(url){
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  async function load(){
+    const updated = $('#livenow-updated');
+    if(!updated) return; // tab was closed while a refresh was pending
+    try {
+      const sb = await fetchJson(ESPN_SCOREBOARD_URL);
+      const events = sb.events || [];
+      const summaries = await Promise.all(events.map(async ev=>{
+        const state = ((ev.status || {}).type || {}).state;
+        if(state === 'pre') return null;
+        if(state === 'post' && liveNowFinalCache[ev.id]) return liveNowFinalCache[ev.id];
+        try {
+          const summary = await fetchJson(ESPN_SUMMARY_URL + ev.id);
+          if(state === 'post') liveNowFinalCache[ev.id] = summary;
+          return summary;
+        } catch(e){ return null; }
+      }));
+      games = events.map((ev,i)=>liveGameFromEvent(ev, summaries[i]));
+      updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
+      draw();
+    } catch(err){
+      console.warn('Live Now fetch failed:', err);
+      if(games.length){
+        updated.textContent = 'Refresh failed at ' + new Date().toLocaleTimeString() + ' -- showing last good data';
+      } else {
+        list.innerHTML = `<div class="empty">Couldn't load live data from ESPN (${err.message}). If the ticker up top isn't showing live scores either, your browser is blocking the cross-origin request -- hit Refresh to retry.</div>`;
+      }
+    }
+  }
+
+  $$('#livenow-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#livenow-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      filter = p.dataset.f;
+      draw();
+    });
+  });
+  $('#livenow-refresh').addEventListener('click', load);
+
+  load();
+  if(window.__liveNowTimer) clearInterval(window.__liveNowTimer);
+  window.__liveNowTimer = setInterval(()=>{ if(!document.hidden) load(); }, LIVE_NOW_REFRESH_MS);
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
   live: {render: renderLive, mount: mountLive},
+  livenow: {render: renderLiveNow, mount: mountLiveNow},
   matchup: {render: renderMatchup, mount: mountMatchup},
   teams: {render: renderTeams, mount: mountTeams},
   teamweek: {render: renderTeamWeek, mount: mountTeamWeek},
@@ -3593,6 +3814,7 @@ const renderers = {
   anytimetd: {render: renderAnytimeTD, mount: mountAnytimeTD},
 };
 function showTab(tab){
+  if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
   $$('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const r = renderers[tab];
   $('#content').innerHTML = r.render();
@@ -3650,7 +3872,7 @@ async function init(){
   $$('#tabs button').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
   $('#ticker-track').addEventListener('click', (e)=>{
     const item = e.target.closest('.ticker-item');
-    if(item) goToGameDetails(item.dataset.away, item.dataset.home);
+    if(item) goToGameDetails(item.dataset.away, item.dataset.home, item.dataset.state);
   });
   renderHero();
   renderTicker();
