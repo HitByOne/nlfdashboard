@@ -134,6 +134,10 @@
     top:70px;
     border-right:1px solid var(--panel-border);
     padding-right:4px;
+    /* With grouped headers the list can outgrow a short window -- scroll inside the nav instead of clipping the bottom tabs. */
+    max-height:calc(100vh - 90px);
+    overflow-y:auto;
+    scrollbar-width:thin;
   }
   nav.tabs button{
     background:transparent;
@@ -144,13 +148,22 @@
     font-weight:600;
     font-size:15px;
     text-align:left;
-    padding:11px 14px;
+    padding:9px 14px;
     cursor:pointer;
     white-space:nowrap;
     transition:color .15s, border-color .15s, background .15s;
   }
   nav.tabs button:hover{color:var(--chalk);background:rgba(76,141,255,0.06);}
   nav.tabs button.active{color:var(--gold);border-left-color:var(--gold);background:rgba(227,169,59,0.08);}
+  .tab-group-label{
+    font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--gold);opacity:.8;
+    padding:16px 14px 6px;margin-top:8px;border-top:1px solid var(--panel-border);
+  }
+  tfoot td{
+    padding:9px 10px;font-weight:700;color:var(--gold);white-space:nowrap;
+    border-top:2px solid var(--hash);background:var(--field-deep);
+  }
   #content{flex:1;min-width:0;}
 
   /* Below this width a fixed sidebar eats too much of the screen --
@@ -161,6 +174,7 @@
       flex-direction:row;
       overflow-x:auto;
       position:static;
+      max-height:none;
       border-right:none;
       border-bottom:1px solid var(--panel-border);
       margin-bottom:22px;
@@ -172,6 +186,7 @@
       text-align:center;
     }
     nav.tabs button.active{border-left-color:transparent;border-bottom-color:var(--gold);}
+    .tab-group-label{display:none;}
   }
 
   /* ---- Panels ---- */
@@ -436,26 +451,33 @@
   <div class="main-layout">
     <nav class="tabs" id="tabs">
       <button data-tab="overview" class="active">Overview</button>
+
+      <div class="tab-group-label">Games</div>
       <button data-tab="live">Live Matchups</button>
-      <button data-tab="livenow">Live Now</button>
+      <button data-tab="week2">Upcoming Matchups</button>
       <button data-tab="matchup">Matchup Explorer</button>
+
+      <div class="tab-group-label">Team Data</div>
       <button data-tab="teams">Team Summary</button>
       <button data-tab="teamweek">Team Game Log</button>
-      <button data-tab="players">Player Stats</button>
-      <button data-tab="defense">Defense vs Position</button>
+      <button data-tab="power">Power Rankings</button>
+      <button data-tab="epa">EPA / Efficiency</button>
+      <button data-tab="coaching">Coaching Tendencies</button>
       <button data-tab="sos">Strength of Schedule</button>
-      <button data-tab="week2">Upcoming Matchups</button>
+      <button data-tab="defense">Defense vs Position</button>
+
+      <div class="tab-group-label">Player Data</div>
+      <button data-tab="players">Player Stats</button>
       <button data-tab="streaks">Streaks</button>
       <button data-tab="milestones">Milestone Watch</button>
       <button data-tab="injuries">Injury Report</button>
-      <button data-tab="epa">EPA / Efficiency</button>
-    <button data-tab="picks">Best Picks</button>
-    <button data-tab="power">Power Rankings</button>
-    <button data-tab="coaching">Coaching Tendencies</button>
-    <button data-tab="predictions">Predictions</button>
-    <button data-tab="mypicks">My Picks</button>
-    <button data-tab="mikes">Mike's Template</button>
-    <button data-tab="anytimetd">Anytime TD Props</button>
+
+      <div class="tab-group-label">Picks &amp; Tools</div>
+      <button data-tab="picks">Best Picks</button>
+      <button data-tab="predictions">Predictions</button>
+      <button data-tab="mikes">Mike's Template</button>
+      <button data-tab="anytimetd">Anytime TD Props</button>
+      <button data-tab="mypicks">My Picks</button>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -559,6 +581,7 @@ const CSV_FILES = {
   sos:         'data/nfl_2026_strength_of_schedule.csv',
   week2:       'data/nfl_2026_upcoming_matchups.csv',
   milestones:  'data/nfl_2026_milestones.csv',
+  teamMilestones: 'data/nfl_2026_team_milestones.csv',
   injuries:    'data/nfl_2026_injury_report.csv',
   epa:         'data/nfl_2026_team_epa.csv',
   gameTeamStats: 'data/nfl_2026_game_team_stats.csv',
@@ -709,6 +732,11 @@ function renderTickerFromCSV(){
 // out of sync with it. Otherwise (this week's live/just-finished games,
 // which Upcoming Matchups doesn't cover since it only previews the NEXT
 // week), navigate to the dedicated Live Matchups tab instead.
+// Live Matchups is one tab with two views: real-time games ("now") and the
+// pipeline's completed-week recaps ("recap"). liveHubModePreset lets a ticker
+// click open the right view; liveHubMode remembers the last one you used.
+let liveHubMode = 'now';
+let liveHubModePreset = null;
 let pendingHighlightGame = null; // {away, home} -- consumed once by mountLive after navigating there
 
 function goToGameDetails(away, home, state){
@@ -721,7 +749,8 @@ function goToGameDetails(away, home, state){
   );
   if((state === 'in' || state === 'post') && !inPipeline){
     pendingHighlightGame = {away, home};
-    showTab('livenow');
+    liveHubModePreset = 'now';
+    showTab('live');
     return;
   }
 
@@ -742,6 +771,7 @@ function goToGameDetails(away, home, state){
   }
 
   pendingHighlightGame = {away, home};
+  liveHubModePreset = 'recap';
   showTab('live');
 }
 
@@ -778,7 +808,7 @@ function milestoneBadgeSimple(player){
 function renderLive(){
   return `
   <div class="panel">
-    <div class="panel-title">Live Matchups</div>
+    <div class="panel-title">Completed Weeks</div>
     <div class="panel-note">Real box scores for games your pipeline has already pulled -- top contributors per side by yards, their actual stat lines, plus injury and milestone context. Click a game in the ticker above to jump straight to it here.</div>
     <div class="controls">
       <select id="live-week"></select>
@@ -1057,7 +1087,12 @@ function buildTable(container, columns, rows, opts={}){
     }).join('') + '</tr>';
   }).join('');
 
-  container.innerHTML = `<div class="table-scroll"><table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${columns.length}" class="empty">No rows match your filters.</td></tr>`}</tbody></table></div>`;
+  // Optional totals-style footer: opts.footer = {labelSpan, label, cells:[...]}.
+  const tfoot = (opts.footer && sorted.length)
+    ? `<tfoot><tr class="tfoot-row"><td colspan="${opts.footer.labelSpan}">${opts.footer.label}</td>${opts.footer.cells.map(c=>`<td class="num">${c}</td>`).join('')}</tr></tfoot>`
+    : '';
+
+  container.innerHTML = `<div class="table-scroll"><table><thead><tr>${thead}</tr></thead><tbody>${tbody || `<tr><td colspan="${columns.length}" class="empty">No rows match your filters.</td></tr>`}</tbody>${tfoot}</table></div>`;
 
   $$('th', container).forEach(th=>{
     th.addEventListener('click', ()=>{
@@ -1067,6 +1102,12 @@ function buildTable(container, columns, rows, opts={}){
       buildTable(container, columns, rows, opts);
     });
   });
+
+  // Sorting rebuilds this table's HTML, which discards any click handlers
+  // attached to buttons/selects inside it. Callers that put controls in the
+  // table pass onRender so they get re-wired after EVERY render, including
+  // the ones triggered by clicking a column header.
+  if(opts.onRender) opts.onRender(container);
 }
 
 // ---------- TAB: OVERVIEW ----------
@@ -1208,12 +1249,8 @@ function mountTeamWeek(){
       return `<button class="save-pick-btn" ${saved?'disabled':''} data-team="${row.Team}" data-opponent="${row.Opponent}" data-week="${row.Week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>`;
     }},
   ];
-  function apply(){
-    const t = $('#tw-team').value;
-    const rows = DATA.teamWeek.filter(r=> !t || r.Team === t);
-    buildTable($('#tw-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc'});
-
-    $$('.save-pick-btn', $('#tw-table')).forEach(btn=>{
+  function wireSaves(tableContainer){
+    $$('.save-pick-btn', tableContainer).forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
         addToMyPicks({
@@ -1224,6 +1261,11 @@ function mountTeamWeek(){
         apply();
       });
     });
+  }
+  function apply(){
+    const t = $('#tw-team').value;
+    const rows = DATA.teamWeek.filter(r=> !t || r.Team === t);
+    buildTable($('#tw-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc', onRender: wireSaves});
   }
   $('#tw-team').addEventListener('change', apply);
   apply();
@@ -1917,10 +1959,36 @@ const MATCHUP_COLS = {
 
 function mountMatchup(){
   let pos = MATCHUP_POSITIONS[0];
+
+  // Buttons live inside tables that get rebuilt on every sort, so this is
+  // passed to buildTable as onRender and re-wired after each render.
+  function wireSaveButtons(tableContainer){
+    $$('.save-pick-btn', tableContainer).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        addToMyPicks({
+          source: 'Matchup Explorer', player: btn.dataset.player, position: btn.dataset.position,
+          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: 'Game Log',
+          week: btn.dataset.week, summary: btn.dataset.summary,
+        });
+        apply();
+      });
+    });
+  }
+
   function apply(){
     const off = $('#mu-off').value;
     const def = $('#mu-def').value;
-    const cols = [...MATCHUP_COLS.base, ...MATCHUP_COLS[pos]];
+    const statCols = MATCHUP_COLS[pos];
+
+    // Each row is one player's one game -- saving it keeps that stat line
+    // (and which matchup you were viewing) as a pick.
+    const saveCol = {key:'_save', label:'', render:(v,row)=>{
+      const saved = isPickSaved({source:'Matchup Explorer', player:row.Player, stat:'Game Log', week:row.Week});
+      const summary = `${singleGameStatLine(row)} in Wk ${row.Week} vs ${row.Opponent} (viewing ${off} vs ${def})`;
+      return `<button class="save-pick-btn" ${saved?'disabled':''} data-player="${row.Player}" data-position="${row.Position}" data-team="${row.Team}" data-opponent="${row.Opponent}" data-week="${row.Week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>`;
+    }};
+    const cols = [...MATCHUP_COLS.base, ...statCols, saveCol];
 
     const offRows = DATA.playerGame.filter(r=>r.Team===off && r.Position===pos);
     // Exclude the offense's own team here -- the point of this table is to
@@ -1932,8 +2000,15 @@ function mountMatchup(){
     $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
     $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
 
-    buildTable($('#mu-off-table'), cols, offRows, {defaultSort:'Week', defaultDir:'asc'});
-    buildTable($('#mu-def-table'), cols, defRows, {defaultSort:'Week', defaultDir:'asc'});
+    // Totals row: every stat column summed across the rows shown.
+    const footerFor = rows => ({
+      labelSpan: MATCHUP_COLS.base.length,
+      label: `Totals (${rows.length} player-game${rows.length===1 ? '' : 's'})`,
+      cells: [...statCols.map(c => Math.round(rows.reduce((sum, r) => sum + num(r[c.key]), 0)).toLocaleString()), ''],
+    });
+    const tableOpts = rows => ({defaultSort:'Week', defaultDir:'asc', footer: footerFor(rows), onRender: wireSaveButtons});
+    buildTable($('#mu-off-table'), cols, offRows, tableOpts(offRows));
+    buildTable($('#mu-def-table'), cols, defRows, tableOpts(defRows));
 
     const defVs = DATA.defVsPos.find(r=>r.Defense===def && r.Position===pos);
     const allAtPos = DATA.defVsPos.filter(r=>r.Position===pos);
@@ -2132,11 +2207,18 @@ function renderMilestones(){
   <div class="panel">
     <div class="panel-title">Milestone Watch</div>
     <div class="panel-note">
-      True career totals -- prior seasons from nflverse's public dataset, this season's
-      games added automatically from your own pipeline. Closest to the milestone sorts first.
+      <b>Career</b> uses ESPN's own career totals (regular season, always current through the latest game).
+      <b>With Current Team</b> counts only the seasons a player has spent with the team they're on now --
+      the numbers you'd see in a franchise record book -- using finer milestone steps (10 TDs, 500 yards)
+      since a few seasons with one team never reaches career-sized round numbers. Closest to the
+      milestone sorts first.
       ${!DATA.milestones || !DATA.milestones.length ? '<br><br><b>No milestone data yet</b> -- run the pipeline (07_milestone_watch.py) to populate this.' : ''}
     </div>
     <div class="controls">
+      <div class="pill-group" id="ms-scope-pills">
+        <span class="pill active" data-scope="career">Career</span>
+        <span class="pill" data-scope="team">With Current Team</span>
+      </div>
       <input type="text" id="ms-search" placeholder="Search player...">
       <select id="ms-stat"><option value="">All stats</option></select>
     </div>
@@ -2145,38 +2227,47 @@ function renderMilestones(){
 }
 function mountMilestones(){
   const container = $('#milestones-table');
-  const raw = DATA.milestones || [];
-  if(!raw.length){
-    container.innerHTML = '<div class="empty">No milestone data yet. Run 07_milestone_watch.py.</div>';
-    return;
+  const statSelect = $('#ms-stat');
+  let scope = 'career';
+
+  function rowsForScope(){
+    const raw = scope === 'team' ? (DATA.teamMilestones || []) : (DATA.milestones || []);
+    return raw.map(m=>({
+      Player: m.Player, Team: m.Team, Position: m.Position, Stat: m.Stat,
+      current: num(m['Current Total']),
+      target: num(m['Milestone']),
+      remaining: num(m['Remaining']),
+    }));
   }
 
-  const rows = raw.map(m=>({
-    Player: m.Player, Team: m.Team, Position: m.Position, Stat: m.Stat,
-    current: num(m['Current Total']),
-    target: num(m['Milestone']),
-    remaining: num(m['Remaining']),
-  }));
-
-  const statOptions = [...new Set(rows.map(r=>r.Stat))].sort();
-  const statSelect = $('#ms-stat');
-  statSelect.innerHTML = '<option value="">All stats</option>' + statOptions.map(s=>`<option value="${s}">${s}</option>`).join('');
-
-  const maxRemaining = Math.max(5, ...rows.map(r=>Math.max(1, r.remaining)));
-  const cols = [
-    {key:'remaining', label:'To Go', numeric:true, render:(v)=>
-      `<span class="heat" style="${heatColor(Math.round(Math.max(1,v)), Math.round(maxRemaining))}">${v}</span>`
-    },
-    {key:'Player', label:'Player'},
-    {key:'Team', label:'Team', render:teamChip},
-    {key:'Position', label:'Pos'},
-    {key:'Stat', label:'Stat'},
-    {key:'current', label:'Career Total', numeric:true},
-    {key:'target', label:'Milestone', numeric:true},
-  ];
-
-  let pos = '';
   function apply(){
+    const rows = rowsForScope();
+    if(!rows.length){
+      container.innerHTML = scope === 'team'
+        ? '<div class="empty">No with-current-team milestone data yet. Re-run the pipeline (07_milestone_watch.py) to generate it.</div>'
+        : '<div class="empty">No milestone data yet. Run 07_milestone_watch.py.</div>';
+      return;
+    }
+
+    // Rebuild the stat dropdown for this scope, keeping the current pick if it still exists.
+    const previousStat = statSelect.value;
+    const statOptions = [...new Set(rows.map(r=>r.Stat))].sort();
+    statSelect.innerHTML = '<option value="">All stats</option>' + statOptions.map(x=>`<option value="${x}">${x}</option>`).join('');
+    if(statOptions.includes(previousStat)) statSelect.value = previousStat;
+
+    const maxRemaining = Math.max(5, ...rows.map(r=>Math.max(1, r.remaining)));
+    const cols = [
+      {key:'remaining', label:'To Go', numeric:true, render:(v)=>
+        `<span class="heat" style="${heatColor(Math.round(Math.max(1,v)), Math.round(maxRemaining))}">${v}</span>`
+      },
+      {key:'Player', label:'Player'},
+      {key:'Team', label:'Team', render:teamChip},
+      {key:'Position', label:'Pos'},
+      {key:'Stat', label:'Stat'},
+      {key:'current', label: scope === 'team' ? 'With Team' : 'Career Total', numeric:true},
+      {key:'target', label:'Milestone', numeric:true},
+    ];
+
     const q = $('#ms-search').value.trim().toLowerCase();
     const statFilter = statSelect.value;
     const filtered = rows.filter(r=>
@@ -2185,6 +2276,15 @@ function mountMilestones(){
     );
     buildTable(container, cols, filtered, {defaultSort:'remaining', defaultDir:'asc'});
   }
+
+  $$('#ms-scope-pills .pill').forEach(pill=>{
+    pill.addEventListener('click', ()=>{
+      $$('#ms-scope-pills .pill').forEach(x=>x.classList.remove('active'));
+      pill.classList.add('active');
+      scope = pill.dataset.scope;
+      apply();
+    });
+  });
   $('#ms-search').addEventListener('input', apply);
   statSelect.addEventListener('change', apply);
   apply();
@@ -3201,6 +3301,23 @@ function mountMyPicks(){
       </div>`;
     }).join('');
 
+    // Re-wired after every render of a ticket's table (including re-sorts).
+    function wireTicketControls(tableContainer){
+      $$('.move-pick-select', tableContainer).forEach(sel=>{
+        sel.addEventListener('change', ()=>{
+          moveMyPickToTicket(parseInt(sel.dataset.moveIdx, 10), sel.value);
+          apply();
+        });
+      });
+      $$('.save-pick-btn', tableContainer).forEach(btn=>{
+        if(btn.dataset.removeIdx === undefined) return;
+        btn.addEventListener('click', ()=>{
+          removeFromMyPicks(parseInt(btn.dataset.removeIdx, 10));
+          apply();
+        });
+      });
+    }
+
     nonEmptyTickets.forEach(([ticket, list])=>{
       const safeId = ticket.replace(/[^a-zA-Z0-9]/g, '_');
       const tableContainer = document.getElementById(`ticket-table-${safeId}`);
@@ -3222,21 +3339,7 @@ function mountMyPicks(){
           return `<button class="save-pick-btn" data-remove-idx="${idx}">Remove</button>`;
         }},
       ];
-      buildTable(tableContainer, cols, list, {defaultSort:'week', defaultDir:'desc'});
-    });
-
-    $$('.move-pick-select', container).forEach(sel=>{
-      sel.addEventListener('change', ()=>{
-        moveMyPickToTicket(parseInt(sel.dataset.moveIdx, 10), sel.value);
-        apply();
-      });
-    });
-    $$('.save-pick-btn', container).forEach(btn=>{
-      if(btn.dataset.removeIdx === undefined) return;
-      btn.addEventListener('click', ()=>{
-        removeFromMyPicks(parseInt(btn.dataset.removeIdx, 10));
-        apply();
-      });
+      buildTable(tableContainer, cols, list, {defaultSort:'week', defaultDir:'desc', onRender: wireTicketControls});
     });
   }
 
@@ -3789,11 +3892,42 @@ function mountLiveNow(){
   window.__liveNowTimer = setInterval(()=>{ if(!document.hidden) load(); }, LIVE_NOW_REFRESH_MS);
 }
 
+function renderLiveHub(){
+  return `
+  <div class="pill-group" id="livehub-pills" style="margin-bottom:16px;">
+    <span class="pill" data-mode="now">Live Now</span>
+    <span class="pill" data-mode="recap">Completed Weeks</span>
+  </div>
+  <div id="livehub-body"></div>`;
+}
+
+function mountLiveHub(){
+  if(liveHubModePreset){ liveHubMode = liveHubModePreset; liveHubModePreset = null; }
+  const body = $('#livehub-body');
+
+  function show(){
+    // Only the Live Now view polls ESPN -- stop it before swapping views.
+    if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
+    $$('#livehub-pills .pill').forEach(p=>p.classList.toggle('active', p.dataset.mode === liveHubMode));
+    if(liveHubMode === 'now'){
+      body.innerHTML = renderLiveNow();
+      mountLiveNow();
+    } else {
+      body.innerHTML = renderLive();
+      mountLive();
+    }
+  }
+
+  $$('#livehub-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{ liveHubMode = p.dataset.mode; show(); });
+  });
+  show();
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
-  live: {render: renderLive, mount: mountLive},
-  livenow: {render: renderLiveNow, mount: mountLiveNow},
+  live: {render: renderLiveHub, mount: mountLiveHub},
   matchup: {render: renderMatchup, mount: mountMatchup},
   teams: {render: renderTeams, mount: mountTeams},
   teamweek: {render: renderTeamWeek, mount: mountTeamWeek},
@@ -3833,7 +3967,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
