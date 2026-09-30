@@ -1189,8 +1189,8 @@ function renderOverview(){
   <div class="stat-row">
     <div class="stat-card"><div class="label">Top Offense (Yds/G)</div><div class="value">${teamName(topOff.Team)} <span>${fmt(topOff['Offensive Yards Per Game'])}</span></div></div>
     <div class="stat-card"><div class="label">Stingiest Defense (Yds Allowed/G)</div><div class="value">${teamName(topDef.Team)} <span>${fmt(topDef['Offensive Yards Allowed Per Game'])}</span></div></div>
-    <div class="stat-card"><div class="label">Most Pass Yds (Single Game)</div><div class="value">${topPasser.Player} <span>${fmt(topPasser['Pass Yards'])} yds</span></div></div>
-    <div class="stat-card"><div class="label">Most Rush Yds (Single Game)</div><div class="value">${topRusher.Player} <span>${fmt(topRusher['Rush Yards'])} yds</span></div></div>
+    <div class="stat-card"><div class="label">Most Pass Yds (Single Game)</div><div class="value">${topPasser.Player} <span class="player-preview-pos">${topPasser.Team}</span> <span>${fmt(topPasser['Pass Yards'])} yds</span></div></div>
+    <div class="stat-card"><div class="label">Most Rush Yds (Single Game)</div><div class="value">${topRusher.Player} <span class="player-preview-pos">${topRusher.Team}</span> <span>${fmt(topRusher['Rush Yards'])} yds</span></div></div>
   </div>
   <div class="grid-2">
     <div class="panel">
