@@ -582,6 +582,20 @@ function moveMyPickToTicket(index, newTicket){
   if(list[index]) list[index].ticket = newTicket;
   saveMyPicksList(list);
 }
+// Changing the number on a saved pick -- regenerates its summary line to
+// match (rather than leaving the old number sitting in stale text), and
+// resets its grading, since a MISS at 50+ can become a HIT at 40+ and that
+// needs to actually re-evaluate against the same real result, not carry
+// over a verdict from the old line.
+function editMyPickThreshold(index, newThreshold){
+  const list = getMyPicks();
+  const pick = list[index];
+  if(!pick || isNaN(newThreshold)) return false;
+  pick.threshold = newThreshold;
+  pick.summary = `${newThreshold}+ ${pick.stat}${pick.opponent ? ` vs ${pick.opponent}` : ''}${pick.week ? ` (Wk ${pick.week})` : ''}`;
+  saveMyPicksList(list);
+  return true;
+}
 function getAllTicketNames(){
   const known = getKnownTicketNames();
   const fromPicks = getMyPicks().map(p=>p.ticket || 'Ticket A');
@@ -3430,6 +3444,27 @@ function mountMyPicks(){
           apply();
         });
       });
+      $$('.save-pick-btn[data-save-edit-idx]', tableContainer).forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const idx = parseInt(btn.dataset.saveEditIdx, 10);
+          const input = tableContainer.querySelector(`.edit-threshold-input[data-edit-idx="${idx}"]`);
+          const newThreshold = parseFloat(input.value);
+          if(isNaN(newThreshold)){ alert('Enter a valid number.'); return; }
+          editMyPickThreshold(idx, newThreshold);
+          apply();
+        });
+      });
+      // Enter key in the number box saves too, without needing the button.
+      $$('.edit-threshold-input', tableContainer).forEach(input=>{
+        input.addEventListener('keydown', (e)=>{
+          if(e.key !== 'Enter') return;
+          const idx = parseInt(input.dataset.editIdx, 10);
+          const newThreshold = parseFloat(input.value);
+          if(isNaN(newThreshold)){ alert('Enter a valid number.'); return; }
+          editMyPickThreshold(idx, newThreshold);
+          apply();
+        });
+      });
     }
 
     nonEmptyTickets.forEach(([ticket, list])=>{
@@ -3444,6 +3479,16 @@ function mountMyPicks(){
         {key:'stat', label:'Stat'},
         {key:'week', label:'Wk', numeric:true},
         {key:'summary', label:'Details'},
+        {key:'_edit', label:'Number', render:(v,row)=>{
+          const idx = picks.indexOf(row);
+          if(row.threshold === undefined || row.threshold === null || row.threshold === ''){
+            return '<span style="color:var(--chalk-dim);">--</span>';
+          }
+          return `<span style="white-space:nowrap;">
+            <input type="number" class="edit-threshold-input" data-edit-idx="${idx}" value="${row.threshold}" style="width:64px;">
+            <button class="save-pick-btn" data-save-edit-idx="${idx}">Save</button>
+          </span>`;
+        }},
         {key:'_result', label:'Result', render:(v,row)=>{
           const g = gradeMyPick(row);
           if(!g) return '<span style="color:var(--chalk-dim);">--</span>';
