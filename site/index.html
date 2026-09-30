@@ -510,7 +510,22 @@ function saveMyPicksList(list){
   }
 }
 function isPickSaved(pick){
-  return getMyPicks().some(p => p.player===pick.player && p.stat===pick.stat && p.source===pick.source && p.week===pick.week);
+  return getMyPicks().some(p =>
+    p.player===pick.player && p.stat===pick.stat && p.source===pick.source && p.week===pick.week &&
+    (p.threshold ?? null) === (pick.threshold ?? null)
+  );
+}
+
+// A pick is gradeable once it carries an explicit threshold (right now:
+// only Custom Matchup Checker adds save one) -- Best Picks/Predictions/etc.
+// don't have a single numeric line to compare against, so they're left as
+// informational entries rather than shown as an incorrect PENDING forever.
+function gradeMyPick(pick){
+  if(pick.threshold === undefined || pick.threshold === null || pick.threshold === '') return null;
+  const actualRow = (DATA.playerGame || []).find(r => r.Player === pick.player && String(r.Week) === String(pick.week));
+  if(!actualRow) return {status: 'PENDING', actual: null};
+  const actual = num(actualRow[pick.stat]);
+  return {status: actual >= num(pick.threshold) ? 'HIT' : 'MISS', actual};
 }
 function addToMyPicks(pick){
   if(isPickSaved(pick)) return false;
@@ -3249,7 +3264,25 @@ function mountMyPicks(){
         ${defenseRate ? `
           <div class="player-preview-stats">${teamName(opponent)} (their upcoming opponent) has allowed ${threshold}+ ${statKey} to the opposing lead ${position} in <b style="color:var(--mint);">${defenseRate.hits} of ${defenseRate.total}</b> games (${fmt(defenseRate.rate*100,0)}%)</div>
         ` : `<div class="player-preview-stats" style="color:var(--chalk-dim);">No upcoming opponent loaded for ${team} yet -- showing player's own rate only.</div>`}
+        ${opponent && wk2Row.Week ? (()=>{
+          const saved = isPickSaved({source:'Custom Checker', player, stat:statKey, week:wk2Row.Week, threshold});
+          const summary = `${threshold}+ ${statKey} vs ${opponent} (Wk ${wk2Row.Week})`;
+          return `<button class="save-pick-btn" style="margin-top:8px;" ${saved?'disabled':''}
+            data-player="${player}" data-position="${position}" data-team="${team}" data-opponent="${opponent}"
+            data-stat="${statKey}" data-week="${wk2Row.Week}" data-threshold="${threshold}"
+            data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003; Saved -- check My Picks after the game':'+ Add to My Picks'}</button>`;
+        })() : `<div class="player-preview-stats" style="color:var(--chalk-dim);">No upcoming week loaded for ${team} yet, so this can't be saved for grading.</div>`}
       </div>`;
+
+    const saveBtn = resultEl.querySelector('.save-pick-btn');
+    if(saveBtn) saveBtn.addEventListener('click', ()=>{
+      addToMyPicks({
+        source: 'Custom Checker', player: saveBtn.dataset.player, position: saveBtn.dataset.position,
+        team: saveBtn.dataset.team, opponent: saveBtn.dataset.opponent, stat: saveBtn.dataset.stat,
+        week: saveBtn.dataset.week, threshold: parseFloat(saveBtn.dataset.threshold), summary: saveBtn.dataset.summary,
+      });
+      $('#checker-btn').click(); // redraw the result so the button flips to "Saved"
+    });
   });
 
   $('#new-ticket-btn').addEventListener('click', ()=>{
@@ -3294,9 +3327,20 @@ function mountMyPicks(){
 
     container.innerHTML = nonEmptyTickets.map(([ticket, list])=>{
       const safeId = ticket.replace(/[^a-zA-Z0-9]/g, '_');
+      const graded = list.map(gradeMyPick).filter(Boolean);
+      const hits = graded.filter(g=>g.status==='HIT').length;
+      const misses = graded.filter(g=>g.status==='MISS').length;
+      const pending = graded.filter(g=>g.status==='PENDING').length;
+      let summaryLine = '';
+      if(graded.length){
+        if(misses > 0) summaryLine = `<span style="color:var(--red);">${misses} leg${misses===1?'':'s'} missed</span> &middot; ${hits} hit &middot; ${pending} pending`;
+        else if(pending > 0) summaryLine = `${hits} of ${graded.length} graded legs hit so far &middot; <span style="color:var(--chalk-dim);">${pending} still pending</span>`;
+        else summaryLine = `<span style="color:var(--mint);">All ${hits} graded legs hit</span>`;
+      }
+
       return `
       <div class="log-pos-group" style="margin-bottom:16px;">
-        <div class="log-pos-label" style="font-size:14px;">${ticket} (${list.length} pick${list.length===1?'':'s'})</div>
+        <div class="log-pos-label" style="font-size:14px;">${ticket} (${list.length} pick${list.length===1?'':'s'})${summaryLine ? ` -- ${summaryLine}` : ''}</div>
         <div class="table-scroll" id="ticket-table-${safeId}"></div>
       </div>`;
     }).join('');
@@ -3330,6 +3374,13 @@ function mountMyPicks(){
         {key:'stat', label:'Stat'},
         {key:'week', label:'Wk', numeric:true},
         {key:'summary', label:'Details'},
+        {key:'_result', label:'Result', render:(v,row)=>{
+          const g = gradeMyPick(row);
+          if(!g) return '<span style="color:var(--chalk-dim);">--</span>';
+          if(g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Pending</span>';
+          const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
+          return `<span style="color:${color};font-weight:700;">${g.status}</span> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual)</span>`;
+        }},
         {key:'_move', label:'Move to', render:(v,row)=>{
           const idx = picks.indexOf(row);
           return `<select class="move-pick-select" data-move-idx="${idx}">${ticketNames.map(t=>`<option value="${t}" ${t===ticket?'selected':''}>${t}</option>`).join('')}</select>`;
