@@ -1199,8 +1199,27 @@ function renderOverview(){
       <canvas id="chart-overview-scatter" height="260"></canvas>
     </div>
     <div class="panel">
-      <div class="panel-title">Top 10 Single-Game Yardage Performances</div>
-      <div class="panel-note">Combined rush + receiving + passing yards, across all positions.</div>
+      <div class="panel-title">Top 10 Single-Game Performances</div>
+      <div class="panel-note" id="overview-top-note">Combined rush + receiving + passing yards, across all positions.</div>
+      <div class="controls" style="margin-bottom:12px;">
+        <div class="pill-group" id="overview-top-pos-pills">
+          <span class="pill active" data-pos="">ALL</span>
+          <span class="pill" data-pos="QB">QB</span>
+          <span class="pill" data-pos="RB">RB</span>
+          <span class="pill" data-pos="WR">WR</span>
+          <span class="pill" data-pos="TE">TE</span>
+        </div>
+        <select id="overview-top-stat">
+          <option value="total">Total Yards</option>
+          <option value="Pass Yards">Pass Yards</option>
+          <option value="Pass TD">Pass TD</option>
+          <option value="Rush Yards">Rush Yards</option>
+          <option value="Rush TD">Rush TD</option>
+          <option value="Receiving Yards">Receiving Yards</option>
+          <option value="Receiving TD">Receiving TD</option>
+          <option value="Receptions">Receptions</option>
+        </select>
+      </div>
       <canvas id="chart-overview-top" height="260"></canvas>
     </div>
   </div>
@@ -1232,19 +1251,52 @@ function mountOverview(){
       }
     }
   });
-  const withTotalYards = DATA.playerGame.map(r=>({
-    ...r, totalYards: num(r['Pass Yards']) + num(r['Rush Yards']) + num(r['Receiving Yards']),
-  }));
-  const top10 = withTotalYards.sort((a,b)=>b.totalYards - a.totalYards).slice(0,10);
-  const ctx2 = $('#chart-overview-top');
-  charts.top = new Chart(ctx2, {
-    type:'bar',
-    data:{ labels: top10.map(r=>`${r.Player} (${r.Team})`), datasets:[{ label:'Total Yards', data: top10.map(r=>r.totalYards), backgroundColor:'#FFB020' }]},
-    options:{ indexAxis:'y',
-      plugins:{legend:{display:false}},
-      scales:{ x:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }, y:{ ticks:{color:'#EDEFF7', font:{size:11}}, grid:{display:false} } }
-    }
+  // "Total Yards" is pass+rush+receiving combined, one number that works
+  // across every position; every other option is a single real stat column.
+  const OVERVIEW_TOP_STAT_LABELS = {
+    total: 'Total Yards', 'Pass Yards': 'Pass Yards', 'Pass TD': 'Pass TD',
+    'Rush Yards': 'Rush Yards', 'Rush TD': 'Rush TD', 'Receiving Yards': 'Receiving Yards',
+    'Receiving TD': 'Receiving TD', 'Receptions': 'Receptions',
+  };
+  function overviewTopValue(row, statKey){
+    return statKey === 'total'
+      ? num(row['Pass Yards']) + num(row['Rush Yards']) + num(row['Receiving Yards'])
+      : num(row[statKey]);
+  }
+  function applyOverviewTopChart(){
+    const pos = ($('#overview-top-pos-pills .pill.active') || {}).dataset ? $('#overview-top-pos-pills .pill.active').dataset.pos : '';
+    const statKey = $('#overview-top-stat').value;
+    const statLabel = OVERVIEW_TOP_STAT_LABELS[statKey];
+
+    const rows = (DATA.playerGame || []).filter(r => !pos || r.Position === pos);
+    const top10 = rows
+      .map(r => ({...r, _val: overviewTopValue(r, statKey)}))
+      .sort((a,b) => b._val - a._val)
+      .slice(0, 10);
+
+    $('#overview-top-note').textContent = statKey === 'total'
+      ? `Combined rush + receiving + passing yards${pos ? `, ${pos} only` : ', across all positions'}.`
+      : `${statLabel}${pos ? ` -- ${pos} only` : ', across all positions'}.`;
+
+    destroyChart('top');
+    charts.top = new Chart($('#chart-overview-top'), {
+      type:'bar',
+      data:{ labels: top10.map(r=>`${r.Player} (${r.Team})`), datasets:[{ label: statLabel, data: top10.map(r=>r._val), backgroundColor:'#FFB020' }]},
+      options:{ indexAxis:'y',
+        plugins:{legend:{display:false}},
+        scales:{ x:{ ticks:{color:'#8B93AC'}, grid:{color:'#1B2233'} }, y:{ ticks:{color:'#EDEFF7', font:{size:11}}, grid:{display:false} } }
+      }
+    });
+  }
+  $$('#overview-top-pos-pills .pill').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      $$('#overview-top-pos-pills .pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      applyOverviewTopChart();
+    });
   });
+  $('#overview-top-stat').addEventListener('change', applyOverviewTopChart);
+  applyOverviewTopChart();
   buildTable($('#overview-table'), [
     {key:'Team', label:'Team', render:teamChip},
     {key:'Offensive Yards Per Game', label:'Off Yds/G', numeric:true, render:v=>fmt(v)},
@@ -1963,7 +2015,7 @@ function renderMatchup(){
     <div class="controls">
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
       <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
-      <span style="color:var(--gold);font-family:var(--display);font-size:14px;">VS</span>
+      <button class="save-pick-btn" id="mu-flip" title="Swap offense and defense">&#8646; Flip</button>
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">DEFENSE</label>
       <select id="mu-def">${teams.map(t=>`<option value="${t}" ${t===defaultDef?'selected':''}>${teamName(t)}</option>`).join('')}</select>
       <div class="pill-group" id="mu-pos-pills">
@@ -2093,6 +2145,13 @@ function mountMatchup(){
   }
   $('#mu-off').addEventListener('change', apply);
   $('#mu-def').addEventListener('change', apply);
+  $('#mu-flip').addEventListener('click', ()=>{
+    const offEl = $('#mu-off'), defEl = $('#mu-def');
+    const oldOff = offEl.value;
+    offEl.value = defEl.value;
+    defEl.value = oldOff;
+    apply();
+  });
   $$('#mu-pos-pills .pill').forEach(p=>{
     p.addEventListener('click', ()=>{
       $$('#mu-pos-pills .pill').forEach(x=>x.classList.remove('active'));
