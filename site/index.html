@@ -527,6 +527,44 @@ function gradeMyPick(pick){
   const actual = num(actualRow[pick.stat]);
   return {status: actual >= num(pick.threshold) ? 'HIT' : 'MISS', actual};
 }
+
+// Pre-game estimate for a gradeable pick, reusing the same two data points
+// Mike's Template and the checker already show separately: the player's own
+// season hit rate at this threshold, and (if their opponent is known) that
+// opponent's history of allowing the same threshold to the position. When
+// both exist the estimate is their average -- two independent readings on
+// the same question (will this number clear the bar) rather than one
+// multiplied into the other, which would understate a leg that's strong on
+// both sides. Once the actual game result comes in, gradeMyPick takes over.
+function estimatePickProbability(pick){
+  if(pick.threshold === undefined || pick.threshold === null || pick.threshold === '') return null;
+  const playerRate = getPlayerStatFloorRate(pick.player, pick.position, pick.stat, num(pick.threshold));
+  if(!playerRate) return null;
+  const defenseRate = pick.opponent ? getDefenseLeadPlayerFloorRate(pick.opponent, pick.position, pick.stat, num(pick.threshold)) : null;
+  const probability = defenseRate ? (playerRate.rate + defenseRate.rate) / 2 : playerRate.rate;
+  return {probability, playerRate, defenseRate};
+}
+
+// A parlay needs every leg to hit, so its probability is the product of
+// each leg's -- and the single weakest leg is what drags the whole thing
+// down the most. Only picks with a threshold (checker-saved) can be
+// estimated; anything else is set aside rather than silently skipped.
+function analyzeTicketOdds(picks){
+  const estimable = [];
+  const skipped = [];
+  picks.forEach(pick=>{
+    const est = estimatePickProbability(pick);
+    if(est) estimable.push({...pick, est});
+    else skipped.push(pick);
+  });
+  if(!estimable.length) return {estimable, skipped, parlayProbability: null, weakest: null};
+
+  const parlayProbability = estimable.reduce((prod, p) => prod * p.est.probability, 1);
+  const sorted = [...estimable].sort((a,b)=>a.est.probability - b.est.probability);
+  const weakest = sorted[0];
+  const withoutWeakest = estimable.filter(p=>p!==weakest).reduce((prod, p) => prod * p.est.probability, 1);
+  return {estimable, skipped, parlayProbability, weakest, withoutWeakest};
+}
 function addToMyPicks(pick){
   if(isPickSaved(pick)) return false;
   const list = getMyPicks();
@@ -3338,10 +3376,42 @@ function mountMyPicks(){
         else summaryLine = `<span style="color:var(--mint);">All ${hits} graded legs hit</span>`;
       }
 
+      // Pre-game likelihood, separate from the post-game Result column above --
+      // this is a season-rate estimate for legs that haven't played yet (or
+      // are still useful context even once some have).
+      const odds = analyzeTicketOdds(list);
+      let oddsHtml = '';
+      if(odds.estimable.length){
+        const legRows = [...odds.estimable].sort((a,b)=>a.est.probability - b.est.probability).map(p=>{
+          const pct = fmt(p.est.probability * 100, 0);
+          const isWeakest = p === odds.weakest;
+          const color = p.est.probability >= 0.65 ? 'var(--mint)' : p.est.probability <= 0.35 ? 'var(--red)' : 'var(--chalk)';
+          const defPart = p.est.defenseRate
+            ? `, ${teamName(p.opponent)} allows it in ${p.est.defenseRate.hits}/${p.est.defenseRate.total} games`
+            : ' (no opponent data -- player rate only)';
+          return `<div class="player-preview-stats">${isWeakest ? '&#9888; ' : ''}<b style="color:${color};">${pct}%</b> -- ${p.player} ${p.threshold}+ ${p.stat} (own rate ${p.est.playerRate.hits}/${p.est.playerRate.total}${defPart})${isWeakest ? ' <span style="color:var(--red);">weakest leg</span>' : ''}</div>`;
+        }).join('');
+
+        const parlayPct = fmt(odds.parlayProbability * 100, 1);
+        const withoutPct = odds.estimable.length > 1 ? fmt(odds.withoutWeakest * 100, 1) : null;
+        oddsHtml = `
+          <div class="log-pos-group" style="margin-top:10px;margin-bottom:0;">
+            <div class="log-pos-label">Pre-Game Likelihood Estimate (${odds.estimable.length} of ${list.length} legs, based on season rates -- not a graded result)</div>
+            ${legRows}
+            <div class="player-preview-stats" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hash-line);">
+              All ${odds.estimable.length} legs hitting together: <b style="color:var(--gold);">~${parlayPct}%</b>
+              ${withoutPct ? ` &middot; without the weakest leg (${odds.weakest.player} ${odds.weakest.threshold}+ ${odds.weakest.stat}): <b style="color:var(--mint);">~${withoutPct}%</b>` : ''}
+            </div>
+            ${odds.weakest ? `<div class="player-preview-stats" style="color:var(--red);">Consider removing ${odds.weakest.player} ${odds.weakest.threshold}+ ${odds.weakest.stat} -- it's the weakest link at ~${fmt(odds.weakest.est.probability*100,0)}%, and cutting it raises the rest hitting together from ~${parlayPct}% to ~${withoutPct}%.</div>` : ''}
+            ${odds.skipped.length ? `<div class="player-preview-stats" style="color:var(--chalk-dim);">${odds.skipped.length} other pick${odds.skipped.length===1?'':'s'} in this ticket ${odds.skipped.length===1?"wasn't":"weren't"} saved with a specific number, so ${odds.skipped.length===1?"it isn't":"they aren't"} included here.</div>` : ''}
+          </div>`;
+      }
+
       return `
       <div class="log-pos-group" style="margin-bottom:16px;">
         <div class="log-pos-label" style="font-size:14px;">${ticket} (${list.length} pick${list.length===1?'':'s'})${summaryLine ? ` -- ${summaryLine}` : ''}</div>
         <div class="table-scroll" id="ticket-table-${safeId}"></div>
+        ${oddsHtml}
       </div>`;
     }).join('');
 
