@@ -520,11 +520,19 @@ function isPickSaved(pick){
 // only Custom Matchup Checker adds save one) -- Best Picks/Predictions/etc.
 // don't have a single numeric line to compare against, so they're left as
 // informational entries rather than shown as an incorrect PENDING forever.
+// One place to format a leg's display label ("50+ Rush Yards" or, for the
+// binary "Any TD" case, just "Any TD") -- every spot that shows a pick's
+// line (the per-leg rows, the "without the weakest leg" summary, and the
+// "consider removing" callout) calls this instead of repeating the ternary,
+// so a special case like Any TD only has to be handled once.
+function pickLegLabel(pick){
+  return pick.stat === 'Any TD' ? 'Any TD' : `${pick.threshold}+ ${pick.stat}`;
+}
 function gradeMyPick(pick){
   if(pick.threshold === undefined || pick.threshold === null || pick.threshold === '') return null;
   const actualRow = (DATA.playerGame || []).find(r => r.Player === pick.player && String(r.Week) === String(pick.week));
   if(!actualRow) return {status: 'PENDING', actual: null};
-  const actual = num(actualRow[pick.stat]);
+  const actual = getStatValue(actualRow, pick.stat);
   return {status: actual >= num(pick.threshold) ? 'HIT' : 'MISS', actual};
 }
 
@@ -3462,7 +3470,7 @@ function mountMyPicks(){
           const defPart = p.est.defenseRate
             ? `, ${teamName(p.opponent)} allows it in ${p.est.defenseRate.hits}/${p.est.defenseRate.total} games`
             : ' (no opponent data -- player rate only)';
-          return `<div class="player-preview-stats">${isWeakest ? '&#9888; ' : ''}<b style="color:${color};">${pct}%</b> -- ${p.player} ${p.threshold}+ ${p.stat} (own rate ${p.est.playerRate.hits}/${p.est.playerRate.total}${defPart})${isWeakest ? ' <span style="color:var(--red);">weakest leg</span>' : ''}</div>`;
+          return `<div class="player-preview-stats">${isWeakest ? '&#9888; ' : ''}<b style="color:${color};">${pct}%</b> -- ${p.player} ${pickLegLabel(p)} (own rate ${p.est.playerRate.hits}/${p.est.playerRate.total}${defPart})${isWeakest ? ' <span style="color:var(--red);">weakest leg</span>' : ''}</div>`;
         }).join('');
 
         const parlayPct = fmt(odds.parlayProbability * 100, 1);
@@ -3473,9 +3481,9 @@ function mountMyPicks(){
             ${legRows}
             <div class="player-preview-stats" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hash-line);">
               All ${odds.estimable.length} legs hitting together: <b style="color:var(--gold);">~${parlayPct}%</b>
-              ${withoutPct ? ` &middot; without the weakest leg (${odds.weakest.player} ${odds.weakest.threshold}+ ${odds.weakest.stat}): <b style="color:var(--mint);">~${withoutPct}%</b>` : ''}
+              ${withoutPct ? ` &middot; without the weakest leg (${odds.weakest.player} ${pickLegLabel(odds.weakest)}): <b style="color:var(--mint);">~${withoutPct}%</b>` : ''}
             </div>
-            ${odds.weakest ? `<div class="player-preview-stats" style="color:var(--red);">Consider removing ${odds.weakest.player} ${odds.weakest.threshold}+ ${odds.weakest.stat} -- it's the weakest link at ~${fmt(odds.weakest.est.probability*100,0)}%, and cutting it raises the rest hitting together from ~${parlayPct}% to ~${withoutPct}%.</div>` : ''}
+            ${(odds.weakest && odds.estimable.length > 1) ? `<div class="player-preview-stats" style="color:var(--red);">Consider removing ${odds.weakest.player} ${pickLegLabel(odds.weakest)} -- it's the weakest link at ~${fmt(odds.weakest.est.probability*100,0)}%, and cutting it raises the rest hitting together from ~${parlayPct}% to ~${withoutPct}%.</div>` : ''}
             ${odds.skipped.length ? `<div class="player-preview-stats" style="color:var(--chalk-dim);">${odds.skipped.length} other pick${odds.skipped.length===1?'':'s'} in this ticket ${odds.skipped.length===1?"wasn't":"weren't"} saved with a specific number, so ${odds.skipped.length===1?"it isn't":"they aren't"} included here.</div>` : ''}
           </div>`;
       }
@@ -3644,10 +3652,18 @@ function getTeamTopVolumePlayer(team, position){
   return withVolume[0] || null;
 }
 
+// Centralized so "Any TD" (a combined Rush TD + Receiving TD event, not a
+// single CSV column) only needs to be special-cased once, here -- every
+// grading/estimating function below reads a stat value through this
+// instead of indexing playerGame rows directly.
+function getStatValue(row, statKey){
+  return statKey === 'Any TD' ? num(row['Rush TD']) + num(row['Receiving TD']) : num(row[statKey]);
+}
+
 function getPlayerStatFloorRate(player, position, statKey, threshold){
   const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position===position);
   if(!games.length) return null;
-  const hits = games.filter(g=>num(g[statKey]) >= threshold).length;
+  const hits = games.filter(g=>getStatValue(g, statKey) >= threshold).length;
   return {hits, total: games.length, rate: hits / games.length};
 }
 
@@ -3663,7 +3679,7 @@ function getDefenseLeadPlayerFloorRate(defense, position, statKey, threshold){
   const byWeek = {};
   rows.forEach(r=>{
     const wk = r.Week;
-    const val = num(r[statKey]);
+    const val = getStatValue(r, statKey);
     if(!(wk in byWeek) || val > byWeek[wk]) byWeek[wk] = val;
   });
   const weeklyMax = Object.values(byWeek);
@@ -3718,7 +3734,7 @@ function computeMikesTemplatePicks(){
         const runDef = position === 'RB' ? isBottomHalfRunDefense(opponent) : null;
 
         results.push({
-          team, opponent, position, statLabel: statCfg.key,
+          team, opponent, position, statLabel: statCfg.key, week: home.Week,
           spread, spreadInRange: spread !== null && spread <= -TEMPLATE_SPREAD_MIN && spread >= -TEMPLATE_SPREAD_MAX,
           runDef,
           player: topPlayer.player, avgVolume: topPlayer.avgVolume,
@@ -3795,8 +3811,28 @@ function mountMikesTemplate(){
         <div class="player-preview-stats">Option B (2-leg): ${p.team} spread/ML + ${p.player} ${c.threshold}+ ${statShort}</div>
         <div class="player-preview-stats" style="color:var(--chalk-dim);">No anytime TD included. Max 2 legs.</div>
       </div>
+      ${p.week ? (()=>{
+        const saved = isPickSaved({source:'Mike\'s Template', player:p.player, stat:p.statLabel, week:p.week, threshold:c.threshold});
+        const summary = `${c.threshold}+ ${statShort} vs ${teamName(p.opponent)} (Wk ${p.week}) -- own rate ${fmt(c.playerRate.rate*100,0)}%, opp allows ${fmt(c.defenseRate.rate*100,0)}%`;
+        return `<button class="save-pick-btn" style="margin-top:10px;" ${saved?'disabled':''}
+          data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}"
+          data-stat="${p.statLabel}" data-week="${p.week}" data-threshold="${c.threshold}"
+          data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003; Saved':'+ Add to My Picks'}</button>`;
+      })() : ''}
     </div>`;
   }).join('');
+
+  $$('.save-pick-btn', container).forEach(btn=>{
+    if(btn.dataset.threshold === undefined) return;
+    btn.addEventListener('click', ()=>{
+      addToMyPicks({
+        source: "Mike's Template", player: btn.dataset.player, position: btn.dataset.position,
+        team: btn.dataset.team, opponent: btn.dataset.opponent, stat: btn.dataset.stat,
+        week: btn.dataset.week, threshold: parseFloat(btn.dataset.threshold), summary: btn.dataset.summary,
+      });
+      mountMikesTemplate();
+    });
+  });
 }
 
 // ---------- TAB: ANYTIME TD PROPS ----------
@@ -3844,6 +3880,7 @@ function computeAnytimeTDPicks(){
   const results = [];
   gameList.forEach(g=>{
     const home = g.sides.home.Team, away = g.sides.away.Team;
+    const week = g.sides.home.Week;
 
     [[home, away], [away, home]].forEach(([team, opponent])=>{
       // Every eligible skill player on the team is a candidate, not just
@@ -3869,7 +3906,7 @@ function computeAnytimeTDPicks(){
       });
 
       if(!best || best.score <= 0) return;
-      results.push({team, opponent, ...best});
+      results.push({team, opponent, week, ...best});
     });
   });
 
@@ -3901,6 +3938,23 @@ function mountAnytimeTD(){
     return;
   }
 
+  // "Any TD" is graded as Rush TD + Receiving TD >= 1 -- getStatValue (used
+  // by gradeMyPick/estimatePickProbability) already knows this special stat
+  // name, so these picks plug straight into the same grading/likelihood
+  // system every other threshold pick uses, with threshold fixed at 1.
+  function wireAnytimeTDSaves(tableContainer){
+    $$('.save-pick-btn', tableContainer).forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        addToMyPicks({
+          source: 'Anytime TD Props', player: btn.dataset.player, position: btn.dataset.position,
+          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: 'Any TD',
+          week: btn.dataset.week, threshold: 1, summary: btn.dataset.summary,
+        });
+        mountAnytimeTD();
+      });
+    });
+  }
+
   const cols = [
     {key:'player', label:'Player'},
     {key:'position', label:'Pos'},
@@ -3909,8 +3963,16 @@ function mountAnytimeTD(){
     {key:'_playerRate', label:'Player TD Rate', numeric:true, render:(v,row)=>`${row.playerRate.hits}/${row.playerRate.total} (${fmt(row.playerRate.rate*100,0)}%)`},
     {key:'_defenseRate', label:'Opp Allows TD Rate', numeric:true, render:(v,row)=>`${row.defenseRate.hits}/${row.defenseRate.total} (${fmt(row.defenseRate.rate*100,0)}%)`},
     {key:'score', label:'Combined', numeric:true, render:v=>fmt(v*100,0)+'%'},
+    {key:'_save', label:'', render:(v,row)=>{
+      if(!row.week) return '<span style="color:var(--chalk-dim);">--</span>';
+      const saved = isPickSaved({source:'Anytime TD Props', player:row.player, stat:'Any TD', week:row.week, threshold:1});
+      const summary = `Anytime TD vs ${teamName(row.opponent)} (Wk ${row.week}) -- own rate ${fmt(row.playerRate.rate*100,0)}%, opp allows ${fmt(row.defenseRate.rate*100,0)}%`;
+      return `<button class="save-pick-btn" ${saved?'disabled':''}
+        data-player="${row.player}" data-position="${row.position}" data-team="${row.team}" data-opponent="${row.opponent}"
+        data-week="${row.week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>`;
+    }},
   ];
-  buildTable(container, cols, picks, {defaultSort:'score', defaultDir:'desc'});
+  buildTable(container, cols, picks, {defaultSort:'score', defaultDir:'desc', onRender: wireAnytimeTDSaves});
 }
 
 // ---------- TAB: LIVE NOW ----------
