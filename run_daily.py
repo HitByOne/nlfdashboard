@@ -78,6 +78,11 @@ def main(force_week: int | None = None):
     # EPA, game stats, and red zone usage -- non-critical for the same reason.
     run("12_coaching_tendencies.py", critical=False)
 
+    # Offensive/defensive line data comes from the same external nflverse
+    # source (play-by-play, snap counts, injuries) -- non-critical for the
+    # same reason: a hiccup there shouldn't block the rest of the refresh.
+    run("13_line_play.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
