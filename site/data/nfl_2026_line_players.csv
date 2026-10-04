@@ -1,0 +1,543 @@
+Player,Team,Group,Position,Games,Snaps,Avg Snap Pct,Last Game Week,Last Game Snaps,Last Game Snap Pct,Role,Sacks,QB Hits,TFL
+Jack Gibbens,ARI,DL,LB,3,173,0.967,3,50,0.93,Edge (LB),0.5,3.0,1.0
+Roy Lopez,ARI,DL,DL,3,110,0.603,3,34,0.63,Starter,0.0,0.0,0.0
+Walter Nolen,ARI,DL,DL,3,110,0.617,3,34,0.63,Starter,0.0,2.0,0.0
+Dante Stills,ARI,DL,DT,3,103,0.577,3,30,0.56,Starter,1.0,1.0,1.0
+Jordan Burch,ARI,DL,LB,3,79,0.437,3,24,0.44,Edge (LB),1.0,1.0,2.0
+L.J. Collier,ARI,DL,DL,3,69,0.383,3,20,0.37,Starter,0.0,0.0,0.0
+Darius Robinson,ARI,DL,DL,3,66,0.363,3,17,0.31,Reserve,0.0,0.0,1.0
+Elijah Wilkinson,ARI,OL,OL,3,212,1.0,3,87,1.0,Starter,,,
+Hjalte Froholdt,ARI,OL,OL,3,212,1.0,3,87,1.0,Starter,,,
+Paris Johnson,ARI,OL,OL,3,212,1.0,3,87,1.0,Starter,,,
+Isaac Seumalo,ARI,OL,OL,3,209,0.987,3,87,1.0,Starter,,,
+Isaiah Adams,ARI,OL,OL,2,137,1.0,3,87,1.0,Starter,,,
+Jon Gaines,ARI,OL,OL,1,75,1.0,3,0,0.0,Reserve,,,
+Jayden Williams,ARI,OL,OL,3,12,0.053,3,4,0.05,Reserve,,,
+Hayden Conner,ARI,OL,OL,1,3,0.04,3,0,0.0,Reserve,,,
+Divine Deablo,ATL,DL,LB,3,187,0.94,3,66,1.0,Edge (LB),0.0,2.0,1.0
+Cameron Thomas,ATL,DL,DE,3,118,0.593,3,45,0.68,Starter,1.5,7.0,1.0
+Brandon Dorlus,ATL,DL,DL,3,109,0.547,3,43,0.65,Starter,0.0,5.0,0.0
+Maason Smith,ATL,DL,DL,3,109,0.55,3,34,0.52,Starter,0.0,1.0,0.0
+Gervon Dexter,ATL,DL,DT,3,106,0.53,3,30,0.45,Reserve,0.5,3.0,0.0
+LaCale London,ATL,DL,DL,3,79,0.397,3,19,0.29,Reserve,0.0,0.0,0.0
+Za'Darius Smith,ATL,DL,DE,3,77,0.387,3,33,0.5,Starter,2.5,3.0,4.0
+Samson Ebukam,ATL,DL,DE,2,57,0.425,3,0,0.0,Reserve,0.5,4.0,0.0
+Zach Harrison,ATL,DL,DL,2,44,0.335,3,19,0.29,Reserve,0.0,0.0,1.0
+Bralen Trice,ATL,DL,DE,2,35,0.265,3,21,0.32,Reserve,0.0,0.0,0.0
+Da'Shawn Hand,ATL,DL,DT,1,7,0.1,3,0,0.0,Reserve,0.0,0.0,0.0
+Jake Matthews,ATL,OL,T,3,200,1.0,3,71,1.0,Starter,,,
+Matthew Bergeron,ATL,OL,OL,3,200,1.0,3,71,1.0,Starter,,,
+Ryan Neuzil,ATL,OL,OL,3,200,1.0,3,71,1.0,Starter,,,
+Chris Lindstrom,ATL,OL,G,3,181,0.903,3,71,1.0,Starter,,,
+Jawaan Taylor,ATL,OL,T,3,174,0.873,3,71,1.0,Starter,,,
+Michael Jerrell,ATL,OL,OL,3,29,0.14,3,1,0.01,Reserve,,,
+Kyle Hinton,ATL,OL,OL,3,20,0.1,3,1,0.01,Reserve,,,
+Corey Levin,ATL,OL,C,1,2,0.03,3,2,0.03,Reserve,,,
+Roquan Smith,BAL,DL,LB,3,196,1.0,3,74,1.0,Edge (LB),1.0,2.0,1.0
+Tavius Robinson,BAL,DL,LB,3,155,0.79,3,58,0.78,Edge (LB),2.0,6.0,2.0
+Trey Hendrickson,BAL,DL,LB,3,121,0.627,3,45,0.61,Edge (LB),1.0,3.0,1.0
+Travis Jones,BAL,DL,DL,3,111,0.567,3,42,0.57,Starter,0.0,0.0,4.0
+Calais Campbell,BAL,DL,DL,3,101,0.52,3,32,0.43,Starter,0.0,3.0,0.0
+Broderick Washington Jr.,BAL,DL,DL,3,74,0.38,3,26,0.35,Starter,0.0,0.0,0.0
+Mike Green,BAL,DL,LB,3,71,0.36,3,22,0.3,Edge (LB),1.0,2.0,2.0
+Nnamdi Madubuike,BAL,DL,DL,1,47,0.64,3,47,0.64,Starter,0.0,0.0,0.0
+John Jenkins,BAL,DL,NT,3,46,0.237,3,12,0.16,Reserve,0.0,0.0,0.0
+Aeneas Peebles,BAL,DL,DL,2,18,0.155,3,0,0.0,Reserve,0.0,1.0,0.0
+John Simpson,BAL,OL,G,3,190,1.0,3,64,1.0,Starter,,,
+Olaivavega Ioane,BAL,OL,G,3,190,1.0,3,64,1.0,Starter,,,
+Roger Rosengarten,BAL,OL,T,3,190,1.0,3,64,1.0,Starter,,,
+Jovaughn Gwyn,BAL,OL,OL,3,172,0.907,3,46,0.72,Starter,,,
+Ronnie Stanley,BAL,OL,T,2,114,0.895,3,0,0.0,Reserve,,,
+Carson Vinson,BAL,OL,T,3,84,0.44,3,64,1.0,Starter,,,
+Ethan Pocic,BAL,OL,C,1,10,0.16,3,10,0.16,Reserve,,,
+Andrew Vorhees,BAL,OL,G,1,8,0.12,3,8,0.12,Reserve,,,
+Emery Jones,BAL,OL,G,1,3,0.05,3,3,0.05,Reserve,,,
+Gregory Rousseau,BUF,DL,LB,3,162,0.757,3,56,0.81,Edge (LB),6.0,12.0,8.0
+Bradley Chubb,BUF,DL,LB,3,161,0.753,3,56,0.81,Edge (LB),1.5,6.0,1.0
+Deone Walker,BUF,DL,DL,3,143,0.677,3,48,0.7,Starter,1.0,4.0,2.0
+Ed Oliver,BUF,DL,DL,2,93,0.615,3,28,0.41,Starter,0.0,4.0,1.0
+Landon Jackson,BUF,DL,DL,3,83,0.393,3,26,0.38,Starter,0.0,0.0,0.0
+DeWayne Carter,BUF,DL,DL,3,82,0.397,3,33,0.48,Starter,0.0,0.0,1.0
+Greg Gaines,BUF,DL,DL,3,55,0.263,3,22,0.32,Reserve,0.0,0.0,0.0
+Alec Anderson,BUF,OL,C,3,198,1.0,3,66,1.0,Starter,,,
+Connor McGovern,BUF,OL,C,3,198,1.0,3,66,1.0,Starter,,,
+Dion Dawkins,BUF,OL,T,3,198,1.0,3,66,1.0,Starter,,,
+O'Cyrus Torrence,BUF,OL,G,3,198,1.0,3,66,1.0,Starter,,,
+Spencer Brown,BUF,OL,T,3,198,1.0,3,66,1.0,Starter,,,
+Tylan Grable,BUF,OL,T,2,3,0.025,3,0,0.0,Reserve,,,
+Jaelan Phillips,CAR,DL,LB,3,156,0.727,3,60,0.86,Edge (LB),2.0,4.0,2.0
+Derrick Brown,CAR,DL,DT,3,139,0.65,3,53,0.76,Starter,0.0,1.0,0.0
+Devin Lloyd,CAR,DL,LB,2,123,0.85,3,0,0.0,Edge (LB),1.0,1.0,2.0
+Aaron Hall,CAR,DL,DT,3,94,0.437,3,17,0.24,Starter,0.0,2.0,0.0
+Trevis Gipson,CAR,DL,LB,3,94,0.437,3,23,0.33,Edge (LB),1.0,1.0,2.0
+Princely Umanmielen,CAR,DL,LB,3,93,0.433,3,26,0.37,Edge (LB),2.0,2.0,2.0
+Lee Hunter,CAR,DL,DT,3,84,0.39,3,30,0.43,Starter,0.0,0.0,0.0
+TeRah Edwards,CAR,DL,DT,3,78,0.367,3,16,0.23,Reserve,0.0,1.0,0.0
+Bobby Brown,CAR,DL,DT,2,70,0.48,3,31,0.44,Starter,0.0,0.0,0.0
+Cam Jackson,CAR,DL,DT,1,37,0.54,3,0,0.0,Reserve,0.0,0.0,0.0
+Rasheed Walker,CAR,OL,T,3,207,0.98,3,77,1.0,Starter,,,
+Monroe Freeling,CAR,OL,T,3,204,0.967,3,77,1.0,Starter,,,
+Robert Hunt,CAR,OL,G,3,203,0.96,3,77,1.0,Starter,,,
+Luke Fortner,CAR,OL,C,3,200,0.947,3,77,1.0,Starter,,,
+Damien Lewis,CAR,OL,G,3,187,0.89,3,58,0.75,Starter,,,
+Corey Bullock,CAR,OL,T,3,33,0.153,3,19,0.25,Reserve,,,
+Stone Forsythe,CAR,OL,T,2,14,0.105,3,0,0.0,Reserve,,,
+Sam Hecht,CAR,OL,C,2,11,0.08,3,0,0.0,Reserve,,,
+Grady Jarrett,CHI,DL,DL,3,121,0.72,3,40,0.8,Starter,0.0,1.0,0.0
+Montez Sweat,CHI,DL,DL,3,117,0.693,3,38,0.76,Starter,2.0,2.0,2.0
+Dayo Odeyingbo,CHI,DL,DL,3,106,0.623,3,32,0.64,Starter,2.0,3.0,2.0
+Austin Booker,CHI,DL,DL,3,89,0.52,3,30,0.6,Starter,1.0,2.0,1.0
+Kentavius Street,CHI,DL,DL,3,75,0.443,3,18,0.36,Reserve,1.0,1.0,1.0
+James Lynch,CHI,DL,DL,3,68,0.407,3,18,0.36,Reserve,0.0,0.0,0.0
+Neville Gallimore,CHI,DL,DL,3,60,0.347,3,12,0.24,Reserve,0.0,0.0,0.0
+Jordan van den Berg,CHI,DL,DL,3,41,0.23,3,10,0.2,Reserve,0.0,0.0,0.0
+Daniel Hardy,CHI,DL,DL,1,7,0.1,3,0,0.0,Reserve,0.0,0.0,0.0
+Darnell Wright,CHI,OL,OL,3,221,1.0,3,72,1.0,Starter,,,
+Garrett Bradbury,CHI,OL,OL,3,221,1.0,3,72,1.0,Starter,,,
+Joe Thuney,CHI,OL,OL,3,221,1.0,3,72,1.0,Starter,,,
+Jonah Jackson,CHI,OL,OL,3,221,1.0,3,72,1.0,Starter,,,
+Braxton Jones,CHI,OL,OL,3,144,0.65,3,33,0.46,Reserve,,,
+Theo Benedet,CHI,OL,OL,3,77,0.35,3,39,0.54,Starter,,,
+Luke Newman,CHI,OL,OL,1,1,0.01,3,1,0.01,Reserve,,,
+Barrett Carter,CIN,DL,LB,3,199,1.0,3,62,1.0,Edge (LB),0.5,2.0,2.0
+Boye Mafe,CIN,DL,DE,3,140,0.7,3,46,0.74,Starter,1.0,1.0,1.0
+Dexter Lawrence,CIN,DL,DT,3,135,0.68,3,49,0.79,Starter,2.0,4.0,4.0
+Jonathan Allen,CIN,DL,DT,3,131,0.657,3,47,0.76,Starter,2.0,4.0,4.0
+Myles Murphy,CIN,DL,DE,3,124,0.63,3,45,0.73,Starter,0.5,2.0,0.0
+Cashius Howell,CIN,DL,DE,3,91,0.45,3,25,0.4,Reserve,0.0,3.0,0.0
+Tedarrell Slaton,CIN,DL,DT,3,70,0.353,3,22,0.35,Reserve,0.0,0.0,0.0
+Cedric Johnson,CIN,DL,DE,3,54,0.27,3,12,0.19,Reserve,2.0,2.0,2.0
+Kris Jenkins,CIN,DL,DT,3,54,0.257,3,17,0.27,Reserve,1.0,1.0,1.0
+B.J. Hill,CIN,DL,DT,1,24,0.42,3,0,0.0,Reserve,0.0,0.0,0.0
+Shemar Stewart,CIN,DL,DE,1,5,0.06,3,0,0.0,Reserve,1.0,1.0,1.0
+Dalton Risner,CIN,OL,G,3,181,1.0,3,57,1.0,Starter,,,
+Dylan Fairchild,CIN,OL,G,3,181,1.0,3,57,1.0,Starter,,,
+Orlando Brown Jr.,CIN,OL,T,3,181,1.0,3,57,1.0,Starter,,,
+Ted Karras,CIN,OL,C,3,181,1.0,3,57,1.0,Starter,,,
+Amarius Mims,CIN,OL,T,3,178,0.983,3,57,1.0,Starter,,,
+Jacob Bayer,CIN,OL,C,3,3,0.02,3,1,0.02,Reserve,,,
+Javon Foster,CIN,OL,T,1,3,0.05,3,0,0.0,Reserve,,,
+Maliek Collins,CLE,DL,DT,4,173,0.625,4,57,0.79,Starter,1.0,4.0,2.0
+Jared Verse,CLE,DL,DE,4,172,0.637,4,41,0.57,Starter,0.0,2.0,3.0
+Isaiah McGuire,CLE,DL,DE,4,163,0.608,4,43,0.6,Starter,2.0,2.0,4.0
+Mason Graham,CLE,DL,DT,4,138,0.515,4,7,0.1,Reserve,4.0,5.0,6.0
+Michael Hall,CLE,DL,DT,4,123,0.455,4,30,0.42,Reserve,1.0,1.0,1.0
+Adin Huntington,CLE,DL,DE,4,117,0.438,4,49,0.68,Starter,1.0,3.0,1.0
+Derek Barnett,CLE,DL,DE,4,99,0.362,4,33,0.46,Reserve,0.0,2.0,1.0
+Sam Williams,CLE,DL,DE,4,99,0.37,4,28,0.39,Reserve,1.0,2.0,1.0
+Austin Barber,CLE,OL,T,4,243,1.0,4,64,1.0,Starter,,,
+Spencer Fano,CLE,OL,T,4,243,1.0,4,64,1.0,Starter,,,
+Zion Johnson,CLE,OL,G,4,242,0.995,4,64,1.0,Starter,,,
+Tytus Howard,CLE,OL,T,4,241,0.992,4,64,1.0,Starter,,,
+Elgton Jenkins,CLE,OL,C,3,179,1.0,4,0,0.0,Reserve,,,
+Luke Wypler,CLE,OL,C,1,64,1.0,4,64,1.0,Starter,,,
+Dawand Jones,CLE,OL,T,1,2,0.03,4,0,0.0,Reserve,,,
+Zak Zinter,CLE,OL,G,2,2,0.02,4,1,0.02,Reserve,,,
+Quinnen Williams,DAL,DL,DT,3,151,0.74,3,48,0.75,Starter,0.0,2.0,2.0
+Kenny Clark,DAL,DL,DT,3,144,0.703,3,45,0.7,Starter,0.0,1.0,0.0
+Donovan Ezeiruaku,DAL,DL,LB,3,141,0.693,3,50,0.78,Edge (LB),0.5,2.0,1.0
+Otito Ogbonnia,DAL,DL,DT,3,109,0.537,3,40,0.62,Starter,0.0,2.0,0.0
+Jonathan Bullard,DAL,DL,DT,3,64,0.317,3,23,0.36,Starter,0.5,2.0,0.0
+LT Overton,DAL,DL,DT,3,48,0.233,3,15,0.23,Reserve,0.0,0.0,0.0
+Cooper Beebe,DAL,OL,C,3,187,1.0,3,74,1.0,Starter,,,
+T.J. Bass,DAL,OL,G,3,187,1.0,3,74,1.0,Starter,,,
+Tyler Booker,DAL,OL,G,3,187,1.0,3,74,1.0,Starter,,,
+Tyler Guyton,DAL,OL,T,3,187,1.0,3,74,1.0,Starter,,,
+Terence Steele,DAL,OL,T,3,186,0.997,3,73,0.99,Starter,,,
+Drew Shelton,DAL,OL,T,2,4,0.035,3,0,0.0,Reserve,,,
+Broderick Jones,DAL,OL,T,1,1,0.01,3,1,0.01,Reserve,,,
+Zach Allen,DEN,DL,DL,3,151,0.71,3,61,0.71,Starter,3.0,9.0,3.0
+Nik Bonitto,DEN,DL,LB,3,134,0.623,3,58,0.67,Edge (LB),1.0,5.0,1.0
+Malcolm Roach,DEN,DL,DT,3,119,0.553,3,53,0.62,Starter,1.0,3.0,3.0
+Eyioma Uwazurike,DEN,DL,DL,3,103,0.487,3,35,0.41,Starter,1.0,1.0,1.0
+D.J. Jones,DEN,DL,DT,3,102,0.477,3,38,0.44,Starter,0.0,0.0,0.0
+Quandarrius Robinson,DEN,DL,LB,3,86,0.397,3,35,0.41,Edge (LB),1.0,2.0,1.0
+Dondrea Tillman,DEN,DL,LB,3,77,0.36,3,27,0.31,Edge (LB),0.0,2.0,1.0
+Sai'vion Jones,DEN,DL,DE,2,21,0.16,3,0,0.0,Reserve,0.0,0.0,0.0
+Jordan Jackson,DEN,DL,DL,1,17,0.2,3,17,0.2,Reserve,0.0,0.0,0.0
+Ben Powers,DEN,OL,G,3,180,1.0,3,67,1.0,Starter,,,
+Garett Bolles,DEN,OL,T,3,180,1.0,3,67,1.0,Starter,,,
+Luke Wattenberg,DEN,OL,C,3,180,1.0,3,67,1.0,Starter,,,
+Mike McGlinchey,DEN,OL,T,3,180,1.0,3,67,1.0,Starter,,,
+Quinn Meinerz,DEN,OL,G,3,178,0.99,3,67,1.0,Starter,,,
+Alex Palczewski,DEN,OL,T,2,10,0.075,3,6,0.09,Reserve,,,
+Derrick Barnes,DET,DL,LB,3,208,0.907,3,57,0.86,Edge (LB),2.0,2.0,3.0
+Aidan Hutchinson,DET,DL,DE,3,202,0.883,3,64,0.97,Starter,3.5,7.0,3.0
+Alim McNeill,DET,DL,DL,3,197,0.847,3,48,0.73,Starter,2.0,4.0,2.0
+D.J. Wonnum,DET,DL,DE,3,140,0.6,3,44,0.67,Starter,2.0,2.0,2.0
+Tyleik Williams,DET,DL,DL,3,112,0.493,3,30,0.45,Reserve,0.0,1.0,0.0
+Skyler Gill-Howard,DET,DL,DL,3,104,0.447,3,33,0.5,Starter,0.5,2.0,0.0
+Tyler Lacy,DET,DL,DL,3,70,0.317,3,19,0.29,Reserve,0.0,0.0,0.0
+Derrick Moore,DET,DL,DE,3,44,0.19,3,9,0.14,Reserve,0.0,0.0,0.0
+Levi Onwuzurike,DET,DL,DL,2,33,0.235,3,11,0.17,Reserve,0.0,0.0,0.0
+Ben Stille,DET,DL,DL,1,9,0.1,3,0,0.0,Reserve,0.0,0.0,0.0
+Eric O'Neill,DET,DL,DE,2,5,0.03,3,1,0.02,Reserve,0.0,0.0,0.0
+Juice Scruggs,DET,OL,OL,3,207,1.0,3,65,1.0,Starter,,,
+Penei Sewell,DET,OL,T,3,207,1.0,3,65,1.0,Starter,,,
+Tate Ratledge,DET,OL,OL,3,207,1.0,3,65,1.0,Starter,,,
+Blake Miller,DET,OL,T,2,142,1.0,3,65,1.0,Starter,,,
+Ben Bartch,DET,OL,OL,2,131,0.93,3,0,0.0,Reserve,,,
+Larry Borom,DET,OL,OL,3,89,0.45,3,15,0.23,Reserve,,,
+Christian Mahogany,DET,OL,OL,2,76,0.57,3,65,1.0,Starter,,,
+Edgerrin Cooper,GB,DL,LB,3,193,0.92,3,54,0.76,Edge (LB),2.0,2.0,6.0
+Lukas Van Ness,GB,DL,DE,3,146,0.693,3,49,0.69,Starter,2.5,6.0,4.0
+Karl Brooks,GB,DL,DT,3,130,0.62,3,43,0.61,Starter,0.0,0.0,0.0
+Devonte Wyatt,GB,DL,DT,3,111,0.527,3,34,0.48,Starter,0.0,0.0,0.0
+Barryn Sorrell,GB,DL,DE,3,100,0.483,3,29,0.41,Reserve,0.5,1.0,0.0
+Chris McClellan,GB,DL,DT,3,91,0.433,3,29,0.41,Reserve,0.0,0.0,0.0
+Dani Dennis-Sutton,GB,DL,DE,3,90,0.427,3,39,0.55,Starter,0.5,2.0,0.0
+Jonathan Ford,GB,DL,DT,3,87,0.413,3,28,0.39,Reserve,0.5,1.0,0.0
+Brenton Cox,GB,DL,DE,3,82,0.393,3,25,0.35,Reserve,0.0,0.0,1.0
+Javon Hargrave,GB,DL,DT,2,63,0.46,3,33,0.46,Reserve,0.0,0.0,0.0
+Anthony Campbell,GB,DL,DT,1,9,0.12,3,0,0.0,Reserve,0.0,0.0,0.0
+Jordan Morgan,GB,OL,T,3,193,1.0,3,66,1.0,Starter,,,
+Sean Rhyan,GB,OL,C,3,193,1.0,3,66,1.0,Starter,,,
+Jacob Monk,GB,OL,C,3,186,0.963,3,59,0.89,Starter,,,
+Anthony Belton,GB,OL,T,3,126,0.67,3,66,1.0,Starter,,,
+Donovan Jennings,GB,OL,G,3,89,0.45,3,7,0.11,Reserve,,,
+Jager Burton,GB,OL,C,2,89,0.695,3,66,1.0,Starter,,,
+Zach Bako-Bewele,GB,OL,OL,2,71,0.525,3,0,0.0,Reserve,,,
+Aaron Banks,GB,OL,G,1,22,0.37,3,0,0.0,Reserve,,,
+Will Anderson,HOU,DL,DE,3,155,0.82,3,57,0.8,Starter,4.0,6.0,6.0
+Danielle Hunter,HOU,DL,DE,3,151,0.8,3,56,0.79,Starter,1.5,3.0,1.0
+Sheldon Rankins,HOU,DL,DT,3,129,0.687,3,44,0.62,Starter,2.0,4.0,3.0
+Tommy Togiai,HOU,DL,DT,3,122,0.643,3,47,0.66,Starter,0.0,0.0,0.0
+Logan Hall,HOU,DL,DE,3,71,0.377,3,27,0.38,Reserve,1.0,2.0,1.0
+Mario Edwards,HOU,DL,DT,3,56,0.297,3,21,0.3,Reserve,1.0,2.0,0.0
+Dominique Robinson,HOU,DL,DE,3,35,0.177,3,19,0.27,Reserve,0.0,0.0,0.0
+Jadeveon Clowney,HOU,DL,DE,1,20,0.34,3,0,0.0,Reserve,1.0,2.0,1.0
+Jaden Crumedy,HOU,DL,DT,2,18,0.135,3,14,0.2,Reserve,0.0,0.0,0.0
+Sabastian Harsh,HOU,DL,DE,2,17,0.13,3,8,0.11,Reserve,0.5,1.0,0.0
+Aireontae Ersery,HOU,OL,T,3,213,1.0,3,54,1.0,Starter,,,
+Evan Brown,HOU,OL,C,3,213,1.0,3,54,1.0,Starter,,,
+Keylan Rutledge,HOU,OL,C,3,213,1.0,3,54,1.0,Starter,,,
+Trent Brown,HOU,OL,T,3,213,1.0,3,54,1.0,Starter,,,
+Wyatt Teller,HOU,OL,G,2,134,1.0,3,54,1.0,Starter,,,
+Ed Ingram,HOU,OL,G,1,79,1.0,3,0,0.0,Reserve,,,
+Blake Fisher,HOU,OL,T,3,18,0.087,3,6,0.11,Reserve,,,
+DeForest Buckner,IND,DL,DT,3,163,0.813,3,48,0.89,Starter,3.0,4.0,2.0
+Arden Key,IND,DL,DE,3,145,0.727,3,44,0.81,Starter,0.5,3.0,0.0
+Laiatu Latu,IND,DL,DE,3,144,0.697,3,27,0.5,Starter,0.5,1.0,0.0
+Grover Stewart,IND,DL,DT,3,128,0.637,3,36,0.67,Starter,0.5,2.0,0.0
+Jerry Tillery,IND,DL,DT,3,95,0.473,3,26,0.48,Reserve,1.0,1.0,1.0
+JT Tuimoloau,IND,DL,DE,3,78,0.393,3,26,0.48,Reserve,0.0,1.0,0.0
+Adetomiwa Adebawore,IND,DL,DT,3,57,0.28,3,15,0.28,Reserve,1.5,3.0,1.0
+Micheal Clemons,IND,DL,DE,2,38,0.255,3,0,0.0,Reserve,0.0,0.0,0.0
+Tim Smith,IND,DL,DT,3,26,0.14,3,10,0.19,Reserve,0.0,0.0,0.0
+Caden Curry,IND,DL,DE,3,19,0.1,3,9,0.17,Reserve,0.0,0.0,0.0
+Bernhard Raimann,IND,OL,T,3,190,1.0,3,71,1.0,Starter,,,
+Jalen Travis,IND,OL,T,3,190,1.0,3,71,1.0,Starter,,,
+Matt Goncalves,IND,OL,G,3,190,1.0,3,71,1.0,Starter,,,
+Quenton Nelson,IND,OL,G,3,190,1.0,3,71,1.0,Starter,,,
+Tanor Bortolini,IND,OL,C,3,190,1.0,3,71,1.0,Starter,,,
+Luke Tenuta,IND,OL,T,3,6,0.033,3,2,0.03,Reserve,,,
+Foyesade Oluokun,JAX,DL,LB,3,146,0.82,3,53,0.84,Edge (LB),0.0,2.0,0.0
+Josh Hines-Allen,JAX,DL,DE,3,129,0.733,3,38,0.6,Starter,1.5,2.0,1.0
+Travon Walker,JAX,DL,DE,3,127,0.72,3,42,0.67,Starter,1.5,2.0,1.0
+Ventrell Miller,JAX,DL,LB,3,126,0.713,3,46,0.73,Edge (LB),1.0,1.0,2.0
+Arik Armstead,JAX,DL,DT,3,107,0.607,3,36,0.57,Starter,0.0,0.0,1.0
+DaVon Hamilton,JAX,DL,DT,3,83,0.467,3,27,0.43,Reserve,0.5,2.0,0.0
+Ruke Orhorhoro,JAX,DL,DT,3,72,0.403,3,36,0.57,Starter,1.0,1.0,0.0
+Dennis Gardeck,JAX,DL,LB,3,71,0.41,3,21,0.33,Edge (LB),0.0,3.0,1.0
+Matt Dickerson,JAX,DL,DT,3,66,0.373,3,22,0.35,Reserve,0.0,1.0,0.0
+Danny Striggow,JAX,DL,DE,3,55,0.32,3,19,0.3,Reserve,0.0,0.0,0.0
+Branson Combs,JAX,DL,LB,3,38,0.22,3,10,0.16,Edge (LB),1.0,1.0,1.0
+Bryan Thomas Jr.,JAX,DL,DE,1,22,0.35,3,22,0.35,Reserve,,,
+Albert Regis,JAX,DL,DT,2,18,0.17,3,0,0.0,Reserve,0.0,0.0,0.0
+Bryan Thomas,JAX,DL,DE,1,8,0.13,3,0,0.0,Reserve,,,
+Anton Harrison,JAX,OL,OL,3,178,1.0,3,62,1.0,Starter,,,
+Emmanuel Pregnon,JAX,OL,OL,3,178,1.0,3,62,1.0,Starter,,,
+Robert Hainsey,JAX,OL,OL,3,168,0.943,3,59,0.95,Starter,,,
+Ezra Cleveland,JAX,OL,OL,3,166,0.933,3,57,0.92,Starter,,,
+Cole Van Lanen,JAX,OL,OL,3,154,0.86,3,59,0.95,Starter,,,
+Walker Little,JAX,OL,OL,2,24,0.21,3,3,0.05,Reserve,,,
+Wyatt Milum,JAX,OL,OL,3,18,0.103,3,6,0.1,Reserve,,,
+Jonah Monheim,JAX,OL,OL,2,10,0.085,3,3,0.05,Reserve,,,
+George Karlaftis III,KC,DL,DE,3,160,0.847,3,58,0.79,Starter,0.0,4.0,1.0
+Chris Jones,KC,DL,DT,3,123,0.64,3,53,0.73,Starter,0.0,1.0,0.0
+Peter Woods,KC,DL,DL,3,98,0.523,3,35,0.48,Reserve,0.0,0.0,0.0
+R Mason Thomas,KC,DL,DE,3,95,0.503,3,41,0.56,Starter,0.0,0.0,0.0
+Felix Anudike-Uzomah,KC,DL,DE,3,88,0.473,3,31,0.42,Reserve,1.0,2.0,1.0
+Khyiris Tonga,KC,DL,NT,3,88,0.463,3,30,0.41,Reserve,0.0,0.0,0.0
+Ashton Gillotte,KC,DL,DE,3,77,0.393,3,35,0.48,Starter,0.0,0.0,0.0
+Bryson Eason,KC,DL,DT,1,7,0.1,3,7,0.1,Reserve,0.0,0.0,0.0
+Marcus Harris,KC,DL,DT,2,7,0.065,3,0,0.0,Reserve,0.0,0.0,0.0
+Creed Humphrey,KC,OL,C,3,201,1.0,3,52,1.0,Starter,,,
+Kahlil Benson,KC,OL,T,3,201,1.0,3,52,1.0,Starter,,,
+Kingsley Suamataia,KC,OL,OL,3,201,1.0,3,52,1.0,Starter,,,
+Trey Smith,KC,OL,G,3,201,1.0,3,52,1.0,Starter,,,
+Jaylon Moore,KC,OL,OL,3,198,0.987,3,51,0.98,Starter,,,
+Hunter Nourzad,KC,OL,OL,3,10,0.053,3,3,0.06,Reserve,,,
+Joshua Ezeudu,KC,OL,OL,3,5,0.023,3,1,0.02,Reserve,,,
+Mike Caliendo,KC,OL,OL,3,5,0.027,3,3,0.06,Reserve,,,
+Tuli Tuipulotu,LAC,DL,LB,3,154,0.757,3,54,0.82,Edge (LB),1.5,5.0,1.0
+Khalil Mack,LAC,DL,LB,3,142,0.697,3,49,0.74,Edge (LB),2.0,4.0,3.0
+Justin Eboigbe,LAC,DL,DL,3,122,0.597,3,41,0.62,Starter,0.0,1.0,0.0
+Jamaree Caldwell,LAC,DL,DL,3,113,0.557,3,38,0.58,Starter,0.0,1.0,0.0
+Teair Tart,LAC,DL,DL,3,103,0.51,3,36,0.55,Starter,0.0,2.0,1.0
+Akheem Mesidor,LAC,DL,LB,3,101,0.497,3,35,0.53,Edge (LB),1.5,3.0,1.0
+Dalvin Tomlinson,LAC,DL,DL,2,65,0.465,3,0,0.0,Reserve,0.5,1.0,0.0
+Nick Barrett,LAC,DL,DL,3,40,0.2,3,18,0.27,Starter,0.5,2.0,0.0
+Jake Slaughter,LAC,OL,OL,3,192,1.0,3,69,1.0,Starter,,,
+Joe Alt,LAC,OL,T,3,192,1.0,3,69,1.0,Starter,,,
+Rashawn Slater,LAC,OL,T,3,192,1.0,3,69,1.0,Starter,,,
+Cole Strange,LAC,OL,G,3,181,0.947,3,69,1.0,Starter,,,
+Trevor Penning,LAC,OL,OL,2,98,0.715,3,69,1.0,Starter,,,
+Kayode Awosika,LAC,OL,G,2,85,0.69,3,0,0.0,Reserve,,,
+Trey Pipkins,LAC,OL,T,1,20,0.36,3,0,0.0,Reserve,,,
+Travis Burke,LAC,OL,T,1,9,0.13,3,9,0.13,Reserve,,,
+Byron Young,LAR,DL,LB,3,147,0.77,3,59,0.88,Edge (LB),1.0,3.0,1.0
+Kobie Turner,LAR,DL,DE,3,118,0.62,3,41,0.61,Starter,0.0,1.0,0.0
+Omar Speights,LAR,DL,LB,3,95,0.497,3,40,0.6,Edge (LB),1.0,1.0,1.0
+Braden Fiske,LAR,DL,DE,3,94,0.497,3,35,0.52,Starter,0.0,2.0,0.0
+Tyler Davis,LAR,DL,DE,3,75,0.397,3,20,0.3,Reserve,0.0,0.0,0.0
+Poona Ford,LAR,DL,NT,3,72,0.377,3,21,0.31,Starter,0.0,0.0,0.0
+Aaron Donald,LAR,DL,DE,2,68,0.545,3,35,0.52,Starter,0.0,1.0,1.0
+Wesley Bailey,LAR,DL,LB,2,32,0.26,3,13,0.19,Edge (LB),1.0,1.0,0.0
+Ty Hamilton,LAR,DL,NT,3,29,0.15,3,9,0.13,Reserve,0.0,0.0,0.0
+Alaric Jackson,LAR,OL,OL,3,209,1.0,3,86,1.0,Starter,,,
+Coleman Shelton,LAR,OL,OL,3,209,1.0,3,86,1.0,Starter,,,
+Steve Avila,LAR,OL,OL,3,209,1.0,3,86,1.0,Starter,,,
+Warren McClendon,LAR,OL,OL,3,209,1.0,3,86,1.0,Starter,,,
+Kevin Dotson,LAR,OL,OL,3,206,0.987,3,85,0.99,Starter,,,
+Beaux Limmer,LAR,OL,OL,2,3,0.02,3,1,0.01,Reserve,,,
+Nakobe Dean,LV,DL,LB,3,194,0.98,3,74,1.0,Edge (LB),1.5,3.0,3.0
+Maxx Crosby,LV,DL,DE,3,169,0.85,3,64,0.86,Starter,1.5,6.0,1.0
+Tonka Hemingway,LV,DL,DT,3,121,0.613,3,39,0.53,Starter,0.0,1.0,1.0
+Kwity Paye,LV,DL,DE,3,113,0.57,3,43,0.58,Starter,2.0,5.0,2.0
+Malcolm Koonce,LV,DL,DE,3,92,0.467,3,35,0.47,Reserve,2.5,5.0,1.0
+Adam Butler,LV,DL,DT,3,78,0.393,3,36,0.49,Starter,0.0,0.0,0.0
+Folorunso Fatukasi,LV,DL,DT,3,77,0.383,3,34,0.46,Reserve,0.5,2.0,0.0
+Thomas Booker,LV,DL,DT,3,69,0.347,3,24,0.32,Reserve,0.0,1.0,1.0
+Jonah Laulu,LV,DL,DT,3,60,0.307,3,15,0.2,Reserve,0.0,2.0,0.0
+Patrick Johnson,LV,DL,DE,2,13,0.1,3,6,0.08,Reserve,0.0,1.0,0.0
+Delmar Glaze,LV,OL,T,3,201,1.0,3,70,1.0,Starter,,,
+Kolton Miller,LV,OL,T,3,201,1.0,3,70,1.0,Starter,,,
+Spencer Burford,LV,OL,G,3,201,1.0,3,70,1.0,Starter,,,
+Tyler Linderbaum,LV,OL,C,3,201,1.0,3,70,1.0,Starter,,,
+Jackson Powers-Johnson,LV,OL,G,3,196,0.977,3,65,0.93,Starter,,,
+Trey Zuhn,LV,OL,G,2,7,0.05,3,5,0.07,Reserve,,,
+Caleb Rogers,LV,OL,G,1,5,0.07,3,5,0.07,Reserve,,,
+Zach Sieler,MIA,DL,DL,3,126,0.737,3,44,0.85,Starter,0.0,1.0,3.0
+Jordan Phillips,MIA,DL,DL,3,107,0.623,3,35,0.67,Starter,0.0,1.0,1.0
+Zeek Biggers,MIA,DL,DL,3,102,0.59,3,25,0.48,Reserve,0.0,1.0,0.0
+Joshua Uche,MIA,DL,DE,3,97,0.58,3,36,0.69,Starter,0.0,3.0,1.0
+Chop Robinson,MIA,DL,DE,2,79,0.665,3,37,0.71,Starter,0.0,1.0,0.0
+Malik Herring,MIA,DL,DE,3,74,0.427,3,19,0.37,Reserve,0.0,0.0,1.0
+Clelin Ferrell,MIA,DL,DE,3,40,0.237,3,8,0.15,Reserve,0.0,0.0,0.0
+Robert Beal,MIA,DL,DE,2,34,0.295,3,0,0.0,Reserve,0.0,0.0,0.0
+Keith Cooper Jr.,MIA,DL,DL,3,29,0.163,3,4,0.08,Reserve,0.0,0.0,0.0
+Max Llewellyn,MIA,DL,DE,1,2,0.04,3,0,0.0,Reserve,0.0,0.0,0.0
+Aaron Brewer,MIA,OL,C,3,188,1.0,3,73,1.0,Starter,,,
+Austin Jackson,MIA,OL,T,3,188,1.0,3,73,1.0,Starter,,,
+Jonah Savaiinaea,MIA,OL,G,3,188,1.0,3,73,1.0,Starter,,,
+Kadyn Proctor,MIA,OL,G,3,188,1.0,3,73,1.0,Starter,,,
+Patrick Paul,MIA,OL,T,3,188,1.0,3,73,1.0,Starter,,,
+Caedan Wallace,MIA,OL,G,3,8,0.04,3,4,0.05,Reserve,,,
+Eric Wilson,MIN,DL,LB,3,199,0.947,3,66,0.96,Edge (LB),1.5,4.0,2.0
+Blake Cashman,MIN,DL,LB,3,198,0.94,3,67,0.97,Edge (LB),2.5,5.0,3.0
+Dallas Turner,MIN,DL,LB,3,178,0.843,3,63,0.91,Edge (LB),3.5,12.0,2.0
+Andrew Van Ginkel,MIN,DL,LB,3,173,0.817,3,54,0.78,Edge (LB),3.0,7.0,2.0
+Jalen Redmond,MIN,DL,DL,3,169,0.8,3,56,0.81,Starter,0.0,0.0,0.0
+Levi Drake Rodriguez,MIN,DL,DL,3,122,0.573,3,28,0.41,Starter,0.0,0.0,0.0
+Tyrion Ingram-Dawkins,MIN,DL,DL,3,105,0.507,3,51,0.74,Starter,0.0,0.0,1.0
+Caleb Banks,MIN,DL,DL,3,64,0.3,3,12,0.17,Reserve,0.0,0.0,1.0
+Kyle Van Noy,MIN,DL,LB,3,60,0.287,3,17,0.25,Edge (LB),1.5,2.0,4.0
+Domonique Orange,MIN,DL,DL,3,59,0.277,3,13,0.19,Starter,0.0,0.0,1.0
+Ivan Pace,MIN,DL,LB,3,40,0.19,3,16,0.23,Edge (LB),0.5,2.0,1.0
+Blake Brandel,MIN,OL,C,3,176,1.0,3,59,1.0,Starter,,,
+Brian O'Neill,MIN,OL,T,3,176,1.0,3,59,1.0,Starter,,,
+Christian Darrisaw,MIN,OL,T,3,176,1.0,3,59,1.0,Starter,,,
+Donovan Jackson,MIN,OL,G,3,176,1.0,3,59,1.0,Starter,,,
+Will Fries,MIN,OL,G,3,176,1.0,3,59,1.0,Starter,,,
+Christian Elliss,NE,DL,LB,3,176,0.967,3,57,0.92,Edge (LB),1.0,2.0,1.0
+Elijah Ponder,NE,DL,LB,3,144,0.79,3,51,0.82,Edge (LB),1.5,4.0,3.0
+Milton Williams,NE,DL,DT,3,118,0.65,3,41,0.66,Starter,0.0,0.0,0.0
+Gabe Jacas,NE,DL,LB,3,117,0.623,3,49,0.79,Edge (LB),1.5,4.0,2.0
+Christian Barmore,NE,DL,DT,3,94,0.52,3,28,0.45,Starter,1.0,3.0,1.0
+Cory Durden,NE,DL,DT,3,94,0.523,3,32,0.52,Starter,0.0,0.0,0.0
+Joshua Farmer,NE,DL,DT,3,57,0.303,3,24,0.39,Starter,1.0,1.0,1.0
+DaQuan Jones,NE,DL,DT,2,33,0.255,3,23,0.37,Reserve,,,
+Jeremiah Pharms,NE,DL,DT,1,13,0.21,3,13,0.21,Reserve,0.0,0.0,0.0
+Leonard Taylor,NE,DL,DL,1,7,0.14,3,0,0.0,Reserve,0.0,0.0,0.0
+Alijah Vera-Tucker,NE,OL,G,3,189,1.0,3,63,1.0,Starter,,,
+Will Campbell,NE,OL,T,3,189,1.0,3,63,1.0,Starter,,,
+Jared Wilson,NE,OL,OL,3,177,0.937,3,51,0.81,Starter,,,
+Morgan Moses,NE,OL,T,3,165,0.87,3,43,0.68,Starter,,,
+Michael Onwenu,NE,OL,OL,2,86,0.635,3,0,0.0,Reserve,,,
+Greg Van Roten,NE,OL,OL,3,64,0.37,3,22,0.35,Reserve,,,
+Walter Rouse,NE,OL,OL,1,41,0.65,3,41,0.65,Starter,,,
+Caleb Lomu,NE,OL,T,2,30,0.24,3,26,0.41,Reserve,,,
+Ben Brown,NE,OL,C,1,12,0.19,3,12,0.19,Reserve,,,
+Kaden Elliss,NO,DL,LB,3,205,1.0,3,70,1.0,Edge (LB),0.0,5.0,2.0
+Chase Young,NO,DL,DE,3,151,0.733,3,53,0.76,Starter,3.5,5.0,3.0
+Nathan Shepherd,NO,DL,DL,3,142,0.69,3,48,0.69,Starter,0.5,3.0,0.0
+Carl Granderson,NO,DL,DE,3,134,0.65,3,36,0.51,Reserve,1.0,1.0,2.0
+Vernon Broughton,NO,DL,DL,3,125,0.607,3,40,0.57,Starter,0.0,2.0,0.0
+Pete Werner,NO,DL,LB,3,113,0.573,3,19,0.27,Edge (LB),1.0,2.0,2.0
+Davon Godchaux,NO,DL,DL,3,86,0.42,3,27,0.39,Reserve,0.0,0.0,1.0
+Cameron Jordan,NO,DL,DE,2,68,0.53,3,39,0.56,Starter,0.0,0.0,0.0
+Colby Wooden,NO,DL,DL,3,55,0.27,3,21,0.3,Reserve,0.0,1.0,0.0
+Anfernee Jennings,NO,DL,DE,3,53,0.26,3,18,0.26,Reserve,0.0,0.0,0.0
+Khristian Boyd,NO,DL,DL,2,46,0.355,3,26,0.37,Reserve,1.0,1.0,2.0
+Christen Miller,NO,DL,DL,1,25,0.32,3,0,0.0,Reserve,0.0,0.0,0.0
+Tyree Wilson,NO,DL,DE,1,23,0.3,3,0,0.0,Reserve,0.0,0.0,0.0
+Cesar Ruiz,NO,OL,C,3,232,1.0,3,74,1.0,Starter,,,
+David Edwards,NO,OL,G,3,232,1.0,3,74,1.0,Starter,,,
+Erik McCoy,NO,OL,C,3,232,1.0,3,74,1.0,Starter,,,
+Taliese Fuaga,NO,OL,T,3,232,1.0,3,74,1.0,Starter,,,
+Kelvin Banks,NO,OL,T,2,130,0.795,3,0,0.0,Reserve,,,
+Asim Richards,NO,OL,OL,2,102,0.705,3,74,1.0,Starter,,,
+Abdul Carter,NYG,DL,LB,3,166,0.923,3,58,0.97,Edge (LB),1.0,2.0,1.0
+Brian Burns,NYG,DL,LB,3,116,0.647,3,25,0.42,Edge (LB),0.0,2.0,0.0
+Chauncey Golston,NYG,DL,DL,3,102,0.563,3,35,0.58,Starter,0.0,0.0,0.0
+D.J. Reader,NYG,DL,DL,3,90,0.5,3,30,0.5,Starter,0.0,0.0,0.0
+Shelby Harris,NYG,DL,DL,3,81,0.45,3,26,0.43,Starter,0.0,0.0,0.0
+Darius Alexander,NYG,DL,DL,2,41,0.345,3,23,0.38,Starter,0.0,0.0,0.0
+CJ Okoye,NYG,DL,DL,2,36,0.295,3,13,0.22,Reserve,0.0,0.0,0.0
+Josh Tupou,NYG,DL,DL,1,26,0.42,3,0,0.0,Reserve,0.0,0.0,0.0
+Andrew Thomas,NYG,OL,T,3,191,1.0,3,64,1.0,Starter,,,
+Francis Mauigoa,NYG,OL,OL,3,191,1.0,3,64,1.0,Starter,,,
+Jermaine Eluemunor,NYG,OL,OL,3,191,1.0,3,64,1.0,Starter,,,
+John Michael Schmitz,NYG,OL,C,3,191,1.0,3,64,1.0,Starter,,,
+Jon Runyan Jr.,NYG,OL,G,3,191,1.0,3,64,1.0,Starter,,,
+Aaron Stinnie,NYG,OL,OL,1,1,0.01,3,0,0.0,Reserve,,,
+Demario Davis,NYJ,DL,LB,3,174,1.0,3,65,1.0,Edge (LB),1.0,1.0,2.0
+David Bailey,NYJ,DL,DE,3,122,0.703,3,44,0.68,Starter,2.0,3.0,3.0
+Kingsley Enagbare,NYJ,DL,DE,3,111,0.64,3,38,0.58,Starter,2.0,2.0,2.0
+Harrison Phillips,NYJ,DL,DL,3,103,0.587,3,44,0.68,Starter,0.0,2.0,0.0
+Jowon Briggs,NYJ,DL,DL,3,90,0.493,3,45,0.69,Starter,1.0,1.0,0.0
+T'Vondre Sweat,NYJ,DL,DL,3,85,0.477,3,37,0.57,Reserve,0.0,0.0,0.0
+Will McDonald,NYJ,DL,DE,3,72,0.42,3,22,0.34,Reserve,1.0,1.0,1.0
+David Onyemata,NYJ,DL,DL,2,48,0.46,3,0,0.0,Reserve,0.0,1.0,0.0
+Darrell Jackson Jr.,NYJ,DL,DL,3,44,0.243,3,23,0.35,Reserve,0.0,0.0,0.0
+Braiden McGregor,NYJ,DL,DE,3,42,0.25,3,6,0.09,Reserve,0.0,0.0,0.0
+Joseph Ossai,NYJ,DL,DE,1,28,0.43,3,28,0.43,Reserve,0.0,0.0,0.0
+Jack Heflin,NYJ,DL,DT,1,8,0.12,3,8,0.12,Reserve,0.0,0.0,0.0
+Armand Membou,NYJ,OL,T,3,207,1.0,3,66,1.0,Starter,,,
+Joe Tippmann,NYJ,OL,C,3,207,1.0,3,66,1.0,Starter,,,
+Josh Myers,NYJ,OL,C,3,207,1.0,3,66,1.0,Starter,,,
+Olu Fashanu,NYJ,OL,OL,3,207,1.0,3,66,1.0,Starter,,,
+Dylan Parham,NYJ,OL,OL,3,179,0.86,3,38,0.58,Starter,,,
+Jordan Meredith,NYJ,OL,OL,1,28,0.42,3,28,0.42,Reserve,,,
+Max Mitchell,NYJ,OL,OL,1,2,0.03,3,2,0.03,Reserve,,,
+Jihaad Campbell,PHI,DL,LB,3,184,0.94,3,70,0.97,Edge (LB),1.0,1.0,1.0
+Jalen Carter,PHI,DL,DT,3,158,0.807,3,51,0.71,Starter,1.0,1.0,2.0
+Jalyx Hunt,PHI,DL,LB,3,148,0.763,3,53,0.74,Edge (LB),0.0,2.0,1.0
+Nolan Smith,PHI,DL,LB,3,132,0.683,3,44,0.61,Edge (LB),1.0,1.0,2.0
+Moro Ojomo,PHI,DL,DT,3,130,0.68,3,39,0.54,Starter,0.0,1.0,1.0
+Jordan Davis,PHI,DL,DT,3,99,0.5,3,42,0.58,Starter,0.0,0.0,0.0
+Byron Young,PHI,DL,DT,3,47,0.243,3,28,0.39,Starter,0.0,0.0,0.0
+Ty Robinson,PHI,DL,DT,2,15,0.115,3,12,0.17,Reserve,0.0,0.0,0.0
+Cam Jurgens,PHI,OL,C,3,181,1.0,3,50,1.0,Starter,,,
+Jordan Mailata,PHI,OL,T,3,181,1.0,3,50,1.0,Starter,,,
+Lane Johnson,PHI,OL,T,3,181,1.0,3,50,1.0,Starter,,,
+Tyler Steen,PHI,OL,G,3,181,1.0,3,50,1.0,Starter,,,
+Drew Kendall,PHI,OL,C,2,126,1.0,3,50,1.0,Starter,,,
+Landon Dickerson,PHI,OL,G,1,55,1.0,3,0,0.0,Reserve,,,
+Markel Bell,PHI,OL,T,1,1,0.02,3,1,0.02,Reserve,,,
+Payton Wilson,PIT,DL,LB,4,192,0.81,4,52,0.81,Edge (LB),1.0,1.0,4.0
+Alex Highsmith,PIT,DL,LB,4,160,0.675,4,45,0.7,Edge (LB),3.0,5.0,5.0
+T.J. Watt,PIT,DL,LB,4,160,0.672,4,47,0.73,Edge (LB),4.5,7.0,6.0
+Cameron Heyward,PIT,DL,DT,4,156,0.663,4,46,0.72,Starter,0.0,4.0,0.0
+Keeanu Benton,PIT,DL,DT,4,142,0.6,4,39,0.61,Starter,0.0,1.0,0.0
+Derrick Harmon,PIT,DL,DT,4,85,0.37,4,5,0.08,Reserve,1.5,2.0,1.0
+Yahya Black,PIT,DL,DL,4,83,0.347,4,29,0.45,Starter,0.0,0.0,0.0
+Sebastian Joseph-Day,PIT,DL,DT,3,42,0.233,4,23,0.36,Starter,0.0,0.0,0.0
+Mason McCormick,PIT,OL,G,4,271,1.0,4,72,1.0,Starter,,,
+Zach Frazier,PIT,OL,C,4,271,1.0,4,72,1.0,Starter,,,
+Troy Fautanu,PIT,OL,T,4,270,0.998,4,72,1.0,Starter,,,
+Max Iheanachor,PIT,OL,T,4,138,0.512,4,72,1.0,Starter,,,
+Brock Hoffman,PIT,OL,G,3,137,0.68,4,72,1.0,Starter,,,
+Dylan Cook,PIT,OL,T,2,134,0.98,4,0,0.0,Reserve,,,
+Spencer Anderson,PIT,OL,OL,2,134,0.98,4,0,0.0,Reserve,,,
+Drake Thomas,SEA,DL,LB,3,175,0.923,3,57,0.83,Edge (LB),1.0,1.0,3.0
+Leonard Williams,SEA,DL,DT,3,140,0.733,3,56,0.81,Starter,3.0,5.0,5.0
+Byron Murphy,SEA,DL,DE,3,131,0.687,3,48,0.7,Starter,0.0,1.0,1.0
+DeMarcus Lawrence,SEA,DL,LB,3,117,0.613,3,45,0.65,Edge (LB),0.0,5.0,1.0
+Derick Hall,SEA,DL,LB,3,108,0.57,3,35,0.51,Edge (LB),2.0,6.0,2.0
+Jarran Reed,SEA,DL,DE,3,91,0.477,3,35,0.51,Starter,1.0,2.0,1.0
+Rylie Mills,SEA,DL,DT,3,46,0.25,3,15,0.22,Starter,0.0,0.0,1.0
+Brandon Pili,SEA,DL,NT,1,6,0.08,3,0,0.0,Reserve,0.0,0.0,0.0
+Mike Morris,SEA,DL,DE,1,2,0.03,3,2,0.03,Reserve,0.0,0.0,0.0
+Abraham Lucas,SEA,OL,T,3,187,1.0,3,67,1.0,Starter,,,
+Charles Cross,SEA,OL,T,3,187,1.0,3,67,1.0,Starter,,,
+Grey Zabel,SEA,OL,G,3,187,1.0,3,67,1.0,Starter,,,
+Jalen Sundell,SEA,OL,C,3,187,1.0,3,67,1.0,Starter,,,
+Christian Haynes,SEA,OL,G,2,83,0.605,3,40,0.6,Starter,,,
+Beau Stephens,SEA,OL,G,2,54,0.395,3,27,0.4,Reserve,,,
+Anthony Bradford,SEA,OL,G,1,50,1.0,3,0,0.0,Reserve,,,
+Josh Jones,SEA,OL,G,3,5,0.027,3,2,0.03,Reserve,,,
+Olusegun Oluwatimi,SEA,OL,C,2,2,0.01,3,1,0.01,Reserve,,,
+Fred Warner,SF,DL,LB,3,189,0.9,3,87,1.0,Edge (LB),0.5,2.0,1.0
+Osa Odighizuwa,SF,DL,DL,3,148,0.7,3,71,0.82,Starter,0.0,5.0,0.0
+Keion White,SF,DL,DL,3,122,0.573,3,60,0.69,Starter,2.0,2.0,2.0
+Gracen Halton,SF,DL,DL,3,93,0.463,3,30,0.34,Reserve,0.0,0.0,2.0
+Khalid Kareem,SF,DL,DL,3,84,0.373,3,54,0.62,Starter,0.0,0.0,0.0
+Ogbonnia Okoronkwo,SF,DL,DL,3,82,0.373,3,48,0.55,Starter,1.0,3.0,0.0
+Nick Bosa,SF,DL,DL,2,76,0.635,3,0,0.0,Reserve,0.0,1.0,2.0
+Romello Height,SF,DL,DL,2,62,0.515,3,0,0.0,Reserve,1.0,0.0,0.0
+CJ West,SF,DL,DL,2,49,0.41,3,0,0.0,Reserve,0.0,1.0,0.0
+James Thompson,SF,DL,DL,2,42,0.35,3,0,0.0,Reserve,0.0,0.0,0.0
+Sebastian Valdez,SF,DL,DL,1,32,0.37,3,32,0.37,Reserve,0.0,0.0,0.0
+Kevin Givens,SF,DL,DL,1,21,0.24,3,21,0.24,Reserve,0.0,1.0,0.0
+Naquan Jones,SF,DL,DL,1,18,0.21,3,18,0.21,Reserve,0.0,0.0,0.0
+Viliami Fehoko,SF,DL,DL,1,13,0.15,3,13,0.15,Reserve,0.0,0.0,0.0
+Colton McKivitz,SF,OL,OL,3,171,1.0,3,54,1.0,Starter,,,
+Connor Colby,SF,OL,OL,3,171,1.0,3,54,1.0,Starter,,,
+Dominick Puni,SF,OL,OL,3,165,0.96,3,54,1.0,Starter,,,
+Jake Brendel,SF,OL,OL,3,163,0.95,3,54,1.0,Starter,,,
+Trent Williams,SF,OL,T,3,141,0.813,3,32,0.59,Starter,,,
+Vederian Lowe,SF,OL,OL,2,30,0.28,3,22,0.41,Reserve,,,
+Jarrett Patterson,SF,OL,OL,1,8,0.15,3,0,0.0,Reserve,,,
+Carver Willis,SF,OL,OL,1,6,0.12,3,0,0.0,Reserve,,,
+Alex Anzalone,TB,DL,LB,3,181,1.0,3,59,1.0,Edge (LB),1.0,1.0,1.0
+Vita Vea,TB,DL,NT,3,128,0.707,3,48,0.81,Starter,0.0,2.0,0.0
+Calijah Kancey,TB,DL,DL,3,117,0.647,3,40,0.68,Starter,0.0,1.0,0.0
+Josiah Trotter,TB,DL,LB,2,106,0.87,3,0,0.0,Edge (LB),1.0,1.0,2.0
+A'Shawn Robinson,TB,DL,DL,3,93,0.513,3,30,0.51,Starter,1.0,2.0,1.0
+Al-Quadin Muhammad,TB,DL,LB,3,89,0.493,3,42,0.71,Edge (LB),0.0,2.0,0.0
+Anthony Nelson,TB,DL,LB,3,57,0.313,3,19,0.32,Edge (LB),1.0,1.0,1.0
+Elijah Roberts,TB,DL,DL,3,50,0.277,3,17,0.29,Starter,0.0,0.0,1.0
+Rakeem Nunez-Roches,TB,DL,DL,2,37,0.305,3,0,0.0,Reserve,0.0,0.0,0.0
+David Walker,TB,DL,LB,2,28,0.24,3,19,0.32,Edge (LB),2.0,2.0,3.0
+Elijah Simmons,TB,DL,DL,1,9,0.15,3,9,0.15,Reserve,0.0,0.0,1.0
+Ben Bredeson,TB,OL,G,3,191,1.0,3,69,1.0,Starter,,,
+Cody Mauch,TB,OL,G,3,191,1.0,3,69,1.0,Starter,,,
+Graham Barton,TB,OL,C,3,191,1.0,3,69,1.0,Starter,,,
+Luke Goedeke,TB,OL,T,3,191,1.0,3,69,1.0,Starter,,,
+Tristan Wirfs,TB,OL,T,3,191,1.0,3,69,1.0,Starter,,,
+Jeffery Simmons,TEN,DL,DT,3,179,0.867,3,63,0.98,Starter,2.0,5.0,3.0
+Jermaine Johnson II,TEN,DL,DE,3,135,0.65,3,42,0.66,Starter,0.0,0.0,0.0
+Jacob Martin,TEN,DL,DE,3,118,0.567,3,38,0.59,Starter,1.0,3.0,1.0
+John Franklin-Myers,TEN,DL,DL,3,107,0.52,3,34,0.53,Starter,1.0,2.0,1.0
+Jordan Elliott,TEN,DL,DL,3,67,0.323,3,22,0.34,Reserve,0.0,0.0,0.0
+Keldric Faulk,TEN,DL,DE,3,63,0.307,3,24,0.38,Reserve,1.0,1.0,2.0
+Nazir Stackhouse,TEN,DL,DT,3,57,0.277,3,14,0.22,Reserve,0.0,0.0,1.0
+Solomon Thomas,TEN,DL,DT,3,54,0.26,3,14,0.22,Reserve,0.0,0.0,0.0
+Oluwafemi Oladejo,TEN,DL,DE,3,47,0.227,3,11,0.17,Reserve,0.0,0.0,1.0
+Truman Jones,TEN,DL,DE,3,16,0.07,3,2,0.03,Reserve,0.0,0.0,0.0
+Austin Schlottmann,TEN,OL,C,3,163,1.0,3,60,1.0,Starter,,,
+Dan Moore,TEN,OL,T,3,163,1.0,3,60,1.0,Starter,,,
+JC Latham,TEN,OL,T,3,163,1.0,3,60,1.0,Starter,,,
+Peter Skoronski,TEN,OL,G,3,163,1.0,3,60,1.0,Starter,,,
+Fernando Carmona,TEN,OL,G,3,104,0.673,3,1,0.02,Reserve,,,
+Jackson Slater,TEN,OL,G,1,59,0.98,3,59,0.98,Starter,,,
+James Hudson,TEN,OL,T,1,3,0.06,3,0,0.0,Reserve,,,
+Sonny Styles,WSH,DL,LB,3,170,0.957,3,67,1.0,Edge (LB),1.0,2.0,2.0
+Odafe Oweh,WSH,DL,LB,3,124,0.707,3,43,0.64,Edge (LB),1.0,4.0,2.0
+K'Lavon Chaisson,WSH,DL,LB,3,123,0.693,3,45,0.67,Edge (LB),1.0,4.0,2.0
+Daron Payne,WSH,DL,DT,3,119,0.67,3,48,0.72,Starter,0.0,1.0,0.0
+Charles Omenihu,WSH,DL,DE,3,105,0.587,3,47,0.7,Starter,0.0,1.0,0.0
+Javon Kinlaw,WSH,DL,DT,3,103,0.58,3,40,0.6,Starter,1.0,2.0,2.0
+Tim Settle,WSH,DL,DT,3,60,0.34,3,24,0.36,Starter,0.0,0.0,0.0
+Shy Tuttle,WSH,DL,DT,3,56,0.313,3,23,0.34,Reserve,0.0,0.0,0.0
+Frankie Luvu,WSH,DL,LB,1,29,0.53,3,0,0.0,Edge (LB),1.0,1.0,1.0
+Chris Paul,WSH,OL,G,3,210,1.0,3,69,1.0,Starter,,,
+Josh Conerly,WSH,OL,T,3,210,1.0,3,69,1.0,Starter,,,
+Nick Allegretti,WSH,OL,C,3,210,1.0,3,69,1.0,Starter,,,
+Brandon Coleman,WSH,OL,T,3,200,0.953,3,69,1.0,Starter,,,
+Samuel Cosmi,WSH,OL,G,2,138,0.98,3,0,0.0,Reserve,,,
+Lucas Patrick,WSH,OL,G,1,65,0.94,3,65,0.94,Starter,,,
+Andrew Wylie,WSH,OL,T,3,14,0.063,3,1,0.01,Reserve,,,
+Matt Gulbin,WSH,OL,C,2,8,0.06,3,4,0.06,Reserve,,,
