@@ -219,6 +219,43 @@
   .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;}
   @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
   .mu-grid{display:grid;grid-template-columns:1fr;gap:24px;}
+  .mu-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start;}
+  .mu-main{min-width:0;}
+  .mu-schedule{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto;scrollbar-width:thin;}
+  .mu-schedule .panel-title{font-size:16px;}
+  .mu-game{cursor:pointer;padding:10px 12px;margin-bottom:8px;border:1px solid var(--hash);border-radius:6px;background:var(--field-deep);transition:border-color .15s, background .15s;}
+  .mu-game:hover{border-color:var(--gold-deep);}
+  .mu-game:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .mu-game.active{border-color:var(--gold);background:rgba(227,169,59,0.10);}
+  .mu-game-teams{font-family:var(--cond);font-weight:700;font-size:17px;color:var(--chalk);display:flex;align-items:center;gap:8px;}
+  .mu-game-team{padding:1px 6px;border-radius:3px;}
+  .mu-game-team:hover{background:rgba(255,255,255,0.10);}
+  .mu-game-team.offense{color:var(--gold);box-shadow:inset 0 -2px 0 var(--gold);}
+  .mu-game-at{color:var(--chalk-dim);font-size:12px;font-weight:400;}
+  .mu-game-meta{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-top:4px;}
+  @media (max-width:1100px){
+    .mu-layout{grid-template-columns:1fr;}
+    .mu-schedule{position:static;max-height:none;order:-1;}
+  }
+  .line-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start;}
+  .line-grid table{width:auto;min-width:0;}
+  .line-grid th, .line-grid td{padding-right:16px;}
+  .line-grid th:last-child, .line-grid td:last-child{padding-right:8px;}
+  @media (max-width:1100px){ .line-grid{grid-template-columns:1fr;} }
+  .line-chip{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;border:1px solid var(--hash);color:var(--chalk-dim);white-space:nowrap;}
+  .line-chip.ok{color:var(--mint);border-color:var(--mint);}
+  .line-chip.out{color:var(--red);border-color:var(--red);}
+  .line-chip.risk{color:var(--gold);border-color:var(--gold);}
+  .line-metric{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);padding:4px 0;border-bottom:1px solid var(--hash-line);}
+  .line-sub-title{font-family:var(--cond);font-weight:700;font-size:12px;color:var(--gold);margin:14px 0 6px;letter-spacing:.5px;text-transform:uppercase;}
+  .line-player{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--hash-line);}
+  .line-player-name{font-family:var(--cond);font-weight:700;font-size:14px;color:var(--chalk);}
+  .line-player-meta{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-left:auto;text-align:right;}
+  .line-banner{font-family:var(--mono);font-size:12px;padding:8px 10px;border-radius:4px;margin:8px 0;border:1px solid var(--hash);}
+  .line-banner.ok{color:var(--mint);border-color:var(--mint);}
+  .line-banner.out{color:var(--red);border-color:var(--red);}
+  .line-banner.risk{color:var(--gold);border-color:var(--gold);}
+  .line-note{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-top:8px;line-height:1.5;}
   .mu-grid table{width:auto;min-width:0;}
   .mu-grid th, .mu-grid td{padding-right:22px;}
   .mu-grid th:last-child, .mu-grid td:last-child{padding-right:10px;}
@@ -463,6 +500,7 @@
       <button data-tab="power">Power Rankings</button>
       <button data-tab="epa">EPA / Efficiency</button>
       <button data-tab="coaching">Coaching Tendencies</button>
+      <button data-tab="lines">Line Play</button>
       <button data-tab="sos">Strength of Schedule</button>
       <button data-tab="defense">Defense vs Position</button>
 
@@ -663,6 +701,9 @@ const CSV_FILES = {
   gameQbStats:   'data/nfl_2026_game_qb_stats.csv',
   redzone:       'data/nfl_2026_redzone_usage.csv',
   coaching:      'data/nfl_2026_coaching_tendencies.csv',
+  lineTeam:      'data/nfl_2026_line_team.csv',
+  linePlayers:   'data/nfl_2026_line_players.csv',
+  lineInjuries:  'data/nfl_2026_line_injuries.csv',
 };
 
 const TEAM_NAMES = {
@@ -2012,14 +2053,55 @@ function mountWeek2(){
 
 // ---------- TAB: MATCHUP EXPLORER ----------
 const MATCHUP_POSITIONS = ['QB','RB','TE','WR'];
+// One entry per actual game this week, built from the two team-perspective rows
+// the pipeline writes for each game (same source Upcoming Matchups uses).
+function matchupScheduleGames(){
+  const byId = new Map();
+  (DATA.week2 || []).forEach(r=>{
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!byId.has(gid)) byId.set(gid, {id: gid, date: r.Date, week: r.Week, rows: []});
+    byId.get(gid).rows.push(r);
+  });
+  const games = [];
+  byId.forEach(g=>{
+    const homeRow = g.rows.find(r => r['Home/Away'] === 'Home');
+    const awayRow = g.rows.find(r => r['Home/Away'] === 'Away');
+    let home, away;
+    if(homeRow && awayRow){ home = homeRow.Team; away = awayRow.Team; }
+    else if(homeRow){ home = homeRow.Team; away = homeRow.Opponent; }
+    else if(awayRow){ away = awayRow.Team; home = awayRow.Opponent; }
+    if(!home || !away) return;
+    games.push({id: g.id, date: g.date, week: g.week, away, home, spread: (g.rows.find(r => r.Spread) || {}).Spread || ''});
+  });
+  const time = d => { const t = +new Date(d); return isNaN(t) ? Infinity : t; };
+  games.sort((a,b) => time(a.date) === time(b.date) ? 0 : time(a.date) < time(b.date) ? -1 : 1);
+  return games;
+}
+
 function renderMatchup(){
   const teams = [...new Set(DATA.teamSummary.map(r=>r.Team))].sort();
-  const defaultOff = teams.includes('DAL') ? 'DAL' : teams[0];
-  const defaultDef = teams.includes('NYG') ? 'NYG' : teams[1];
+  const schedule = matchupScheduleGames();
+  // Open on the first game of the week when there is one; otherwise the old fallback.
+  const firstGame = schedule.find(g => teams.includes(g.away) && teams.includes(g.home));
+  const defaultOff = firstGame ? firstGame.away : (teams.includes('DAL') ? 'DAL' : teams[0]);
+  const defaultDef = firstGame ? firstGame.home : (teams.includes('NYG') ? 'NYG' : teams[1]);
+  const weekLabel = schedule.length && schedule[0].week ? ` (Week ${schedule[0].week})` : '';
+  const gameCards = schedule.map(g=>{
+    const dt = new Date(g.date);
+    const when = isNaN(dt) ? 'TBD'
+      : `${dt.toLocaleDateString('en-US', {weekday:'short'})} &middot; ${dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})}`;
+    return `<div class="mu-game" role="button" tabindex="0" data-away="${g.away}" data-home="${g.home}" title="${teamName(g.away)} at ${teamName(g.home)}">
+      <div class="mu-game-teams"><span class="mu-game-team" data-team="${g.away}">${g.away}</span><span class="mu-game-at">@</span><span class="mu-game-team" data-team="${g.home}">${g.home}</span></div>
+      <div class="mu-game-meta">${when}${g.spread ? ' &middot; ' + g.spread : ''}</div>
+    </div>`;
+  }).join('');
   return `
+  <div class="mu-layout">
+  <div class="mu-main">
   <div class="panel">
     <div class="panel-title">Matchup Explorer</div>
-    <div class="panel-note">Pick an offense, a defense, and a position. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
+    <div class="panel-note">Pick an offense, a defense, and a position, or click a game in this week's schedule on the right. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
     <div class="controls">
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
       <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
@@ -2041,6 +2123,13 @@ function renderMatchup(){
         <div id="mu-def-table"></div>
       </div>
     </div>
+  </div>
+  </div>
+  <aside class="mu-schedule panel">
+    <div class="panel-title">This Week's Games${weekLabel}</div>
+    <div class="panel-note" style="margin-bottom:10px;">Click a game to load it (away team on offense). Click a team to put that team on offense instead. Use Flip for the other side.</div>
+    <div id="mu-schedule-list">${gameCards || '<div class="empty" style="padding:8px 0;">No schedule loaded yet for this week.</div>'}</div>
+  </aside>
   </div>`;
 }
 
@@ -2150,7 +2239,47 @@ function mountMatchup(){
     } else {
       $('#mu-rank').innerHTML = '';
     }
+    syncSchedule();
   }
+
+  // The schedule always reflects the current selection: a game is highlighted
+  // when the two chosen teams are playing each other (either direction), and
+  // the team currently on offense is marked -- so it stays correct no matter
+  // whether you got here by clicking a game, using Flip, or the dropdowns.
+  function syncSchedule(){
+    const off = $('#mu-off').value, def = $('#mu-def').value;
+    $$('#mu-schedule-list .mu-game').forEach(card=>{
+      const a = card.dataset.away, h = card.dataset.home;
+      const active = (off === a && def === h) || (off === h && def === a);
+      card.classList.toggle('active', active);
+      $$('.mu-game-team', card).forEach(t => t.classList.toggle('offense', active && t.dataset.team === off));
+    });
+  }
+  function setMatchup(off, def){
+    const offEl = $('#mu-off'), defEl = $('#mu-def');
+    const has = (el, v) => [...el.options].some(o => o.value === v);
+    if(!has(offEl, off) || !has(defEl, def)) return;   // team missing from the explorer's list
+    offEl.value = off;
+    defEl.value = def;
+    apply();
+  }
+  function pickFromGame(card, teamEl){
+    const away = card.dataset.away, home = card.dataset.home;
+    const off = teamEl ? teamEl.dataset.team : away;
+    setMatchup(off, off === away ? home : away);
+  }
+  $('#mu-schedule-list').addEventListener('click', e=>{
+    const card = e.target.closest('.mu-game');
+    if(card) pickFromGame(card, e.target.closest('.mu-game-team'));
+  });
+  $('#mu-schedule-list').addEventListener('keydown', e=>{
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.mu-game');
+    if(!card) return;
+    e.preventDefault();
+    pickFromGame(card, e.target.closest('.mu-game-team'));
+  });
+
   $('#mu-off').addEventListener('change', apply);
   $('#mu-def').addEventListener('change', apply);
   $('#mu-flip').addEventListener('click', ()=>{
@@ -3764,9 +3893,10 @@ function renderMikesTemplate(){
       every game so far -- checked across a range of floors so the line shown is the highest one that's
       genuinely strong on both sides, not just an easy number. Spread (-3 to -7.5) and volume are shown as
       context, not a hard requirement -- this early in a season, demanding everything at once left almost
-      nothing. <b>One real gap:</b> this data can't isolate offensive line health specifically (only
-      skill-position injuries are tracked) -- check the team's full injury list manually before acting on
-      that part of the audit.
+      nothing. <b>Line context:</b> offensive-line health and the pass-protection / run-blocking matchup
+      come from the Line Play data (the official injury report cross-referenced with snap counts, so
+      "starters" are the five linemen who actually play the most). It's shown as context, not a
+      requirement -- it doesn't change which players qualify.
     </div>
     <div id="mikes-template-list"></div>
   </div>`;
@@ -3802,7 +3932,8 @@ function mountMikesTemplate(){
         <div class="player-preview-stats">Spread: ${p.spread !== null ? `${p.team} ${p.spread}` : 'No data'} ${p.spreadInRange ? '<span style="color:var(--mint);">(in -3 to -7.5 range)</span>' : '<span style="color:var(--chalk-dim);">(outside -3 to -7.5 range)</span>'}</div>
         ${p.runDef ? `<div class="player-preview-stats">${p.opponent} season run D: ${fmt(p.runDef.teamValue)} rush yds/g allowed (league median ${fmt(p.runDef.leagueMedian)})</div>` : ''}
         <div class="player-preview-stats">${p.player} volume: ${fmt(p.avgVolume)}/game season average ${p.touchesMet !== null ? (p.touchesMet ? '<span style="color:var(--mint);">(15+ touches met)</span>' : '<span style="color:var(--chalk-dim);">(under 15 touches)</span>') : ''}</div>
-        <div class="player-preview-stats" style="color:var(--gold);">O-line health: not verifiable from this data -- check manually. ${p.team} injuries: ${injHtml}</div>
+        ${lineContextHtml(p.team, p.opponent, p.position) || `<div class="player-preview-stats" style="color:var(--gold);">O-line health: line data not loaded yet (the pipeline hasn't produced it) -- check manually.</div>`}
+        <div class="player-preview-stats">${p.team} injuries (skill positions): ${injHtml}</div>
       </div>
 
       <div>
@@ -4211,6 +4342,338 @@ function mountLiveHub(){
   show();
 }
 
+// ---------- TAB: LINE PLAY (OL / DL) ----------
+// Offensive/defensive line information from 13_line_play.py (nflverse play-by-play,
+// snap counts, and the official injury report). Team rates are credited to the whole
+// unit -- sacks and stuffs also come from linebackers/DBs -- so these are line-play
+// indicators, not individual grades. Ranks run 1 = best at the unit's job.
+const LINE_PCT = v => `${(num(v) * 100).toFixed(1)}%`;
+const LINE_EDGE_GAP = 0.25;   // how far apart (in league-percentile) two units must be to call an edge
+const LINE_OUT = new Set(['Out', 'Doubtful']);
+const LINE_RISK = new Set(['Questionable', 'DNP (no game status yet)']);
+const LINE_METRICS = {
+  OL: [
+    {key:'OL Sack Rate',          label:'Sack rate allowed',           fmt:LINE_PCT, better:'low'},
+    {key:'OL QB Hit Rate',        label:'QB hit rate allowed',         fmt:LINE_PCT, better:'low'},
+    {key:'OL Disruption Rate',    label:'Sack + hit rate allowed',     fmt:LINE_PCT, better:'low'},
+    {key:'OL Stuff Rate',         label:'Runs stuffed (0 or fewer yds)', fmt:LINE_PCT, better:'low'},
+    {key:'OL YPC',                label:'Yards per carry',             fmt:v=>num(v).toFixed(2), better:'high'},
+    {key:'OL Explosive Run Rate', label:'10+ yard run rate',           fmt:LINE_PCT, better:'high'},
+    {key:'OL Rush EPA',           label:'Rush EPA per play',           fmt:v=>num(v).toFixed(3), better:'high'},
+  ],
+  DL: [
+    {key:'DL Sack Rate',          label:'Sack rate',                   fmt:LINE_PCT, better:'high'},
+    {key:'DL QB Hit Rate',        label:'QB hit rate',                 fmt:LINE_PCT, better:'high'},
+    {key:'DL Disruption Rate',    label:'Sack + hit rate',             fmt:LINE_PCT, better:'high'},
+    {key:'DL Stuff Rate',         label:'Runs stuffed (0 or fewer yds)', fmt:LINE_PCT, better:'high'},
+    {key:'DL YPC',                label:'Yards per carry allowed',     fmt:v=>num(v).toFixed(2), better:'low'},
+    {key:'DL Explosive Run Rate', label:'10+ yard runs allowed',       fmt:LINE_PCT, better:'low'},
+    {key:'DL Rush EPA',           label:'Rush EPA per play allowed',   fmt:v=>num(v).toFixed(3), better:'low'},
+  ],
+};
+
+// Same normalization as the pipeline (lowercase letters, suffixes dropped) so a
+// player in the snap table lines up with the same player on the injury report.
+function normLineName(name){
+  return String(name).replace(/[.,]/g, ' ').split(/\s+/)
+    .filter(t => t && !['jr','sr','ii','iii','iv','v'].includes(t.toLowerCase()))
+    .map(t => t.toLowerCase().replace(/[^a-z]/g, '')).join('');
+}
+
+let _lineRankCache = {src: null, ranks: {}};
+function getLineRanks(){
+  if(_lineRankCache.src === DATA.lineTeam) return _lineRankCache.ranks;
+  const rows = DATA.lineTeam || [];
+  const ranks = {};
+  [...LINE_METRICS.OL, ...LINE_METRICS.DL].forEach(m=>{
+    const usable = rows.filter(r => r[m.key] !== '' && r[m.key] != null);
+    usable.sort((a,b) => m.better === 'low' ? num(a[m.key]) - num(b[m.key]) : num(b[m.key]) - num(a[m.key]));
+    ranks[m.key] = {};
+    usable.forEach((r,i)=>{ ranks[m.key][r.Team] = i + 1; });
+  });
+  _lineRankCache = {src: DATA.lineTeam, ranks};
+  return ranks;
+}
+function lineTeamRow(team){ return (DATA.lineTeam || []).find(r => r.Team === team) || null; }
+
+// Pass protection vs pass rush, and run blocking vs run stopping, as league
+// percentiles (1.0 = best in the league at its job). A gap of 0.25 (~8 ranks)
+// or more between the two units is called an edge for the better one.
+function lineBattle(offTeam, defTeam){
+  const n = (DATA.lineTeam || []).length;
+  if(!n || !lineTeamRow(offTeam) || !lineTeamRow(defTeam)) return null;
+  const ranks = getLineRanks();
+  const pct = rank => n > 1 ? 1 - (rank - 1) / (n - 1) : 0.5;
+  const make = (offKey, defKey) => {
+    const offRank = ranks[offKey][offTeam], defRank = ranks[defKey][defTeam];
+    const diff = pct(defRank) - pct(offRank);   // > 0: the defensive front is better than the offensive line
+    return {offRank, defRank, diff, edge: diff >= LINE_EDGE_GAP ? 'defense' : diff <= -LINE_EDGE_GAP ? 'offense' : 'even'};
+  };
+  return {pass: make('OL Disruption Rate', 'DL Disruption Rate'), run: make('OL Rush EPA', 'DL Rush EPA'), n};
+}
+function lineEdgeLabel(edge){
+  return edge === 'offense' ? 'favors the offense' : edge === 'defense' ? 'favors the defense' : 'about even';
+}
+
+function lineChip(injury){
+  if(!injury) return '<span class="line-chip ok">Healthy</span>';
+  const cls = LINE_OUT.has(injury.Availability) ? 'out' : LINE_RISK.has(injury.Availability) ? 'risk' : '';
+  return `<span class="line-chip ${cls}">${injury.Availability}</span>`;
+}
+
+// Context lines for Mike's Template: is this team's line healthy, and how does
+// its line stack up against the opponent's for the kind of play the pick needs?
+function lineContextHtml(team, opponent, position){
+  const battle = lineBattle(team, opponent);
+  const row = lineTeamRow(team), opp = lineTeamRow(opponent);
+  if(!battle || !row || !opp) return '';
+
+  const olOut = num(row['OL Starters Out']), olRisk = num(row['OL Starters At Risk']);
+  const olColor = olOut > 0 ? 'var(--red)' : olRisk > 0 ? 'var(--gold)' : 'var(--mint)';
+  const olLine = (olOut === 0 && olRisk === 0)
+    ? 'all 5 starters clear on the injury report'
+    : `${olOut} starter${olOut === 1 ? '' : 's'} out, ${olRisk} at risk -- ${row['OL Health Note']}`;
+
+  const dlOut = num(opp['DL Key Players Out']), dlRisk = num(opp['DL Key Players At Risk']);
+  const dlLine = (dlOut === 0 && dlRisk === 0)
+    ? 'no key rushers or starters on the injury report'
+    : `${dlOut} out, ${dlRisk} at risk -- ${opp['DL Health Note']}`;
+
+  const isRun = position === 'RB';
+  const b = isRun ? battle.run : battle.pass;
+  const edgeColor = b.edge === 'offense' ? 'var(--mint)' : b.edge === 'defense' ? 'var(--red)' : 'var(--chalk-dim)';
+  const battleLine = isRun
+    ? `Run game: ${team} run blocking #${b.offRank} vs ${opponent} run defense #${b.defRank} of ${battle.n} -- ${lineEdgeLabel(b.edge)}`
+    : `Pass game: ${team} pass protection #${b.offRank} vs ${opponent} pass rush #${b.defRank} of ${battle.n} -- ${lineEdgeLabel(b.edge)}`;
+
+  return `
+    <div class="player-preview-stats" style="color:${olColor};">${team} O-line: ${olLine}.</div>
+    <div class="player-preview-stats" style="color:${edgeColor};">${battleLine}</div>
+    <div class="player-preview-stats">${opponent} D-line: ${dlLine}.</div>`;
+}
+
+function lineCardHtml(kind, team){
+  const row = lineTeamRow(team);
+  if(!row) return '<div class="empty">No line data for this team.</div>';
+  const ranks = getLineRanks();
+  const n = DATA.lineTeam.length;
+  const dash = v => (v === '' || v == null) ? '--' : fmt(num(v));
+
+  const metrics = LINE_METRICS[kind].map(m=>{
+    const r = ranks[m.key][team];
+    const color = r <= n / 3 ? 'var(--mint)' : r > n * 2 / 3 ? 'var(--red)' : 'var(--chalk)';
+    return `<div class="line-metric"><span>${m.label}</span><span><b style="color:var(--chalk);">${m.fmt(row[m.key])}</b> <span style="color:${color};">#${r}</span></span></div>`;
+  }).join('');
+
+  const injuries = (DATA.lineInjuries || []).filter(i => i.Team === team && i.Group === kind);
+  const injByName = {};
+  injuries.forEach(i => { injByName[normLineName(i.Player)] = i; });
+
+  const all = (DATA.linePlayers || []).filter(r => r.Team === team && r.Group === kind);
+  let shown, peopleHtml;
+  if(kind === 'OL'){
+    const ORDER = {T:0, G:1, C:2, OL:3};
+    shown = all.filter(r => r.Role === 'Starter')
+      .sort((a,b) => (ORDER[a.Position] ?? 9) - (ORDER[b.Position] ?? 9) || a.Player.localeCompare(b.Player));
+    peopleHtml = shown.map(p => `<div class="line-player">
+        <span class="line-player-name">${p.Player} <span class="player-preview-pos">${p.Position}</span></span>
+        <span class="line-player-meta">${fmt(num(p['Last Game Snap Pct']) * 100, 0)}% of snaps last game &middot; ${p.Games} G</span>
+        ${lineChip(injByName[normLineName(p.Player)])}</div>`).join('');
+  } else {
+    shown = all.filter(r => r.Role === 'Starter' || r.Role === 'Edge (LB)').sort((a,b) => num(b.Snaps) - num(a.Snaps));
+    peopleHtml = shown.map(p => `<div class="line-player">
+        <span class="line-player-name">${p.Player} <span class="player-preview-pos">${p.Position}${p.Role === 'Edge (LB)' ? ' edge' : ''}</span></span>
+        <span class="line-player-meta">${dash(p.Sacks)} sk &middot; ${dash(p['QB Hits'])} hits &middot; ${dash(p.TFL)} TFL &middot; ${p.Games} G</span>
+        ${lineChip(injByName[normLineName(p.Player)])}</div>`).join('');
+  }
+
+  const out = num(row[kind === 'OL' ? 'OL Starters Out' : 'DL Key Players Out']);
+  const risk = num(row[kind === 'OL' ? 'OL Starters At Risk' : 'DL Key Players At Risk']);
+  const note = row[`${kind} Health Note`];
+  const banner = (out === 0 && risk === 0)
+    ? `<div class="line-banner ok">${kind === 'OL' ? 'All 5 starters' : 'All key players'} clear on the injury report</div>`
+    : `<div class="line-banner ${out > 0 ? 'out' : 'risk'}">${out} out, ${risk} at risk -- ${note}</div>`;
+
+  const shownNames = new Set(shown.map(p => normLineName(p.Player)));
+  const others = injuries.filter(i => !shownNames.has(normLineName(i.Player)));
+  const othersHtml = others.length
+    ? `<div class="line-note">Also on the injury report: ${others.map(i =>
+        `${i.Player} (${i.Position}) ${i.Availability}${i.Injury ? ' - ' + i.Injury : ''}${i.Role === 'No snaps yet' ? ' [no snaps this season]' : ''}`).join('; ')}</div>`
+    : '';
+
+  const continuity = kind === 'OL'
+    ? `<div class="line-note">${row['OL Lineups Used']} different starting five${num(row['OL Lineups Used']) === 1 ? '' : 's'} in ${row['OL Games Tracked']} game${num(row['OL Games Tracked']) === 1 ? '' : 's'}${
+        row['OL Same Starters vs Prev Game'] !== '' ? ` &middot; ${row['OL Same Starters vs Prev Game']} of 5 starters repeated from the previous game` : ''}</div>`
+    : '';
+
+  return `
+    <div class="matchup-side-label"><b>${team}</b> ${teamName(team)} &mdash; ${kind === 'OL' ? 'Offensive Line' : 'Defensive Line'}</div>
+    ${banner}
+    ${metrics}
+    <div class="line-sub-title">${kind === 'OL' ? 'Starting five (most snaps, latest game)' : 'Starters and edge rushers'}</div>
+    ${peopleHtml || '<div class="empty" style="padding:8px 0;">No snap data yet.</div>'}
+    ${othersHtml}
+    ${continuity}`;
+}
+
+function renderLines(){
+  const teams = (DATA.lineTeam || []).map(r => r.Team).sort();
+  const first = (DATA.week2 || [])[0];
+  const defaultOff = first && teams.includes(first.Team) ? first.Team : teams[0];
+  const defaultDef = first && teams.includes(first.Opponent) ? first.Opponent : teams[1];
+  const opts = (sel) => teams.map(t => `<option value="${t}" ${t === sel ? 'selected' : ''}>${teamName(t)}</option>`).join('');
+  return `
+  <div class="panel">
+    <div class="panel-title">Line Play (OL / DL)</div>
+    <div class="panel-note">
+      Pick an offense and a defense to compare that offensive line against that defensive front. Rates are
+      season-to-date from play-by-play and are credited to the whole unit (sacks and stuffs also come from
+      linebackers and defensive backs), so treat them as line-play indicators rather than individual grades;
+      with only a few games played they swing a lot. Ranks run 1 = best at the unit's job. "Starters" are
+      the top five OL (top four DL) by snaps in a team's latest game, with edge rushers the data lists as
+      linebackers included when they're producing sacks or QB hits. Injury status comes from the official
+      weekly report. Pressure data and who blocked whom on a given play aren't available.
+      ${!teams.length ? '<br><br><b>No line data yet</b> -- run the pipeline (13_line_play.py) to populate this tab.' : ''}
+    </div>
+    <div class="controls">
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
+      <select id="line-off">${opts(defaultOff)}</select>
+      <button class="save-pick-btn" id="line-flip" title="Swap offense and defense">&#8646; Flip</button>
+      <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">DEFENSE</label>
+      <select id="line-def">${opts(defaultDef)}</select>
+    </div>
+    <div id="line-battle"></div>
+    <div class="line-grid">
+      <div id="line-off-card"></div>
+      <div id="line-def-card"></div>
+    </div>
+  </div>
+
+  <div class="line-grid">
+    <div class="panel"><div class="panel-title" style="font-size:16px;">Offensive Lines</div><div id="line-ol-table"></div></div>
+    <div class="panel"><div class="panel-title" style="font-size:16px;">Defensive Lines</div><div id="line-dl-table"></div></div>
+  </div>
+
+  <div class="line-grid">
+    <div class="panel">
+      <div class="panel-title" style="font-size:16px;">Line Injuries</div>
+      <div class="panel-note" id="line-inj-note"></div>
+      <div class="controls"><div class="pill-group" id="line-inj-pills">
+        <span class="pill active" data-group="">ALL</span><span class="pill" data-group="OL">OL</span><span class="pill" data-group="DL">DL</span>
+      </div></div>
+      <div id="line-inj-table"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="font-size:16px;">Top Pass Rushers</div>
+      <div class="panel-note">Defensive linemen plus LB-listed edge rushers with at least 1 sack or 2 QB hits, by sacks then QB hits.</div>
+      <div id="line-rush-table"></div>
+    </div>
+  </div>`;
+}
+
+function mountLines(){
+  if(!(DATA.lineTeam || []).length){
+    ['line-battle','line-off-card','line-def-card','line-ol-table','line-dl-table','line-inj-table','line-rush-table']
+      .forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+    return;
+  }
+
+  function drawMatchup(){
+    const off = $('#line-off').value, def = $('#line-def').value;
+    const b = lineBattle(off, def);
+    const chip = (label, battle, offName, defName, what) => {
+      const color = battle.edge === 'offense' ? 'var(--mint)' : battle.edge === 'defense' ? 'var(--red)' : 'var(--chalk-dim)';
+      return `<span class="context-chip" style="color:${color};">${label}: ${offName} ${what[0]} #${battle.offRank} vs ${defName} ${what[1]} #${battle.defRank} of ${b.n} -- ${lineEdgeLabel(battle.edge)}</span>`;
+    };
+    $('#line-battle').innerHTML = b ? `
+      <div class="context-row" style="margin:12px 0;">
+        ${chip('Pass', b.pass, off, def, ['pass protection', 'pass rush'])}
+        ${chip('Run', b.run, off, def, ['run blocking', 'run defense'])}
+      </div>
+      <div class="line-note" style="margin-top:0;margin-bottom:12px;">Green favors the selected offense, red favors the selected defense. An edge needs the two units to be roughly 8+ league ranks apart.</div>` : '';
+    $('#line-off-card').innerHTML = lineCardHtml('OL', off);
+    $('#line-def-card').innerHTML = lineCardHtml('DL', def);
+  }
+  $('#line-off').addEventListener('change', drawMatchup);
+  $('#line-def').addEventListener('change', drawMatchup);
+  $('#line-flip').addEventListener('click', ()=>{
+    const o = $('#line-off'), d = $('#line-def');
+    const old = o.value; o.value = d.value; d.value = old;
+    drawMatchup();
+  });
+  drawMatchup();
+
+  // ---- league tables
+  const pctCol = (key, label) => ({key, label, numeric:true, render:v => LINE_PCT(v)});
+  const flagCol = (key, label, color) => ({key, label, numeric:true,
+    render:v => num(v) > 0 ? `<span style="color:${color};font-weight:700;">${v}</span>` : '0'});
+  buildTable($('#line-ol-table'), [
+    {key:'Team', label:'Team', render:teamChip},
+    pctCol('OL Sack Rate', 'Sack %'), pctCol('OL QB Hit Rate', 'QB Hit %'), pctCol('OL Disruption Rate', 'Sack+Hit %'),
+    pctCol('OL Stuff Rate', 'Stuffed %'),
+    {key:'OL YPC', label:'YPC', numeric:true, render:v => num(v).toFixed(2)},
+    {key:'OL Rush EPA', label:'Rush EPA', numeric:true, render:v => num(v).toFixed(3)},
+    flagCol('OL Starters Out', 'Out', 'var(--red)'), flagCol('OL Starters At Risk', 'At Risk', 'var(--gold)'),
+    {key:'OL Lineups Used', label:'Lineups', numeric:true},
+  ], DATA.lineTeam, {defaultSort:'OL Disruption Rate', defaultDir:'asc'});
+
+  buildTable($('#line-dl-table'), [
+    {key:'Team', label:'Team', render:teamChip},
+    pctCol('DL Sack Rate', 'Sack %'), pctCol('DL QB Hit Rate', 'QB Hit %'), pctCol('DL Disruption Rate', 'Sack+Hit %'),
+    pctCol('DL Stuff Rate', 'Stuffed %'),
+    {key:'DL YPC', label:'YPC Alwd', numeric:true, render:v => num(v).toFixed(2)},
+    {key:'DL Rush EPA', label:'Rush EPA Alwd', numeric:true, render:v => num(v).toFixed(3)},
+    flagCol('DL Key Players Out', 'Out', 'var(--red)'), flagCol('DL Key Players At Risk', 'At Risk', 'var(--gold)'),
+  ], DATA.lineTeam, {defaultSort:'DL Disruption Rate', defaultDir:'desc'});
+
+  // ---- injuries: starters first, then by how bad the status is
+  const AVAIL_RANK = {'Out':0, 'Doubtful':1, 'Questionable':2, 'DNP (no game status yet)':3, 'Limited':4};
+  const injRows = (DATA.lineInjuries || []).map(r => ({
+    ...r,
+    _priority: (r.Role === 'Starter' || r.Role === 'Edge (LB)' ? 0 : 10) + (AVAIL_RANK[r.Availability] ?? 5),
+  }));
+  const injNote = $('#line-inj-note');
+  injNote.textContent = injRows.length
+    ? `Week ${injRows[0].Week} injury report, linemen only. "Starter"/"Edge (LB)" are the key players -- reserves and players with no snaps this season are listed after them. Players practicing fully with no game status are left out.`
+    : 'No linemen on the injury report yet.';
+  let injGroup = '';
+  function drawInjuries(){
+    const rows = injRows.filter(r => !injGroup || r.Group === injGroup);
+    buildTable($('#line-inj-table'), [
+      {key:'Team', label:'Team', render:teamChip},
+      {key:'Player', label:'Player'}, {key:'Position', label:'Pos'},
+      {key:'Availability', label:'Status', render:(v,row) => lineChip(row)},
+      {key:'Injury', label:'Injury'}, {key:'Role', label:'Role'},
+      {key:'Season Snaps', label:'Snaps', numeric:true},
+    ], rows, {defaultSort:'_priority', defaultDir:'asc'});
+  }
+  $$('#line-inj-pills .pill').forEach(pill => pill.addEventListener('click', ()=>{
+    $$('#line-inj-pills .pill').forEach(x => x.classList.remove('active'));
+    pill.classList.add('active');
+    injGroup = pill.dataset.group;
+    drawInjuries();
+  }));
+  drawInjuries();
+
+  // ---- top pass rushers
+  const injIndex = {};
+  (DATA.lineInjuries || []).forEach(i => { injIndex[`${i.Team}|${normLineName(i.Player)}`] = i; });
+  const rushers = (DATA.linePlayers || [])
+    .filter(r => r.Group === 'DL' && r.Sacks !== '' && r.Sacks != null)
+    .map(r => ({...r, _sacks: num(r.Sacks), _hits: num(r['QB Hits']), _tfl: num(r.TFL), _injury: injIndex[`${r.Team}|${normLineName(r.Player)}`] || null}))
+    .sort((a,b) => b._sacks - a._sacks || b._hits - a._hits)
+    .slice(0, 25);
+  buildTable($('#line-rush-table'), [
+    {key:'Player', label:'Player'}, {key:'Team', label:'Team', render:teamChip},
+    {key:'Position', label:'Pos', render:(v,row) => row.Role === 'Edge (LB)' ? 'LB (edge)' : v},
+    {key:'Games', label:'G', numeric:true}, {key:'Snaps', label:'Snaps', numeric:true},
+    {key:'_sacks', label:'Sacks', numeric:true, render:v => fmt(v)},
+    {key:'_hits', label:'QB Hits', numeric:true, render:v => fmt(v)},
+    {key:'_tfl', label:'TFL', numeric:true, render:v => fmt(v)},
+    {key:'_injury', label:'Status', render:(v,row) => lineChip(row._injury)},
+  ], rushers, {defaultSort:'_sacks', defaultDir:'desc'});
+}
+
 // ---------- ROUTER ----------
 const renderers = {
   overview: {render: renderOverview, mount: mountOverview},
@@ -4229,6 +4692,7 @@ const renderers = {
   picks: {render: renderPicks, mount: mountPicks},
   power: {render: renderPowerRankings, mount: mountPowerRankings},
   coaching: {render: renderCoaching, mount: mountCoaching},
+  lines: {render: renderLines, mount: mountLines},
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
@@ -4254,7 +4718,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
