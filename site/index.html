@@ -223,6 +223,13 @@
   .mu-main{min-width:0;}
   .mu-schedule{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto;scrollbar-width:thin;}
   .mu-schedule .panel-title{font-size:16px;}
+  .rank-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--chalk-dim);cursor:help;}
+  .rank-badge.top{color:var(--gold);}
+  .mu-faced{border:1px solid var(--hash);border-radius:6px;padding:10px 12px;margin:0 0 14px;background:var(--field-deep);}
+  .mu-faced-title{font-family:var(--cond);font-weight:700;font-size:13px;color:var(--gold);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+  .mu-faced-row{font-family:var(--mono);font-size:12px;color:var(--chalk-dim);padding:2px 0;line-height:1.5;}
+  .mu-faced-row b{color:var(--chalk);}
+  .mu-faced-sum{margin-top:6px;padding-top:6px;border-top:1px solid var(--hash-line);font-family:var(--mono);font-size:12px;color:var(--chalk);line-height:1.5;}
   .mu-game{cursor:pointer;padding:10px 12px;margin-bottom:8px;border:1px solid var(--hash);border-radius:6px;background:var(--field-deep);transition:border-color .15s, background .15s;}
   .mu-game:hover{border-color:var(--gold-deep);}
   .mu-game:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
@@ -2113,6 +2120,8 @@ function renderMatchup(){
       </div>
     </div>
     <div id="mu-rank"></div>
+    <div id="mu-faced"></div>
+    <div class="line-note" id="mu-rank-note" style="margin:0 0 14px;"></div>
     <div class="mu-grid">
       <div>
         <div class="panel-title" id="mu-off-title" style="font-size:16px;"></div>
@@ -2133,10 +2142,111 @@ function renderMatchup(){
   </div>`;
 }
 
+// ---------- Player ranks for Matchup Explorer ----------
+// Each player's league rank at his position by one yardage number per game,
+// season to date. The point: a defense holding the league's BEST backs down
+// says more than holding an average back down, so every row carries the rank.
+const MATCHUP_TOP_N = 10;
+const MATCHUP_RANK_METRIC = {
+  QB: {label: 'Pass Yds/G',       short: 'pass yds',     value: r => num(r['Pass Yards'])},
+  RB: {label: 'Rush + Rec Yds/G', short: 'Rush+Rec yds', value: r => num(r['Rush Yards']) + num(r['Receiving Yards'])},
+  WR: {label: 'Rec Yds/G',        short: 'rec yds',      value: r => num(r['Receiving Yards'])},
+  TE: {label: 'Rec Yds/G',        short: 'rec yds',      value: r => num(r['Receiving Yards'])},
+};
+function ordinal(n){ const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+
+let _playerRankCache = {src: null, len: -1, data: {}};
+function getPlayerRanks(){
+  const src = DATA.playerGame || [];
+  if(_playerRankCache.src === src && _playerRankCache.len === src.length) return _playerRankCache.data;
+  const out = {};
+  MATCHUP_POSITIONS.forEach(pos => {
+    const metric = MATCHUP_RANK_METRIC[pos];
+    const byPlayer = {};
+    src.filter(r => r.Position === pos).forEach(r => {
+      const p = byPlayer[r.Player] || (byPlayer[r.Player] = {player: r.Player, weeks: new Set(), total: 0});
+      p.weeks.add(r.Week);
+      p.total += metric.value(r);
+    });
+    const list = Object.values(byPlayer).map(p => ({player: p.player, games: p.weeks.size, total: p.total, perGame: p.total / p.weeks.size}));
+    // A player needs at least half as many games as the most-active player at his
+    // position, so one big game in garbage time can't outrank a season of production.
+    const minGames = Math.max(1, Math.ceil(Math.max(0, ...list.map(p => p.games)) / 2));
+    const eligible = list.filter(p => p.games >= minGames)
+      .sort((a, b) => b.perGame - a.perGame || b.total - a.total || a.player.localeCompare(b.player));
+    const ranks = {};
+    eligible.forEach((p, i) => { ranks[p.player] = {...p, rank: i + 1}; });
+    out[pos] = {ranks, n: eligible.length, minGames, label: metric.label};
+  });
+  _playerRankCache = {src, len: src.length, data: out};
+  return out;
+}
+
+// Adds the derived columns every Matchup Explorer row needs.
+function matchupAugmentRows(rows, pos){
+  const info = getPlayerRanks()[pos];
+  return rows.map(r => {
+    const ranked = info && info.ranks[r.Player];
+    return {
+      ...r,
+      'Rush + Rec Yards': num(r['Rush Yards']) + num(r['Receiving Yards']),
+      _rank: ranked ? ranked.rank : null,
+      _rankScore: ranked ? 1000 - ranked.rank : 0,
+      _rankTitle: ranked
+        ? `${ordinal(ranked.rank)} of ${info.n} ${pos}s by ${info.label} (${ranked.perGame.toFixed(1)} per game over ${ranked.games} games)`
+        : `Not ranked: ${pos}s need at least ${info ? info.minGames : 1} games played to be ranked`,
+    };
+  });
+}
+
+// "Top backs faced": the top-ranked players at this position who have played this
+// defense, each compared with his own average in every OTHER game this season.
+function topFacedHtml(def, pos){
+  const info = getPlayerRanks()[pos], metric = MATCHUP_RANK_METRIC[pos];
+  if(!info || !metric) return '';
+  const all = (DATA.playerGame || []).filter(r => r.Position === pos);
+  const faced = new Map();
+  all.filter(r => r.Opponent === def).forEach(r => {
+    if(!faced.has(r.Player)) faced.set(r.Player, []);
+    faced.get(r.Player).push(r);
+  });
+  const mean = rows => rows.reduce((sum, r) => sum + metric.value(r), 0) / rows.length;
+  const top = [...faced.entries()]
+    .map(([player, rows]) => ({player, rows, rank: (info.ranks[player] || {}).rank}))
+    .filter(x => x.rank && x.rank <= MATCHUP_TOP_N)
+    .sort((a, b) => a.rank - b.rank)
+    .map(x => {
+      const others = all.filter(r => r.Player === x.player && r.Opponent !== def);
+      return {...x, team: x.rows[0].Team, weeks: x.rows.map(r => r.Week).join(', '), vs: mean(x.rows), usual: others.length ? mean(others) : null};
+    });
+
+  const title = `Top-${MATCHUP_TOP_N} ${pos}s ${teamName(def)} has faced`;
+  if(!top.length){
+    return `<div class="mu-faced"><div class="mu-faced-title">${title}</div>
+      <div class="mu-faced-row">None yet -- ${faced.size} ${pos}${faced.size === 1 ? '' : 's'} faced so far, none ranked in the top ${MATCHUP_TOP_N}.</div></div>`;
+  }
+  const rowsHtml = top.map(x => `<div class="mu-faced-row"><b>${x.player}</b> <span class="player-preview-pos">${x.team}</span> #${x.rank} &mdash; ${fmt(x.vs)} ${metric.short} (Wk ${x.weeks})${
+    x.usual === null ? ', no other games to compare' : ` vs ${fmt(x.usual)} in his other games`}</div>`).join('');
+  const comparable = top.filter(x => x.usual !== null && x.usual > 0);
+  const gamesCount = top.reduce((sum, x) => sum + x.rows.length, 0);
+  let summary = '';
+  if(comparable.length){
+    const vsAvg = comparable.reduce((sum, x) => sum + x.vs, 0) / comparable.length;
+    const usualAvg = comparable.reduce((sum, x) => sum + x.usual, 0) / comparable.length;
+    summary = `<div class="mu-faced-sum">Held these ${comparable.length} to an average of <b>${fmt(vsAvg)}</b> ${metric.short} vs <b>${fmt(usualAvg)}</b> in their other games (${Math.round(vsAvg / usualAvg * 100)}% of usual) &middot; ${gamesCount} game${gamesCount === 1 ? '' : 's'} total.</div>`;
+  }
+  return `<div class="mu-faced"><div class="mu-faced-title">${title}</div>${rowsHtml}${summary}</div>`;
+}
+
 const MATCHUP_COLS = {
   base: [
     {key:'Week', label:'Week', numeric:true},
     {key:'Player', label:'Player'},
+    // Sorts on a score where higher = better so the first click puts #1 on top;
+    // unranked players score 0 and sink to the bottom.
+    {key:'_rankScore', label:'Rank', numeric:true, render:(v,row)=> row._rank
+      ? `<span class="rank-badge${row._rank <= MATCHUP_TOP_N ? ' top' : ''}" title="${row._rankTitle}">#${row._rank}</span>`
+      : `<span class="rank-badge" title="${row._rankTitle}">--</span>`},
     {key:'Position', label:'Pos'},
     {key:'Team', label:'Team', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
     {key:'Opponent', label:'Opp', render:t=>`<span class="team-chip" title="${teamName(t)}">${t}</span>`},
@@ -2158,6 +2268,7 @@ const MATCHUP_COLS = {
     {key:'Receptions', label:'Rec', numeric:true},
     {key:'Receiving Yards', label:'Rec Yds', numeric:true},
     {key:'Receiving TD', label:'Rec TD', numeric:true},
+    {key:'Rush + Rec Yards', label:'Rush+Rec Yds', numeric:true},
   ],
   TE: [
     {key:'Targets', label:'Tgt', numeric:true},
@@ -2206,12 +2317,12 @@ function mountMatchup(){
     }};
     const cols = [...MATCHUP_COLS.base, ...statCols, saveCol];
 
-    const offRows = DATA.playerGame.filter(r=>r.Team===off && r.Position===pos);
+    const offRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Team===off && r.Position===pos), pos);
     // Exclude the offense's own team here -- the point of this table is to
     // show OTHER teams' performances against the defense, for comparison.
     // Without this, a team that already played this defense sees its own
     // game mirrored back in both tables.
-    const defRows = DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off);
+    const defRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off), pos);
 
     $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
     $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
@@ -2239,6 +2350,11 @@ function mountMatchup(){
     } else {
       $('#mu-rank').innerHTML = '';
     }
+    const rankInfo = getPlayerRanks()[pos];
+    $('#mu-rank-note').textContent = rankInfo
+      ? `Rank = league rank among ${pos}s by ${rankInfo.label}, season to date (needs ${rankInfo.minGames}+ games to be ranked; top ${MATCHUP_TOP_N} highlighted in gold).`
+      : '';
+    $('#mu-faced').innerHTML = topFacedHtml(def, pos);
     syncSchedule();
   }
 
