@@ -316,6 +316,9 @@
   tbody td{padding:7px 10px;border-bottom:1px solid var(--hash-line);white-space:nowrap;color:var(--chalk);}
   tbody tr:hover{background:rgba(227,169,59,0.06);}
   tbody tr:nth-child(even){background:rgba(255,255,255,0.015);}
+  tbody tr.wk-band-a{background:transparent;}
+  tbody tr.wk-band-b{background:rgba(227,169,59,0.10);}
+  tbody tr.wk-band-a:hover,tbody tr.wk-band-b:hover{background:rgba(227,169,59,0.18);}
   .num{text-align:right;font-variant-numeric:tabular-nums;}
   .rank-badge{
     display:inline-block;min-width:22px;text-align:center;
@@ -1205,8 +1208,16 @@ function buildTable(container, columns, rows, opts={}){
     return `<th class="${cls}" data-key="${c.key}" style="${c.numeric?'text-align:right':''}">${c.label}</th>`;
   }).join('');
 
+  let bandPrev, bandFlip = false;
   const tbody = sorted.map(row=>{
-    return '<tr>' + columns.map(c=>{
+    let trCls = '';
+    if(opts.bandBy){
+      const v = row[opts.bandBy];
+      if(bandPrev !== undefined && v !== bandPrev) bandFlip = !bandFlip;
+      bandPrev = v;
+      trCls = bandFlip ? 'wk-band-b' : 'wk-band-a';
+    }
+    return `<tr${trCls ? ` class="${trCls}"` : ''}>` + columns.map(c=>{
       const raw = row[c.key];
       const val = c.render ? c.render(raw, row) : raw;
       return `<td class="${c.numeric?'num':''}">${val}</td>`;
@@ -2382,7 +2393,7 @@ function mountMatchup(){
       label: `Totals (${rows.length} player-game${rows.length===1 ? '' : 's'})`,
       cells: [...statCols.map(c => c.noSum ? '' : Math.round(rows.reduce((sum, r) => sum + num(r[c.key]), 0)).toLocaleString()), ''],
     });
-    const tableOpts = rows => ({defaultSort:'Week', defaultDir:'asc', footer: footerFor(rows), onRender: wireSaveButtons});
+    const tableOpts = rows => ({defaultSort:'Week', defaultDir:'asc', bandBy:'Week', footer: footerFor(rows), onRender: wireSaveButtons});
     buildTable($('#mu-off-table'), cols, offRows, tableOpts(offRows));
     buildTable($('#mu-def-table'), cols, defRows, tableOpts(defRows));
 
