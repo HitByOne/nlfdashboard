@@ -2596,10 +2596,99 @@ function renderStreaks(){
       </div>
     </div>
     <div id="streaks-table"></div>
+  </div>
+  <div class="panel" id="defstreak-panel">
+    <div class="panel-title">Defensive Streaks -- What They Keep Giving Up</div>
+    <div class="panel-note">Pick a position, a stat and a number. Every defense is checked game by game: the streak is how many of their most recent games in a row the opponent cleared that number. "Any single player" asks whether one player did it (a 100-yard receiver every week); "Position total" adds the whole group together. Chips show each week's number -- green cleared it, red didn't.</div>
+    <div class="controls">
+      <select id="ds-pos">
+        <option value="REC">All receivers (WR/TE/RB)</option>
+        <option value="WR">WR</option><option value="TE">TE</option>
+        <option value="RB">RB</option><option value="QB">QB</option>
+      </select>
+      <select id="ds-stat">
+        <option>Receiving Yards</option><option>Receptions</option><option>Receiving TD</option>
+        <option>Rush Yards</option><option>Rush TD</option><option>Pass Yards</option>
+        <option>Pass TD</option><option>Any TD</option>
+      </select>
+      <select id="ds-scope">
+        <option value="single">Any single player</option>
+        <option value="total">Position total</option>
+      </select>
+      <label class="ctl-label">at least <input type="number" id="ds-thresh" value="100" min="0" step="5" style="width:70px"></label>
+      <div class="pill-group" id="ds-min-pills">
+        <span class="pill active" data-min="1">All</span>
+        <span class="pill" data-min="2">2+ streak</span>
+        <span class="pill" data-min="3">3+ streak</span>
+      </div>
+    </div>
+    <div id="defstreak-table"></div>
   </div>`;
 }
 
+const DS_DEFAULTS = {'Receiving Yards':100,'Receptions':8,'Receiving TD':1,'Rush Yards':100,'Rush TD':1,'Pass Yards':250,'Pass TD':2,'Any TD':1};
+const DS_POS_SETS = {REC:['WR','TE','RB'], WR:['WR'], TE:['TE'], RB:['RB'], QB:['QB']};
+
+// Per defense, per game week: what did the opponent produce in this stat?
+// Weeks come from the games that defense actually played (rows where it was
+// the Opponent), so bye weeks never break a streak.
+function computeDefenseStreaks(posKey, stat, scope, threshold){
+  const set = DS_POS_SETS[posKey] || [];
+  const byDef = {};
+  (DATA.playerGame || []).forEach(r=>{
+    if(!r.Opponent) return;
+    const d = byDef[r.Opponent] || (byDef[r.Opponent] = {});
+    const w = num(r.Week);
+    const g = d[w] || (d[w] = {total:0, max:0});
+    if(set.includes(r.Position)){
+      const v = getStatValue(r, stat);
+      g.total += v;
+      if(v > g.max) g.max = v;
+    }
+  });
+  return Object.entries(byDef).map(([def, weeks])=>{
+    const list = Object.keys(weeks).map(Number).sort((a,b)=>a-b).map(w=>{
+      const val = scope === 'total' ? weeks[w].total : weeks[w].max;
+      return {week:w, val:Math.round(val*10)/10, hit: val >= threshold};
+    });
+    let streak = 0;
+    for(let i = list.length - 1; i >= 0; i--){ if(list[i].hit) streak++; else break; }
+    const hits = list.filter(x=>x.hit).length;
+    return {Defense:def, Streak:streak, Hits:hits, Games:list.length, Rate: list.length ? hits/list.length : 0, list};
+  });
+}
+
+function mountDefStreaks(){
+  const container = $('#defstreak-table');
+  if(!container) return;
+  let minStreak = 1;
+  const cols = [
+    {key:'_sort', label:'Streak', numeric:true, render:(v,row)=>{ const v2 = row.Streak; return `<span class="heat" style="${v2>=2 ? 'background:rgba(227,169,59,0.22);border:1px solid rgba(227,169,59,0.6);' : (v2===1 ? 'background:rgba(51,214,166,0.18);border:1px solid rgba(51,214,166,0.5);' : '')}">${v2} game${v2===1?'':'s'}</span>`; }},
+    {key:'Defense', label:'Defense', render:teamChip},
+    {key:'Rate', label:'Season', numeric:true, render:(v,row)=>`${row.Hits}/${row.Games}`},
+    {key:'list', label:'By week (oldest to newest)', render:(v)=>v.map(x=>
+      `<span class="heat" style="margin-right:4px;${x.hit ? 'background:rgba(51,214,166,0.18);border:1px solid rgba(51,214,166,0.5);' : 'background:rgba(255,92,108,0.14);border:1px solid rgba(255,92,108,0.45);'}">W${x.week}: ${x.val}</span>`).join('')},
+  ];
+  function apply(){
+    const rows = computeDefenseStreaks($('#ds-pos').value, $('#ds-stat').value, $('#ds-scope').value, num($('#ds-thresh').value));
+    const shown = rows.filter(r=>r.Streak >= minStreak || minStreak === 1);
+    if(!shown.length){ container.innerHTML = '<div class="empty">No defense has an active streak that long for this setting. Try a lower number.</div>'; return; }
+    // Sort key: current streak first, then season hit rate.
+    shown.forEach(r=>{ r._sort = r.Streak*100 + r.Rate*10; });
+    buildTable(container, cols, shown, {defaultSort:'_sort', defaultDir:'desc'});
+  }
+  $('#ds-stat').addEventListener('change', ()=>{ $('#ds-thresh').value = DS_DEFAULTS[$('#ds-stat').value] ?? 1; apply(); });
+  ['ds-pos','ds-scope'].forEach(id=>$('#'+id).addEventListener('change', apply));
+  $('#ds-thresh').addEventListener('input', apply);
+  $$('#ds-min-pills .pill').forEach(p=>p.addEventListener('click', ()=>{
+    $$('#ds-min-pills .pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active'); minStreak = num(p.dataset.min); apply();
+  }));
+  apply();
+}
+
 function mountStreaks(){
+  mountDefStreaks();
   const allStreaks = computeStreaks();
   const container = $('#streaks-table');
 
