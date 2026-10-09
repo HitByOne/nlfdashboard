@@ -511,6 +511,19 @@ BAL,T.Simpson,TEN,T.Pollard,4,Pass breakup,0,Tony Pollard,Trenton Simpson
 BAL,K.Hamilton,TEN,C.Tate,4,Pass breakup,0,Carnell Tate,Kyle Hamilton
 TEN,J.Simmons,BAL,Z.Flowers,4,Pass breakup,0,Zay Flowers,Jeffery Simmons
 BAL,C.Awuzie,TEN,C.Ridley,4,Pass breakup,0,Calvin Ridley,Chidobe Awuzie
+TB,C.Rozeboom,DAL,B.Spann-Ford,5,Pass breakup,0,Brevyn Spann-Ford,Christian Rozeboom
+TB,J.Parrish,DAL,G.Pickens,5,Pass breakup,0,George Pickens,Jacob Parrish
+TB,J.Parrish,DAL,G.Pickens,5,Pass breakup,0,George Pickens,Jacob Parrish
+TB,Z.McCollum,DAL,C.Lamb,5,Pass breakup,0,CeeDee Lamb,Zyon McCollum
+TB,K.Scott,DAL,K.Turpin,5,Pass breakup,0,KaVontae Turpin,Keionte Scott
+TB,Z.McCollum,DAL,G.Pickens,5,Pass breakup,0,George Pickens,Zyon McCollum
+DAL,M.Bell,TB,E.Egbuka,5,Pass breakup,0,Emeka Egbuka,Markquese Bell
+TB,Y.Diaby,DAL,R.Flournoy,5,Pass breakup,0,Ryan Flournoy,YaYa Diaby
+DAL,M.Lawrence,TB,K.Gainwell,5,Pass breakup,0,Kenny Gainwell,Malachi Lawrence
+TB,J.Parrish,DAL,G.Pickens,5,Pass breakup,0,George Pickens,Jacob Parrish
+TB,J.Parrish,DAL,J.Mingo,5,Pass breakup,0,Jonathan Mingo,Jacob Parrish
+DAL,D.Bland,TB,E.Egbuka,5,Pass breakup,0,Emeka Egbuka,DaRon Bland
+TB,A.Anzalone,DAL,J.Ferguson,5,Pass breakup,0,Jake Ferguson,Alex Anzalone
 MIN,J.Pierre,GB,C.Watson,1,Pass breakup,0,Christian Watson,James Pierre
 SEA,N.Pritchett,NE,R.Doubs,1,Pass breakup,0,Romeo Doubs,Nehemiah Pritchett
 CAR,B.Okereke,ATL,Bi.Robinson,2,Pass breakup,0,Bi.Robinson,Bobby Okereke
@@ -621,6 +634,8 @@ CLE,D.Ward,PIT,M.Pittman,4,Interception,0,Michael Pittman Jr.,Denzel Ward
 PIT,R.Spears-Jennings,CLE,D.Boston,4,Interception,0,Denzel Boston,Robert Spears-Jennings
 CLE,G.Delpit,PIT,R.Wilson,4,Interception,0,Roman Wilson,Grant Delpit
 BAL,T.Simpson,TEN,T.Pollard,4,Interception,0,Tony Pollard,Trenton Simpson
+TB,Y.Diaby,DAL,R.Flournoy,5,Interception,0,Ryan Flournoy,YaYa Diaby
+TB,A.Anzalone,DAL,J.Ferguson,5,Interception,0,Jake Ferguson,Alex Anzalone
 LAC,E.Molden,ARI,T.McBride,1,Tackled after catch,27,Trey McBride,Elijah Molden
 LAC,C.Hart,ARI,K.Bourne,1,Tackled after catch,11,Kendrick Bourne,Cam Hart
 ARI,W.Johnson,LAC,L.McConkey,1,Tackled after catch,18,Ladd McConkey,Will Johnson
@@ -2566,3 +2581,38 @@ TEN,M.Harris,BAL,R.Bateman,4,Tackled after catch,18,Rashod Bateman,Marcus Harris
 BAL,M.Starks,TEN,W.Robinson,4,Tackled after catch,4,Wan'Dale Robinson,Malaki Starks
 BAL,C.Rivers,TEN,G.Helm,4,Tackled after catch,5,Gunnar Helm,Chandler Rivers
 BAL,M.Starks,TEN,C.Tate,4,Tackled after catch,33,Carnell Tate,Malaki Starks
+TB,J.Trotter,DAL,J.Williams,5,Tackled after catch,8,Javonte Williams,Josiah Trotter
+TB,J.Parrish,DAL,G.Pickens,5,Tackled after catch,8,George Pickens,Jacob Parrish
+TB,J.Parrish,DAL,G.Pickens,5,Tackled after catch,21,George Pickens,Jacob Parrish
+DAL,R.Steward,TB,E.Egbuka,5,Tackled after catch,3,Emeka Egbuka,Reddy Steward
+DAL,D.Winters,TB,C.Otton,5,Tackled after catch,10,Cade Otton,Dee Winters
+DAL,R.Steward,TB,C.Otton,5,Tackled after catch,4,Cade Otton,Reddy Steward
+DAL,M.Hooker,TB,E.Egbuka,5,Tackled after catch,3,Emeka Egbuka,Malik Hooker
+DAL,S.James,TB,C.Godwin,5,Tackled after catch,14,Chris Godwin Jr.,Shemar James
+DAL,S.Revel,TB,C.Godwin,5,Tackled after catch,4,Chris Godwin Jr.,Shavon Revel
+DAL,D.Bland,TB,E.Egbuka,5,Tackled after catch,6,Emeka Egbuka,DaRon Bland
+TB,A.Anzalone,DAL,K.Turpin,5,Tackled after catch,7,KaVontae Turpin,Alex Anzalone
+DAL,D.Bland,TB,P.Durham,5,Tackled after catch,5,Payne Durham,DaRon Bland
+TB,J.Parrish,DAL,G.Pickens,5,Tackled after catch,7,George Pickens,Jacob Parrish
+TB,K.Scott,DAL,C.Lamb,5,Tackled after catch,4,CeeDee Lamb,Keionte Scott
+DAL,A.Speed,TB,K.Gainwell,5,Tackled after catch,15,Kenny Gainwell,Ameer Speed
+DAL,M.Bell,TB,C.Godwin,5,Tackled after catch,19,Chris Godwin Jr.,Markquese Bell
+TB,I.Melifonwu,DAL,G.Pickens,5,Tackled after catch,27,George Pickens,Ifeatu Melifonwu
+TB,J.Parrish,DAL,C.Lamb,5,Tackled after catch,5,CeeDee Lamb,Jacob Parrish
+DAL,M.Hooker,TB,T.Johnson,5,Tackled after catch,64,Tez Johnson,Malik Hooker
+DAL,D.Bland,TB,E.Egbuka,5,Tackled after catch,21,Emeka Egbuka,DaRon Bland
+DAL,D.Winters,TB,K.Gainwell,5,Tackled after catch,-5,Kenny Gainwell,Dee Winters
+DAL,D.Ezeiruaku,TB,K.Gainwell,5,Tackled after catch,0,Kenny Gainwell,Donovan Ezeiruaku
+TB,J.Parrish,DAL,J.Ferguson,5,Tackled after catch,11,Jake Ferguson,Jacob Parrish
+DAL,L.Overton,TB,B.Irving,5,Tackled after catch,5,Bucky Irving,LT Overton
+DAL,R.Steward,TB,E.Egbuka,5,Tackled after catch,2,Emeka Egbuka,Reddy Steward
+TB,J.Parrish,DAL,R.Flournoy,5,Tackled after catch,16,Ryan Flournoy,Jacob Parrish
+TB,I.Melifonwu,DAL,K.Turpin,5,Tackled after catch,15,KaVontae Turpin,Ifeatu Melifonwu
+TB,J.Parrish,DAL,G.Pickens,5,Tackled after catch,13,George Pickens,Jacob Parrish
+TB,T.Smith,DAL,G.Pickens,5,Tackled after catch,20,George Pickens,Tykee Smith
+TB,J.Parrish,DAL,J.Mingo,5,Tackled after catch,8,Jonathan Mingo,Jacob Parrish
+TB,T.Smith,DAL,J.Ferguson,5,Tackled after catch,6,Jake Ferguson,Tykee Smith
+TB,K.Scott,DAL,R.Flournoy,5,Tackled after catch,26,Ryan Flournoy,Keionte Scott
+TB,J.Trotter,DAL,G.Pickens,5,Tackled after catch,7,George Pickens,Josiah Trotter
+TB,K.Scott,DAL,J.Mingo,5,Tackled after catch,12,Jonathan Mingo,Keionte Scott
+TB,K.Scott,DAL,G.Pickens,5,Tackled after catch,9,George Pickens,Keionte Scott

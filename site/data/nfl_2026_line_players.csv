@@ -144,7 +144,8 @@ Quinnen Williams,DAL,DL,DT,4,189,0.727,4,38,0.69,Starter,1.0,3.0,4.0
 Donovan Ezeiruaku,DAL,DL,LB,4,182,0.708,4,41,0.75,Edge (LB),0.5,2.0,1.0
 Kenny Clark,DAL,DL,DT,4,179,0.688,4,35,0.64,Starter,0.0,2.0,0.0
 Rashan Gary,DAL,DL,LB,4,173,0.67,4,38,0.69,Edge (LB),1.0,3.0,1.0
-Otito Ogbonnia,DAL,DL,DT,4,126,0.48,4,17,0.31,Starter,0.0,2.0,0.0
+Otito Ogbonnia,DAL,DL,DT,4,126,0.48,4,17,0.31,Starter,0.0,2.0,2.0
+Malachi Lawrence,DAL,DL,LB,4,90,0.345,4,20,0.36,Edge (LB),1.0,2.0,1.0
 LT Overton,DAL,DL,DT,4,68,0.265,4,20,0.36,Starter,0.0,0.0,0.0
 Jonathan Bullard,DAL,DL,DT,3,64,0.317,4,0,0.0,Reserve,0.5,2.0,0.0
 Elijah Garcia,DAL,DL,DT,1,8,0.15,4,8,0.15,Reserve,0.0,0.0,0.0
@@ -530,14 +531,14 @@ Jarrett Patterson,SF,OL,OL,1,8,0.15,4,0,0.0,Reserve,,,
 Carver Willis,SF,OL,OL,1,6,0.12,4,0,0.0,Reserve,,,
 Alex Anzalone,TB,DL,LB,4,241,1.0,4,60,1.0,Edge (LB),1.0,1.0,1.0
 Vita Vea,TB,DL,NT,4,174,0.723,4,46,0.77,Starter,0.0,3.0,0.0
-Josiah Trotter,TB,DL,LB,3,156,0.857,4,50,0.83,Edge (LB),1.0,1.0,2.0
-Calijah Kancey,TB,DL,DL,4,151,0.627,4,34,0.57,Starter,0.0,1.0,0.0
+Josiah Trotter,TB,DL,LB,3,156,0.857,4,50,0.83,Edge (LB),1.0,1.0,3.0
+Calijah Kancey,TB,DL,DL,4,151,0.627,4,34,0.57,Starter,0.0,2.0,0.0
 A'Shawn Robinson,TB,DL,DL,4,122,0.505,4,29,0.48,Starter,1.0,2.0,1.0
 Al-Quadin Muhammad,TB,DL,LB,4,121,0.502,4,32,0.53,Edge (LB),0.0,2.0,0.0
 Anthony Nelson,TB,DL,LB,4,85,0.352,4,28,0.47,Edge (LB),1.0,1.0,1.0
 Elijah Roberts,TB,DL,DL,4,63,0.263,4,13,0.22,Reserve,0.0,0.0,2.0
 Rakeem Nunez-Roches,TB,DL,DL,3,56,0.31,4,19,0.32,Starter,0.0,0.0,1.0
-David Walker,TB,DL,LB,3,52,0.293,4,24,0.4,Edge (LB),2.0,2.0,3.0
+David Walker,TB,DL,LB,3,52,0.293,4,24,0.4,Edge (LB),2.0,3.0,3.0
 Elijah Simmons,TB,DL,DL,2,19,0.16,4,10,0.17,Reserve,0.0,0.0,1.0
 Ben Bredeson,TB,OL,G,4,254,1.0,4,63,1.0,Starter,,,
 Cody Mauch,TB,OL,G,4,254,1.0,4,63,1.0,Starter,,,

@@ -124,7 +124,7 @@ CAR,Xavier Legette,Injured Reserve,Knee
 CAR,Princely Umanmielen,Active,
 CAR,Nick Scott,Active,Scott (ribs) practiced fully Wednesday.
 CAR,Mike Jackson,Injured Reserve,Groin
-CHI,Anthony Johnson Jr.,Injured Reserve,Undisclosed
+CHI,Anthony Johnson Jr.,Out,Undisclosed
 CHI,Kyle Monangai,Questionable,Toe
 CHI,D'Andre Swift,Questionable,Hip
 CHI,Caleb Williams,Out,Hamstring
@@ -199,11 +199,13 @@ CLE,Denzel Boston,Active,Boston brought in four of seven targets for 89 yards in
 CLE,Harold Fannin Jr.,Active,Fannin secured three of five targets for 27 yards and a touchdown in the Browns' 27-24 win over the Steelers on Thursday.
 CLE,Deshaun Watson,Active,"Watson completed 24 of 33 passes for 268 yards with one touchdown and one interception while rushing seven times for 22 yards in the Browns' 27-24 win over the Steelers on Thursday. He also committed two fumbles, losing one."
 CLE,Quinshon Judkins,Active,Judkins rushed 17 times for 53 yards and a touchdown and brought in six of seven targets for 43 yards in the Browns' 27-24 win over the Steelers on Thursday.
+DAL,Jake Ferguson,Active,Ferguson brought in three of six targets for 19 yards in the Cowboys' 24-16 loss to the Buccaneers on Thursday night.
+DAL,Ryan Flournoy,Active,Flournoy brought in three of four targets for 90 yards in the Cowboys' 24-16 loss to the Buccaneers on Thursday night.
+DAL,Tyler Guyton,Questionable,Back
 DAL,Brandon Aubrey,Active,Aubrey made his only field-goal attempt and his lone extra-point try in a Week 5 loss to Tampa Bay on Thursday.
 DAL,Dak Prescott,Active,Prescott completed 24 of 42 passes for 316 yards with a touchdown and two interceptions in the Cowboys' 24-16 loss to the Buccaneers on Thursday night.
 DAL,Javonte Williams,Active,Williams rushed 12 times for 45 yards and a touchdown and brought in two of three targets for 17 yards in the Cowboys' 24-16 loss to the Buccaneers on Thursday night.
 DAL,George Pickens,Active,Pickens secured nine of 13 targets for 130 yards and a touchdown in the Cowboys' 24-16 loss to the Buccaneers on Thursday night.
-DAL,Tyler Guyton,Questionable,Back
 DAL,CeeDee Lamb,Questionable,Quadriceps
 DAL,Alijah Clark,Questionable,Hamstring
 DAL,Tyler Smith,Active,"Smith (thumb) is active for Thursday's game against the Buccaneers, Patrik Walker of the Cowboys' official site reports."
@@ -216,9 +218,7 @@ DAL,Ajani Cornelius,Out,Coach's Decision
 DAL,Joey Porter Jr.,Out,Illness
 DAL,Drew Shelton,Out,Hamstring
 DAL,Caleb Downs,Active,Downs recorded seven total tackles (five solo) during Sunday's 34-30 win over Houston.
-DAL,Ryan Flournoy,Active,Flournoy caught four of five targets for 37 yards in Dallas' 34-30 win over the Texans on Sunday.
 DAL,Caelen Carson,Active,
-DAL,Jake Ferguson,Active,Ferguson caught three of four targets for 11 yards in Sunday's 34-30 win over the Texans.
 DAL,Shavon Revel Jr.,Active,"Revel (knee, ankle) does not carry an injury designation heading into Sunday's game against the Texans."
 DAL,Malik Hooker,Active,Hooker (forearm) does not carry an injury designation ahead of Sunday's game against Houston.
 DAL,Jonathan Bullard,Injured Reserve,Calf
@@ -724,6 +724,8 @@ SEA,Brandon Pili,Active,
 SEA,Zach Charbonnet,Out,Knee - ACL
 SEA,Jason Myers,Active,Myers made his only field-goal try and went 3-for-4 on extra-point attempts during Sunday's 30-23 win against the Chargers.
 SEA,Rashid Shaheed,Active,Shaheed caught one of three targets for 20 yards in Sunday's 30-23 win over the Chargers. He added two carries for 33 yards and a touchdown.
+TB,Kenny Gainwell,Active,Gainwell rushed four times for 18 yards and brought in three of four targets for 10 yards in the Buccaneers' 24-16 win over the Cowboys on Thursday night.
+TB,Chase McLaughlin,Active,McLaughlin made his only field-goal attempt and all three extra-point tries Thursday in a 24-16 win against Dallas.
 TB,Jalon Daniels,Active,Daniels completed 19 of 25 passes for 189 yards with one touchdown and no interceptions while rushing seven times for 23 yards in the Buccaneers' 24-16 win over the Cowboys on Thursday night.
 TB,Chris Godwin Jr.,Active,Godwin secured all three targets for 37 yards and rushed once for three yards in the Buccaneers' 24-16 win over the Cowboys on Thursday night.
 TB,Emeka Egbuka,Active,Egbuka secured six of nine targets for 38 yards and rushed once for a 14-yard touchdown in the Buccaneers' 24-16 win over the Cowboys on Thursday night.
@@ -738,7 +740,6 @@ TB,Luke Haggard,Out,Coach's Decision
 TB,DeMonte Capehart,Out,Coach's Decision
 TB,Ko Kieft,Active,"Kieft (elbow) does not carry an injury designation into Thursday's game against the Cowboys, Brianna Dix of the Buccaneers' official site reports."
 TB,Anthony Nelson,Active,
-TB,Chase McLaughlin,Active,"Buccaneers head coach Todd Bowles said Wednesday that McLaughlin (groin/hip) will play Thursday against the Cowboys, Rick Stroud of the Tampa Bay Times reports."
 TB,Tykee Smith,Active,Smith recorded six tackles (four solo) and a forced fumble during the Buccaneers' 17-14 loss to the Packers on Sunday.
 TB,Jacob Parrish,Active,Parrish logged five solo tackles and two pass defenses (including an interception) during the Buccaneers' 17-14 loss to the Packers on Sunday.
 TB,Josiah Trotter,Active,Trotter (knee) was a full participant in practice Tuesday.
@@ -748,7 +749,6 @@ TB,Sean Tucker,Active,Tucker rushed three times for 10 yards and a touchdown in 
 TB,Cade Otton,Active,Otton caught four of six targets for 37 yards in Sunday's 17-14 loss to the Packers.
 TB,Ifeatu Melifonwu,Active,"Head coach Todd Bowles said Melifonwu is likely to start at safety Thursday night against Dallas, Jenna Laine of ESPN.com reports."
 TB,Rueben Bain Jr.,Active,"Bain (groin) was listed as a full participant on the Buccaneers' estimated injury report Monday, Brianna Dix of the team's official site reports."
-TB,Kenny Gainwell,Active,Gainwell rushed three times for five yards in Sunday's 17-14 loss to the Packers. He added two catches for 22 yards and a touchdown on two targets.
 TEN,David Martin-Robinson,Questionable,Hamstring
 TEN,Carnell Tate,Questionable,Back
 TEN,Gunnar Helm,Questionable,Knee
