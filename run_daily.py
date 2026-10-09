@@ -87,6 +87,10 @@ def main(force_week: int | None = None):
     # nflverse source, same non-critical treatment.
     run("14_defense_roster.py", critical=False)
 
+    # Pass location splits (left/middle/right x short/deep) -- same nflverse
+    # play-by-play source, same non-critical treatment.
+    run("15_pass_location.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
