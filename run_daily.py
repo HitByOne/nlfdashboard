@@ -83,6 +83,10 @@ def main(force_week: int | None = None):
     # same reason: a hiccup there shouldn't block the rest of the refresh.
     run("13_line_play.py", critical=False)
 
+    # Defensive personnel (DL/LB/CB/S) for the Defense Field tab -- same
+    # nflverse source, same non-critical treatment.
+    run("14_defense_roster.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
