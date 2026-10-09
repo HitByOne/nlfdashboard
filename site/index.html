@@ -319,6 +319,25 @@
   tbody tr.wk-band-a{background:transparent;}
   tbody tr.wk-band-b{background:rgba(227,169,59,0.10);}
   tbody tr.wk-band-a:hover,tbody tr.wk-band-b:hover{background:rgba(227,169,59,0.18);}
+
+  .df-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:16px;align-items:start;}
+  @media(max-width:900px){.df-wrap{grid-template-columns:1fr;}}
+  .df-field{width:100%;height:auto;border-radius:10px;border:1px solid var(--panel-border);display:block;background:#1d4a2e;}
+  .df-node{cursor:pointer;}
+  .df-node circle.body{stroke-width:3;transition:r .12s;}
+  .df-node:hover circle.body,.df-node.sel circle.body{r:26;}
+  .df-node.sel circle.body{stroke:var(--gold,#e3a93b)!important;}
+  .df-pos{font:700 11px sans-serif;fill:#fff;text-anchor:middle;pointer-events:none;}
+  .df-name{font:600 11px sans-serif;fill:#fff;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;}
+  .df-sub{font:500 10px sans-serif;fill:#dfe9e2;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;}
+  .df-side{font:700 12px sans-serif;fill:rgba(255,255,255,.55);letter-spacing:.08em;}
+  .df-detail h4{margin:0 0 4px;font-size:16px;}
+  .df-detail .df-kv{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+  .df-detail .df-kv span{background:rgba(255,255,255,0.06);border-radius:6px;padding:3px 8px;font-size:12px;}
+  .df-detail table{width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;}
+  .df-detail th{text-align:left;color:var(--chalk-dim,#9aa);font-weight:600;padding:3px 6px;}
+  .df-detail td{padding:3px 6px;border-top:1px solid var(--hash-line);}
+  .df-good{color:#33d6a6;} .df-bad{color:#ff5c6c;}
   .num{text-align:right;font-variant-numeric:tabular-nums;}
   .rank-badge{
     display:inline-block;min-width:22px;text-align:center;
@@ -514,6 +533,7 @@
       <button data-tab="epa">EPA / Efficiency</button>
       <button data-tab="coaching">Coaching Tendencies</button>
       <button data-tab="lines">Line Play</button>
+      <button data-tab="field">Defense Field</button>
       <button data-tab="sos">Strength of Schedule</button>
       <button data-tab="defense">Defense vs Position</button>
 
@@ -717,6 +737,8 @@ const CSV_FILES = {
   lineTeam:      'data/nfl_2026_line_team.csv',
   linePlayers:   'data/nfl_2026_line_players.csv',
   lineInjuries:  'data/nfl_2026_line_injuries.csv',
+  defenseRoster:   'data/nfl_2026_defense_roster.csv',
+  defenseCoverage: 'data/nfl_2026_defense_coverage.csv',
 };
 
 const TEAM_NAMES = {
@@ -2733,6 +2755,245 @@ function mountStreaks(){
     });
   });
   apply();
+}
+
+
+// ---------- TAB: DEFENSE FIELD ----------
+// Players drawn on a field in their position groups. IMPORTANT: the public
+// nflverse data has no alignment or coverage-assignment information, so this
+// is an illustrative 11-personnel / base-defense layout built from who plays
+// each position group (snap counts) -- not where anyone lined up on a snap.
+// The only coverage evidence is the "credited plays" log (pass breakups,
+// interceptions, tackles after a catch), shown as a proxy and labelled so.
+function dfLast(name){ const t = String(name).replace(/\b(Jr|Sr|II|III|IV)\.?$/i,'').trim().split(/\s+/); return t[t.length-1] || name; }
+function dfHealthColor(a){
+  if(a === 'Out' || a === 'Doubtful') return '#ff5c6c';
+  if(a === 'Questionable' || a === 'Limited' || (a||'').startsWith('DNP')) return '#e3a93b';
+  return '#33d6a6';
+}
+function dfSpread(n, lo, hi){
+  if(n <= 0) return [];
+  if(n === 1) return [(lo+hi)/2];
+  return Array.from({length:n}, (_, i) => lo + (hi-lo) * i / (n-1));
+}
+// Put edge players (DE) on the outside, interior (DT/NT) in the middle.
+function dfOrderFront(list, edgePos){
+  const edges = list.filter(p => edgePos.includes(p.Position));
+  const mid = list.filter(p => !edgePos.includes(p.Position));
+  const left = [], right = [];
+  edges.forEach((p, i) => (i % 2 === 0 ? left : right).push(p));
+  return [...left, ...mid, ...right.reverse()];
+}
+
+function dfDefenseNodes(team){
+  const all = (DATA.defenseRoster || []).filter(r => r.Team === team);
+  const byGroup = g => all.filter(r => r.Group === g);
+  const starters = g => byGroup(g).filter(r => r.Role === 'Starter').sort((a,b)=>num(b['Last Game Snaps'])-num(a['Last Game Snaps']));
+  const nodes = [];
+  const dl = dfOrderFront(starters('DL'), ['DE']);
+  const lb = dfOrderFront(starters('LB'), ['OLB']);
+  const cbAll = byGroup('CB').filter(r => r.Role === 'Starter' || r.Role === 'Nickel').sort((a,b)=>num(b['Last Game Snaps'])-num(a['Last Game Snaps']));
+  const cbs = cbAll.filter(r => r.Role === 'Starter'), nickel = cbAll.filter(r => r.Role === 'Nickel');
+  const safeties = starters('S');
+  dfSpread(dl.length, 175, 385).forEach((y, i) => nodes.push({p:dl[i], x:545, y, side:'D'}));
+  dfSpread(lb.length, 205, 405).forEach((y, i) => nodes.push({p:lb[i], x:625, y, side:'D', lab:'R'}));
+  cbs.forEach((p, i) => nodes.push({p, x:640, y: i === 0 ? 60 : 520, side:'D'}));
+  nickel.forEach(p => nodes.push({p, x:580, y:135, side:'D', nickel:true, lab:'R'}));
+  dfSpread(safeties.length, 190, 370).forEach((y, i) => nodes.push({p:safeties[i], x:800, y, side:'D'}));
+  return nodes;
+}
+
+function dfOffenseNodes(team){
+  const pg = (DATA.playerGame || []).filter(r => r.Team === team);
+  const by = {};
+  pg.forEach(r => { const k = r.Player + '|' + r.Position; (by[k] = by[k] || {Player:r.Player, Position:r.Position, games:[]}).games.push(r); });
+  const players = Object.values(by).map(o => {
+    const g = o.games.length, sum = k => o.games.reduce((a, r) => a + num(r[k]), 0);
+    return {...o, G:g, att:sum('Pass Attempts'), rushAtt:sum('Rush Attempts'), tgt:sum('Targets'), rec:sum('Receptions'),
+      recYds:sum('Receiving Yards'), rushYds:sum('Rush Yards'), passYds:sum('Pass Yards'), ptd:sum('Pass TD'), td:sum('Rush TD')+sum('Receiving TD')};
+  });
+  const top = (pos, key, n) => players.filter(p => p.Position === pos).sort((a,b)=>b[key]-a[key]).slice(0, n);
+  const qb = top('QB','att',1)[0], rb = top('RB','rushAtt',1)[0], wrs = top('WR','tgt',3), te = top('TE','tgt',1)[0];
+  const f = n => (Math.round(n*10)/10).toString();
+  const lines = {
+    QB: p => `${f(p.passYds/p.G)} pyd/g`, RB: p => `${f(p.rushYds/p.G)} ryd/g`,
+    WR: p => `${f(p.rec/p.G)} rec · ${f(p.recYds/p.G)} yd/g`, TE: p => `${f(p.rec/p.G)} rec · ${f(p.recYds/p.G)} yd/g`,
+  };
+  const nodes = [];
+  const add = (p, x, y, label) => { if(p) nodes.push({o:p, x, y, side:'O', label}); };
+  add(qb, 360, 280, 'QB'); add(rb, 300, 280, 'RB');
+  add(wrs[0], 455, 60, 'WR'); add(wrs[1], 455, 520, 'WR'); add(wrs[2], 370, 115, 'WR'); add(te, 470, 445, 'TE');
+  nodes.forEach(n => { if(n.label === 'TE') n.lab = 'L'; });
+  nodes.forEach(n => { n.sub = lines[n.o.Position](n.o); n.name = n.o.Player; n.posText = n.label; });
+  // Offensive line from the line-play table.
+  const ol = (DATA.linePlayers || []).filter(r => r.Team === team && r.Group === 'OL' && r.Role === 'Starter');
+  const T = ol.filter(r => r.Position === 'T'), G = ol.filter(r => r.Position === 'G'), C = ol.filter(r => r.Position === 'C'), O = ol.filter(r => !['T','G','C'].includes(r.Position));
+  let order = [T[0], G[0], C[0], G[1], T[1]].filter(Boolean);
+  if(order.length < ol.length) order = [...order, ...O, ...T.slice(2), ...G.slice(2), ...C.slice(1)];
+  dfSpread(order.length, 170, 390).forEach((y, i) => nodes.push({ol:order[i], x:470, y, side:'O', name:order[i].Player, posText:order[i].Position, sub:`${order[i].Games} G`}));
+  return nodes;
+}
+
+function dfFieldSvg(defNodes, offNodes, sel, defTeam, offTeam){
+  let g = '';
+  for(let i = 1; i < 10; i++){
+    const x = i * 100;
+    g += `<line x1="${x}" y1="0" x2="${x}" y2="580" stroke="rgba(255,255,255,${i === 5 ? 0.0 : 0.14})" stroke-width="2"/>`;
+  }
+  g += `<line x1="500" y1="0" x2="500" y2="580" stroke="#e3a93b" stroke-width="3" stroke-dasharray="8 6"/>`;
+  g += `<text class="df-side" x="20" y="28">OFFENSE &middot; ${offTeam}</text><text class="df-side" x="980" y="28" style="text-anchor:end">DEFENSE &middot; ${defTeam}</text>`;
+  const node = (n, i, kind) => {
+    const p = n.p, health = n.side === 'D' ? dfHealthColor(p.Availability) : '#8aa';
+    const fill = n.side === 'D' ? '#b8394a' : '#1f7d62';
+    const isSel = sel && sel.kind === kind && sel.i === i;
+    const pos = n.side === 'D' ? (n.nickel ? 'NCB' : p.Position) : n.posText;
+    const name = n.side === 'D' ? p.Player : n.name;
+    const sub = n.side === 'D' ? `${p.Role === 'Nickel' ? 'nickel · ' : ''}${Math.round(num(p['Last Game Snap Pct'])*100)}% snaps` : n.sub;
+    return `<g class="df-node ${isSel ? 'sel' : ''}" data-kind="${kind}" data-i="${i}">
+      <circle class="body" cx="${n.x}" cy="${n.y}" r="22" fill="${fill}" stroke="${health}"/>
+      <text class="df-pos" x="${n.x}" y="${n.y + 4}">${pos}</text>
+      ${(n.ol || n.lab) ? `<text class="df-name" style="text-anchor:${n.lab === 'R' ? 'start' : 'end'}" x="${n.lab === 'R' ? n.x + 30 : n.x - 30}" y="${n.y - 1}">${dfLast(name)}</text>
+      <text class="df-sub" style="text-anchor:${n.lab === 'R' ? 'start' : 'end'}" x="${n.lab === 'R' ? n.x + 30 : n.x - 30}" y="${n.y + 12}">${sub}</text>` : `<text class="df-name" x="${n.x}" y="${n.y + 40}">${dfLast(name)}</text>
+      <text class="df-sub" x="${n.x}" y="${n.y + 53}">${sub}</text>`}</g>`;
+  };
+  defNodes.forEach((n, i) => { g += node(n, i, 'D'); });
+  offNodes.forEach((n, i) => {
+    const o = n.o || n.ol;
+    const fake = {...n, p: o};
+    g += node(fake, i, 'O');
+  });
+  return `<svg class="df-field" viewBox="0 0 1000 580" role="img" aria-label="Offense and defense lined up on a field">${g}</svg>`;
+}
+
+// What did each receiver who faced this defense do versus their normal
+// output in OTHER games? Real, team-level, no coverage data required.
+function dfReceiversFaced(defTeam){
+  const pg = DATA.playerGame || [];
+  const faced = pg.filter(r => r.Opponent === defTeam && ['WR','TE','RB'].includes(r.Position));
+  const rows = [];
+  const seen = new Set();
+  faced.forEach(r => {
+    const key = r.Player + '|' + r.Team;
+    if(seen.has(key)) return; seen.add(key);
+    const others = pg.filter(x => x.Player === r.Player && x.Team === r.Team && x.Opponent !== defTeam);
+    const vs = faced.filter(x => x.Player === r.Player && x.Team === r.Team);
+    if(!others.length) return;
+    const avg = others.reduce((a, x) => a + num(x['Receiving Yards']), 0) / others.length;
+    const got = vs.reduce((a, x) => a + num(x['Receiving Yards']), 0) / vs.length;
+    rows.push({Player:r.Player, Team:r.Team, Pos:r.Position, avg, got, diff: got - avg, week: vs.map(x=>x.Week).join(',')});
+  });
+  return rows.sort((a, b) => b.avg - a.avg);
+}
+
+function dfDefenderDetail(p, defTeam){
+  const cov = (DATA.defenseCoverage || []).filter(c => c.Defender === p.Player && c.Team === defTeam);
+  const f0 = v => (v === '' || v == null || isNaN(parseFloat(v))) ? '--' : Math.round(parseFloat(v)*10)/10;
+  const avail = p.Availability && p.Availability !== 'Full' ? `<span style="color:${dfHealthColor(p.Availability)}">${p.Availability}${p.Injury ? ' - ' + p.Injury : ''}</span>` : '<span class="df-good">Healthy</span>';
+  const covRows = cov.sort((a,b)=>num(a.Week)-num(b.Week)).map(c => {
+    const pgRows = (DATA.playerGame || []).filter(x => x.Player === c.Receiver);
+    const mine = pgRows.filter(x => x.Opponent === defTeam && num(x.Week) === num(c.Week))[0];
+    const others = pgRows.filter(x => x.Opponent !== defTeam);
+    const avg = others.length ? others.reduce((a, x) => a + num(x['Receiving Yards']), 0) / others.length : null;
+    const got = mine ? num(mine['Receiving Yards']) : null;
+    const cls = (avg != null && got != null) ? (got < avg * 0.75 ? 'df-good' : (got > avg * 1.25 ? 'df-bad' : '')) : '';
+    return `<tr><td>W${c.Week}</td><td>${c.Event}${num(c.Yards) ? ' (' + c.Yards + ' yd)' : ''}</td><td>${c.Receiver}</td><td>${avg == null ? '--' : Math.round(avg)}</td><td class="${cls}">${got == null ? '--' : got}</td></tr>`;
+  }).join('');
+  return `<h4>${p.Player} <span class="player-preview-pos">${p.Position}${p.Role === 'Nickel' ? ' nickel' : ''}</span></h4>
+    <div class="df-kv"><span>${avail}</span><span>${p.Games} G · ${p.Snaps} snaps</span><span>${Math.round(num(p['Last Game Snap Pct'])*100)}% last game</span></div>
+    <div class="df-kv"><span>${f0(p.Tackles)} tkl</span><span>${f0(p['Pass Breakups'])} PBU</span><span>${f0(p.INT)} INT</span><span>${f0(p.Sacks)} sk</span><span>${f0(p['QB Hits'])} hits</span><span>${f0(p.TFL)} TFL</span></div>
+    <div class="line-sub-title">Credited plays against receivers <span class="panel-note" style="display:inline">(proxy)</span></div>
+    ${covRows ? `<table><thead><tr><th>Wk</th><th>Play</th><th>Receiver</th><th>His avg</th><th>Yds vs ${defTeam}</th></tr></thead><tbody>${covRows}</tbody></table>
+      <div class="line-note">Green = receiver held under 75% of his normal yards in other games. Only plays where this player is credited (breakup, INT, tackle after the catch) appear -- good coverage that never touches the ball is invisible in public data.</div>`
+      : `<div class="line-note">No credited plays against a named receiver yet.</div>`}`;
+}
+
+function dfOffenseDetail(n, defTeam){
+  const p = n.o;
+  if(!p){
+    const ol = n.ol;
+    return `<h4>${ol.Player} <span class="player-preview-pos">${ol.Position}</span></h4>
+      <div class="df-kv"><span>${ol.Games} G · ${ol.Snaps} snaps</span><span>${Math.round(num(ol['Last Game Snap Pct'])*100)}% last game</span></div>
+      <div class="line-note">Offensive line detail lives on the Line Play tab.</div>`;
+  }
+  const g = p.games.sort((a,b)=>num(a.Week)-num(b.Week));
+  const vs = g.filter(x => x.Opponent === defTeam);
+  const cov = (DATA.defenseCoverage || []).filter(c => c.Receiver === p.Player);
+  const rows = g.map(x => `<tr><td>W${x.Week}</td><td>${x.Opponent}</td><td>${x.Targets || 0}</td><td>${x.Receptions || 0}</td><td>${x['Receiving Yards'] || 0}</td><td>${x['Rush Yards'] || 0}</td></tr>`).join('');
+  const defRows = cov.map(c => `<tr><td>W${c.Week}</td><td>${c.Team}</td><td>${c.Defender}</td><td>${c.Event}</td></tr>`).join('');
+  return `<h4>${p.Player} <span class="player-preview-pos">${p.Position}</span></h4>
+    <div class="df-kv"><span>${p.G} G</span>${vs.length ? `<span>already faced ${defTeam}</span>` : ''}</div>
+    <table><thead><tr><th>Wk</th><th>Opp</th><th>Tgt</th><th>Rec</th><th>Rec Yd</th><th>Rush Yd</th></tr></thead><tbody>${rows}</tbody></table>
+    ${defRows ? `<div class="line-sub-title">Defenders credited against him (proxy)</div><table><thead><tr><th>Wk</th><th>Team</th><th>Defender</th><th>Play</th></tr></thead><tbody>${defRows}</tbody></table>` : ''}`;
+}
+
+function renderField(){
+  const teams = [...new Set((DATA.defenseRoster || []).map(r => r.Team))].sort();
+  if(!teams.length){
+    return `<div class="panel"><div class="panel-title">Defense Field</div>
+      <div class="empty">No defensive roster data yet. Run <code>14_defense_roster.py</code> (it is part of <code>run_daily.py</code>) to create <code>data/nfl_2026_defense_roster.csv</code>.</div></div>`;
+  }
+  const first = (DATA.week2 || [])[0];
+  const defTeam = first && teams.includes(first.Opponent) ? first.Opponent : teams[0];
+  const offTeam = first && teams.includes(first.Team) ? first.Team : teams[1] || teams[0];
+  const opts = sel => teams.map(t => `<option value="${t}" ${t === sel ? 'selected' : ''}>${teamName(t)}</option>`).join('');
+  return `
+  <div class="panel">
+    <div class="panel-title">Defense Field</div>
+    <div class="panel-note">Both units drawn by position group. <b>This is a layout, not a snap-by-snap alignment</b> -- the public data used here has no coverage assignments or left/right alignment, so a corner's spot is just "outside CB". Ring colour is injury status (green healthy, amber questionable/limited, red out). Click any player.
+    The "credited plays" log only counts breakups, interceptions and tackles after a catch, so it understates how much a good corner is really doing.</div>
+    <div class="controls">
+      <label class="ctl-label">Defense <select id="df-def">${opts(defTeam)}</select></label>
+      <button class="save-pick-btn" id="df-flip" type="button" title="Swap offense and defense">&#8644; Flip</button>
+      <label class="ctl-label">Offense <select id="df-off">${opts(offTeam)}</select></label>
+    </div>
+    <div class="df-wrap">
+      <div id="df-field"></div>
+      <div class="df-detail panel" id="df-detail"></div>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-title" id="df-faced-title"></div><div class="panel-note">Every WR/TE/RB who has faced this defense, compared with what he did in his other games. This is real team-level data and needs no coverage information.</div><div id="df-faced"></div></div>`;
+}
+
+function mountField(){
+  if(!$('#df-def')) return;
+  let selected = null, defNodes = [], offNodes = [];
+  function detail(){
+    const box = $('#df-detail');
+    const defTeam = $('#df-def').value;
+    if(!selected){ box.innerHTML = '<div class="empty" style="padding:20px 0;">Click a player to see details.</div>'; return; }
+    box.innerHTML = selected.kind === 'D' ? dfDefenderDetail(defNodes[selected.i].p, defTeam) : dfOffenseDetail(offNodes[selected.i], defTeam);
+  }
+  function draw(){
+    const defTeam = $('#df-def').value, offTeam = $('#df-off').value;
+    $('#df-field').innerHTML = dfFieldSvg(defNodes, offNodes, selected, defTeam, offTeam);
+    $$('#df-field .df-node').forEach(el => el.addEventListener('click', () => {
+      selected = {kind: el.dataset.kind, i: num(el.dataset.i)};
+      draw(); detail();
+    }));
+  }
+  function build(){
+    const defTeam = $('#df-def').value, offTeam = $('#df-off').value;
+    defNodes = dfDefenseNodes(defTeam);
+    offNodes = dfOffenseNodes(offTeam);
+    selected = null;
+    draw(); detail();
+    $('#df-faced-title').textContent = `Receivers who have faced ${teamName(defTeam)}`;
+    const rows = dfReceiversFaced(defTeam).map(r => ({...r, avg: Math.round(r.avg), got: Math.round(r.got), diff: Math.round(r.diff)}));
+    buildTable($('#df-faced'), [
+      {key:'Player', label:'Receiver'}, {key:'Team', label:'Team', render:teamChip}, {key:'Pos', label:'Pos'},
+      {key:'week', label:'Wk'},
+      {key:'avg', label:'His other-game avg yds', numeric:true},
+      {key:'got', label:`Yds vs ${defTeam}`, numeric:true},
+      {key:'diff', label:'Diff', numeric:true, render:v => `<span class="${v <= -15 ? 'df-good' : (v >= 15 ? 'df-bad' : '')}">${v > 0 ? '+' : ''}${v}</span>`},
+    ], rows, {defaultSort:'avg', defaultDir:'desc', limit:15});
+    if(!rows.length) $('#df-faced').innerHTML = '<div class="empty">No receivers with other-game history have faced this defense yet.</div>';
+  }
+  $('#df-def').addEventListener('change', build);
+  $('#df-off').addEventListener('change', build);
+  $('#df-flip').addEventListener('click', () => {
+    const a = $('#df-def').value; $('#df-def').value = $('#df-off').value; $('#df-off').value = a; build();
+  });
+  build();
 }
 
 // ---------- TAB: MILESTONE WATCH ----------
@@ -4968,6 +5229,7 @@ const renderers = {
   power: {render: renderPowerRankings, mount: mountPowerRankings},
   coaching: {render: renderCoaching, mount: mountCoaching},
   lines: {render: renderLines, mount: mountLines},
+  field: {render: renderField, mount: mountField},
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
@@ -4993,7 +5255,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
