@@ -321,7 +321,7 @@
   tbody tr.wk-band-a:hover,tbody tr.wk-band-b:hover{background:rgba(227,169,59,0.18);}
 
   .df-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:16px;align-items:start;}
-  @media(max-width:900px){.df-wrap{grid-template-columns:1fr;}}
+  @media(max-width:1350px){.df-wrap{grid-template-columns:1fr;}}
   .df-field{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,0.08);display:block;background:radial-gradient(ellipse at 50% 40%,#16372a 0%,#0d2119 70%,#0a1812 100%);box-shadow:0 10px 30px rgba(0,0,0,.35) inset;}
   .df-node{cursor:pointer;}
   .df-node .body{transition:transform .15s,filter .15s;transform-box:fill-box;transform-origin:center;}
@@ -2976,11 +2976,21 @@ function renderField(){
     return `<div class="panel"><div class="panel-title">Defense Field</div>
       <div class="empty">No defensive roster data yet. Run <code>14_defense_roster.py</code> (it is part of <code>run_daily.py</code>) to create <code>data/nfl_2026_defense_roster.csv</code>.</div></div>`;
   }
-  const first = (DATA.week2 || [])[0];
-  const defTeam = first && teams.includes(first.Opponent) ? first.Opponent : teams[0];
-  const offTeam = first && teams.includes(first.Team) ? first.Team : teams[1] || teams[0];
+  const schedule = matchupScheduleGames();
+  const first = schedule.find(g => teams.includes(g.away) && teams.includes(g.home));
+  const offTeam = first ? first.away : teams[0];
+  const defTeam = first ? first.home : teams[1] || teams[0];
+  const weekLabel = schedule.length && schedule[0].week ? ` (Week ${schedule[0].week})` : '';
+  const gameCards = schedule.map(g => {
+    const dt = new Date(g.date);
+    const when = isNaN(dt) ? 'TBD' : `${dt.toLocaleDateString('en-US', {weekday:'short'})} &middot; ${dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})}`;
+    return `<div class="mu-game" role="button" tabindex="0" data-away="${g.away}" data-home="${g.home}" title="${teamName(g.away)} at ${teamName(g.home)}">
+      <div class="mu-game-teams"><span class="mu-game-team" data-team="${g.away}">${g.away}</span><span class="mu-game-at">@</span><span class="mu-game-team" data-team="${g.home}">${g.home}</span></div>
+      <div class="mu-game-meta">${when}${g.spread ? ' &middot; ' + g.spread : ''}</div></div>`;
+  }).join('');
   const opts = sel => teams.map(t => `<option value="${t}" ${t === sel ? 'selected' : ''}>${teamName(t)}</option>`).join('');
   return `
+  <div class="mu-layout"><div class="mu-main">
   <div class="panel">
     <div class="panel-title">Defense Field</div>
     <div class="panel-note">Both units drawn by position group. <b>This is a layout, not a snap-by-snap alignment</b> -- the public data used here has no coverage assignments or left/right alignment, so a corner's spot is just "outside CB". Ring colour is injury status (green healthy, amber questionable/limited, red out). Click any player.
@@ -3002,7 +3012,13 @@ function renderField(){
       <label class="ctl-label"><input type="checkbox" id="df-shut-team"> Only the selected defense</label>
     </div>
     <div id="df-shut"></div></div>
-  <div class="panel"><div class="panel-title" id="df-faced-title"></div><div class="panel-note">Every WR/TE/RB who has faced this defense, compared with what he did in his other games. This is real team-level data and needs no coverage information.</div><div id="df-faced"></div></div>`;
+  <div class="panel"><div class="panel-title" id="df-faced-title"></div><div class="panel-note">Every WR/TE/RB who has faced this defense, compared with what he did in his other games. This is real team-level data and needs no coverage information.</div><div id="df-faced"></div></div>
+  </div>
+  <aside class="mu-schedule panel">
+    <div class="panel-title">This Week's Games${weekLabel}</div>
+    <div class="panel-note" style="margin-bottom:10px;">Click a game to load it (away team on offense, home on defense). Click a team to put that team on offense instead. Flip swaps sides.</div>
+    <div id="df-schedule-list">${gameCards || '<div class="empty" style="padding:8px 0;">No schedule loaded yet for this week.</div>'}</div>
+  </aside></div>`;
 }
 
 function mountField(){
@@ -3066,8 +3082,32 @@ function mountField(){
       if(i >= 0){ selected = {kind:'D', i}; draw(); detail(); $('#df-field').scrollIntoView({behavior:'smooth', block:'center'}); }
     }));
   }
+  function syncSchedule(){
+    const off = $('#df-off').value, def = $('#df-def').value;
+    $$('#df-schedule-list .mu-game').forEach(card => {
+      const a = card.dataset.away, h = card.dataset.home;
+      const active = (off === a && def === h) || (off === h && def === a);
+      card.classList.toggle('active', active);
+      $$('.mu-game-team', card).forEach(t => t.classList.toggle('offense', active && t.dataset.team === off));
+    });
+  }
+  function pickFromGame(card, teamEl){
+    const away = card.dataset.away, home = card.dataset.home;
+    const off = teamEl ? teamEl.dataset.team : away;
+    const def = off === away ? home : away;
+    const has = (el, v) => [...el.options].some(o => o.value === v);
+    if(!has($('#df-off'), off) || !has($('#df-def'), def)) return;
+    $('#df-off').value = off; $('#df-def').value = def; build();
+  }
+  const sl = $('#df-schedule-list');
+  sl.addEventListener('click', e => { const c = e.target.closest('.mu-game'); if(c) pickFromGame(c, e.target.closest('.mu-game-team')); });
+  sl.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const c = e.target.closest('.mu-game'); if(!c) return;
+    e.preventDefault(); pickFromGame(c, e.target.closest('.mu-game-team'));
+  });
   const _build = build;
-  build = function(){ _build(); shutTable(); };
+  build = function(){ _build(); shutTable(); syncSchedule(); };
   $$('#df-grp-pills .pill').forEach(pl => pl.addEventListener('click', () => {
     $$('#df-grp-pills .pill').forEach(x => x.classList.remove('active')); pl.classList.add('active');
     shutGroup = pl.dataset.g; shutTable();
