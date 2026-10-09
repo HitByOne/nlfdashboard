@@ -1,52 +1,64 @@
 Team,Player,Group,Position,Availability,Report Status,Practice Status,Injury,Role,Season Snaps,Week
+ARI,Jordan Burch,DL,LB,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - personal matter,Edge (LB),108,5
+ARI,Walter Nolen,DL,DT,Limited,,Limited Participation in Practice,Calf,Starter,150,5
+ARI,Isaiah Adams,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Reserve,165,5
+ATL,Divine Deablo,DL,LB,Limited,,Limited Participation in Practice,Hamstring,Edge (LB),247,5
 ATL,Yasir Abdullah,DL,LB,DNP (no game status yet),,Did Not Participate In Practice,Hamstring,Edge (LB),84,5
 ATL,Za'Darius Smith,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Concussion,Reserve,78,5
-ATL,Cameron Thomas,DL,DE,Limited,,Limited Participation in Practice,Shoulder,Starter,164,5
-ATL,Jake Matthews,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Groin,Reserve,211,5
-ATL,Michael Jerrell,OL,T,Limited,,Limited Participation in Practice,Ankle,Starter,75,5
+ATL,Samson Ebukam,DL,DE,Limited,,Limited Participation in Practice,Hamstring,Starter,101,5
+ATL,Jake Matthews,OL,T,Limited,,Limited Participation in Practice,Groin,Reserve,211,5
 BAL,Trey Hendrickson,DL,LB,DNP (no game status yet),,Did Not Participate In Practice,Finger,Edge (LB),121,5
-BAL,Calais Campbell,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,132,5
-BAL,Andrew Vorhees,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Foot,Reserve,36,5
+BAL,Cam Jurgens,OL,C,DNP (no game status yet),,Did Not Participate In Practice,Concussion,No snaps yet,0,5
+BAL,Andrew Vorhees,OL,G,Limited,,Limited Participation in Practice,Foot,Reserve,36,5
 BAL,John Simpson,OL,G,Limited,,Limited Participation in Practice,Groin,Starter,254,5
-CHI,Shemar Turner,DL,DE,Limited,,Limited Participation in Practice,Knee,No snaps yet,0,5
-CHI,Grady Jarrett,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,143,5
-CHI,Joe Thuney,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Pectoral,Starter,314,5
-CHI,Jonah Jackson,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,314,5
-CHI,Darnell Wright,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,314,5
-CIN,Barrett Carter,DL,LB,Limited,,Limited Participation in Practice,Ankle,Edge (LB),260,5
+BUF,Ed Oliver,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Knee,Reserve,117,5
+BUF,Landon Jackson,DL,DE,Limited,,Limited Participation in Practice,Knee,Starter,112,5
+CHI,Joe Thuney,OL,G,Limited,,Limited Participation in Practice,Pectoral,Starter,314,5
+CHI,Jonah Jackson,OL,G,Limited,,Limited Participation in Practice,Ankle,Starter,314,5
+CHI,Darnell Wright,OL,T,Limited,,Limited Participation in Practice,Ankle,Starter,314,5
+CIN,B.J. Hill,DL,DT,Limited,,Limited Participation in Practice,Achilles,Reserve,24,5
 CIN,Jonathan Allen,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,174,5
 CIN,Dexter Lawrence,DL,DT,Limited,,Limited Participation in Practice,Wrist,Starter,182,5
 CIN,Dalton Risner,OL,G,Limited,,Limited Participation in Practice,Knee,Starter,257,5
-CLE,Kalia Davis,DL,DT,Limited,,Limited Participation in Practice,Quadricep,No snaps yet,0,5
+CLE,Kalia Davis,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Quadricep,No snaps yet,0,5
 CLE,Mike Hall Jr.,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Ankle,No snaps yet,0,5
-CLE,Derek Barnett,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Reserve,99,5
+CLE,Derek Barnett,DL,DE,Limited,,Limited Participation in Practice,Ankle,Reserve,99,5
 CLE,Mason Graham,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Knee,Reserve,138,5
 CLE,Teven Jenkins,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Back,No snaps yet,0,5
-DAL,Tyler Smith,OL,G,Questionable,Questionable,Full Participation in Practice,Thumb,No snaps yet,0,5
 DAL,Drew Shelton,OL,T,Out,Out,Did Not Participate In Practice,Hamstring,Reserve,5,5
+DAL,Tyler Smith,OL,G,Questionable,Questionable,Full Participation in Practice,Thumb,Starter,60,5
+DEN,D.J. Jones,DL,DT,Limited,,Limited Participation in Practice,Not injury related - resting player,Starter,137,5
 DET,D.J. Wonnum,DL,DE,Limited,,Limited Participation in Practice,Back,Starter,176,5
-DET,Tyleik Williams,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Foot,Starter,162,5
+DET,Tyleik Williams,DL,DT,Limited,,Limited Participation in Practice,Foot,Starter,162,5
 DET,Cade Mays,OL,C,Limited,,Limited Participation in Practice,Wrist,No snaps yet,0,5
 DET,Ben Bartch,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Foot,Reserve,131,5
 GB,Devonte Wyatt,DL,DT,Limited,,Limited Participation in Practice,Ankle,Reserve,136,5
 GB,Anthony Campbell,DL,DT,Limited,,Limited Participation in Practice,Ankle,Reserve,9,5
 GB,Aaron Banks,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Knee,Reserve,22,5
 GB,Jacob Monk,OL,C,DNP (no game status yet),,Did Not Participate In Practice,Quadricep,Reserve,186,5
-GB,Jager Burton,OL,C,DNP (no game status yet),,Did Not Participate In Practice,Back,Reserve,89,5
+GB,Jager Burton,OL,C,Limited,,Limited Participation in Practice,Back,Reserve,89,5
 GB,Anthony Belton,OL,T,Limited,,Limited Participation in Practice,Knee,Starter,186,5
-HOU,Kayden McDonald,DL,DT,Limited,,Limited Participation in Practice,Ankle,No snaps yet,0,5
-HOU,Jadeveon Clowney,DL,DE,Limited,,Limited Participation in Practice,Knee,Reserve,50,5
-HOU,Logan Hall,DL,DE,Limited,,Limited Participation in Practice,Knee,Reserve,101,5
-HOU,Will Anderson Jr.,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,217,5
-HOU,Braden Smith,OL,T,Limited,,Limited Participation in Practice,Foot,No snaps yet,0,5
-HOU,Nathan Thomas,OL,T,Limited,,Limited Participation in Practice,Illness,No snaps yet,0,5
+HOU,Will Anderson Jr.,DL,DE,Limited,,Limited Participation in Practice,Ankle,Starter,217,5
+HOU,Blake Fisher,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Illness,Reserve,26,5
 HOU,Trent Brown,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,268,5
+HOU,Ed Ingram,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Illness,Starter,134,5
+HOU,Aireontae Ersery,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Illness,Starter,268,5
 IND,Arden Key,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Hamstring,Reserve,171,5
-IND,Tanor Bortolini,OL,C,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,256,5
+IND,Grover Stewart,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,160,5
+IND,Tanor Bortolini,OL,C,Limited,,Limited Participation in Practice,Ankle,Starter,256,5
 JAX,Josh Hines-Allen,DL,DE,Limited,,Limited Participation in Practice,Groin,Starter,193,5
 JAX,DaVon Hamilton,DL,DT,Limited,,Limited Participation in Practice,Foot,Starter,114,5
 JAX,Cole Van Lanen,OL,T,Limited,,Limited Participation in Practice,Knee,Starter,215,5
 JAX,Anton Harrison,OL,T,Limited,,Limited Participation in Practice,Elbow,Starter,239,5
+LAC,Dalvin Tomlinson,DL,DT,Limited,,Limited Participation in Practice,Hamstring,Reserve,65,5
+LAC,Branson Taylor,OL,G,Limited,,Limited Participation in Practice,Neck,No snaps yet,0,5
+LAC,Kayode Awosika,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Fibula,Reserve,85,5
+LAC,Joe Alt,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Neck,Reserve,218,5
+LAC,Rashawn Slater,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,252,5
+LAC,Trevor Penning,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Concussion,Starter,141,5
+LAR,Aaron Donald,DL,DT,Limited,,Limited Participation in Practice,Back,Reserve,68,5
+LV,Trey Zuhn III,OL,C,Limited,,Limited Participation in Practice,Knee,Reserve,12,5
+LV,Spencer Burford,OL,G,Limited,,Limited Participation in Practice,Knee,Starter,285,5
 MIA,Rob Beal Jr.,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Hamstring,No snaps yet,0,5
 MIA,Kenneth Grant,DL,DT,Limited,,Limited Participation in Practice,Toe,No snaps yet,0,5
 MIA,Austin Jackson,OL,T,Limited,,Limited Participation in Practice,Knee,Starter,227,5
@@ -56,17 +68,24 @@ NE,Christian Elliss,DL,LB,Limited,,Limited Participation in Practice,Chest,Edge 
 NE,Christian Barmore,DL,DT,Limited,,Limited Participation in Practice,Shoulder,Reserve,94,5
 NE,Morgan Moses,OL,T,Limited,,Limited Participation in Practice,Foot,Starter,241,5
 NO,Kaden Elliss,DL,LB,DNP (no game status yet),,Did Not Participate In Practice,Calf,Edge (LB),205,5
+NO,Davon Godchaux,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Groin,Reserve,107,5
+NO,Jeremiah Wright,OL,G,Limited,,Limited Participation in Practice,Concussion,No snaps yet,0,5
 NYG,Chauncey Golston,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Neck,Starter,127,5
-NYG,Andrew Thomas,OL,T,DNP (no game status yet),,Did Not Participate In Practice,Groin,Starter,258,5
+NYG,Andrew Thomas,OL,T,Limited,,Limited Participation in Practice,Groin,Starter,258,5
 NYJ,Kingsley Enagbare,DL,DE,Limited,,Limited Participation in Practice,Knee,Reserve,111,5
 NYJ,Dylan Parham,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Knee,Reserve,179,5
-PIT,Cameron Heyward,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Not injury related - resting player,Starter,156,5
-TB,Anthony Nelson,DL,LB,Limited,,Limited Participation in Practice,Illness,Edge (LB),85,5
-TEN,John Franklin-Myers,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Back,Starter,145,5
-TEN,Jeffery Simmons,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Back,Starter,232,5
+PHI,Jihaad Campbell,DL,LB,Limited,,Limited Participation in Practice,Knee,Edge (LB),263,5
+PHI,Fred Johnson,OL,T,Limited,,Limited Participation in Practice,Knee,No snaps yet,0,5
+PHI,Drew Kendall,OL,C,DNP (no game status yet),,Did Not Participate In Practice,Knee,Starter,187,5
+SEA,Ernest Jones,DL,LB,Limited,,Limited Participation in Practice,Not injury related - resting player,Edge (LB),259,5
+SEA,Leonard Williams,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Starter,181,5
+SF,Mykel Williams,DL,DE,Limited,,Limited Participation in Practice,Knee,No snaps yet,0,5
+SF,Nick Bosa,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Knee,Reserve,76,5
+SF,James Thompson Jr.,DL,DT,DNP (no game status yet),,Did Not Participate In Practice,Ankle,Reserve,42,5
+TB,Anthony Nelson,DL,LB,Limited,,Limited Participation in Practice,Illness,Edge (LB),89,5
+TEN,John Franklin-Myers,DL,DE,Limited,,Limited Participation in Practice,Back,Starter,145,5
+TEN,Jeffery Simmons,DL,DT,Limited,,Limited Participation in Practice,Back,Starter,232,5
 WSH,Frankie Luvu,DL,LB,Limited,,Limited Participation in Practice,Groin,Edge (LB),92,5
-WSH,Sonny Styles,DL,LB,Limited,,Limited Participation in Practice,Groin,Edge (LB),219,5
 WSH,Deatrich Wise,DL,DE,Limited,,Limited Participation in Practice,Quadricep,No snaps yet,0,5
 WSH,Charles Omenihu,DL,DE,DNP (no game status yet),,Did Not Participate In Practice,Groin,Reserve,110,5
-WSH,Sam Cosmi,OL,G,Limited,,Limited Participation in Practice,Concussion,No snaps yet,0,5
-WSH,Nick Allegretti,OL,G,Limited,,Limited Participation in Practice,Hip,Reserve,210,5
+WSH,Nick Allegretti,OL,G,DNP (no game status yet),,Did Not Participate In Practice,Hip,Reserve,210,5
