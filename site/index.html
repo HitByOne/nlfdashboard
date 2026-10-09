@@ -322,15 +322,20 @@
 
   .df-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:16px;align-items:start;}
   @media(max-width:900px){.df-wrap{grid-template-columns:1fr;}}
-  .df-field{width:100%;height:auto;border-radius:10px;border:1px solid var(--panel-border);display:block;background:#1d4a2e;}
+  .df-field{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,0.08);display:block;background:radial-gradient(ellipse at 50% 40%,#16372a 0%,#0d2119 70%,#0a1812 100%);box-shadow:0 10px 30px rgba(0,0,0,.35) inset;}
   .df-node{cursor:pointer;}
-  .df-node circle.body{stroke-width:3;transition:r .12s;}
-  .df-node:hover circle.body,.df-node.sel circle.body{r:26;}
-  .df-node.sel circle.body{stroke:var(--gold,#e3a93b)!important;}
-  .df-pos{font:700 11px sans-serif;fill:#fff;text-anchor:middle;pointer-events:none;}
-  .df-name{font:600 11px sans-serif;fill:#fff;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;}
-  .df-sub{font:500 10px sans-serif;fill:#dfe9e2;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;}
-  .df-side{font:700 12px sans-serif;fill:rgba(255,255,255,.55);letter-spacing:.08em;}
+  .df-node .body{transition:transform .15s,filter .15s;transform-box:fill-box;transform-origin:center;}
+  .df-node:hover .body{transform:scale(1.12);}
+  .df-node.sel .body{filter:drop-shadow(0 0 8px #e3a93b);transform:scale(1.15);}
+  .df-node.sel .ring{stroke:#e3a93b!important;}
+  .df-pos{font:700 10px sans-serif;fill:#fff;text-anchor:middle;letter-spacing:.04em;pointer-events:none;}
+  .df-name{font:600 11px sans-serif;fill:#f3f6f4;text-anchor:middle;pointer-events:none;}
+  .df-sub{font:500 9.5px sans-serif;fill:rgba(223,233,226,.62);text-anchor:middle;pointer-events:none;}
+  .df-side{font:700 11px sans-serif;fill:rgba(255,255,255,.4);letter-spacing:.18em;}
+  .df-badge{font:700 9px sans-serif;fill:#1b1405;text-anchor:middle;pointer-events:none;}
+  .df-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--chalk-dim,#9aa);margin:8px 2px 0;}
+  .df-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+  .df-star{color:#e3a93b;font-weight:700;}
   .df-detail h4{margin:0 0 4px;font-size:16px;}
   .df-detail .df-kv{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
   .df-detail .df-kv span{background:rgba(255,255,255,0.06);border-radius:6px;padding:3px 8px;font-size:12px;}
@@ -2834,35 +2839,74 @@ function dfOffenseNodes(team){
   return nodes;
 }
 
+// "Shutdown corner" evidence from the credited-plays log. A receiver counts as
+// HELD when the defender is credited on a play against him (breakup, INT or
+// tackle after the catch) AND that receiver finished the game under 75% of his
+// yards in other games, with a normal output of at least 40 yds/g. It is a
+// proxy: coverage that never touches the ball cannot be seen in public data.
+let _dfShutCache = {src:null, val:null};
+function dfShutdownMap(){
+  if(_dfShutCache.src === DATA.defenseCoverage) return _dfShutCache.val;
+  const pg = DATA.playerGame || [];
+  const byPlayer = {};
+  pg.forEach(r => { (byPlayer[r.Player] = byPlayer[r.Player] || []).push(r); });
+  const map = {};
+  (DATA.defenseCoverage || []).forEach(c => {
+    const key = c.Team + '|' + c.Defender;
+    const e = map[key] || (map[key] = {Defender:c.Defender, Team:c.Team, plays:0, pbu:0, ints:0, held:{}});
+    e.plays++;
+    if(c.Event === 'Pass breakup') e.pbu++;
+    if(c.Event === 'Interception') e.ints++;
+    const rows = byPlayer[c.Receiver] || [];
+    const others = rows.filter(x => x.Opponent !== c.Team);
+    const mine = rows.filter(x => x.Opponent === c.Team && num(x.Week) === num(c.Week))[0];
+    if(!others.length || !mine) return;
+    const avg = others.reduce((a, x) => a + num(x['Receiving Yards']), 0) / others.length;
+    const got = num(mine['Receiving Yards']);
+    if(avg >= 40 && got <= avg * 0.75) e.held[c.Receiver + '|' + c.Week] = {Receiver:c.Receiver, Week:num(c.Week), avg:Math.round(avg), got};
+  });
+  Object.values(map).forEach(e => { e.heldList = Object.values(e.held).sort((a,b)=>b.avg-a.avg); e.heldCount = e.heldList.length; });
+  _dfShutCache = {src: DATA.defenseCoverage, val: map};
+  return map;
+}
+
 function dfFieldSvg(defNodes, offNodes, sel, defTeam, offTeam){
-  let g = '';
+  const shut = dfShutdownMap();
+  let g = '<defs><linearGradient id="dfg" x1="0" x2="1"><stop offset="0" stop-color="rgba(31,125,98,.07)"/><stop offset=".5" stop-color="rgba(255,255,255,0)"/><stop offset="1" stop-color="rgba(184,57,74,.08)"/></linearGradient></defs><rect width="1000" height="580" fill="url(#dfg)"/>';
   for(let i = 1; i < 10; i++){
+    if(i === 5) continue;
     const x = i * 100;
-    g += `<line x1="${x}" y1="0" x2="${x}" y2="580" stroke="rgba(255,255,255,${i === 5 ? 0.0 : 0.14})" stroke-width="2"/>`;
+    g += `<line x1="${x}" y1="0" x2="${x}" y2="580" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+    for(let y = 20; y < 580; y += 40) g += `<line x1="${x-3}" y1="${y}" x2="${x+3}" y2="${y}" stroke="rgba(255,255,255,0.10)"/>`;
   }
-  g += `<line x1="500" y1="0" x2="500" y2="580" stroke="#e3a93b" stroke-width="3" stroke-dasharray="8 6"/>`;
-  g += `<text class="df-side" x="20" y="28">OFFENSE &middot; ${offTeam}</text><text class="df-side" x="980" y="28" style="text-anchor:end">DEFENSE &middot; ${defTeam}</text>`;
+  g += `<line x1="500" y1="0" x2="500" y2="580" stroke="#e3a93b" stroke-opacity=".75" stroke-width="2" stroke-dasharray="3 7" stroke-linecap="round"/>`;
+  g += `<text class="df-side" x="24" y="30">OFFENSE &middot; ${offTeam}</text><text class="df-side" x="976" y="30" style="text-anchor:end">DEFENSE &middot; ${defTeam}</text>`;
   const node = (n, i, kind) => {
-    const p = n.p, health = n.side === 'D' ? dfHealthColor(p.Availability) : '#8aa';
-    const fill = n.side === 'D' ? '#b8394a' : '#1f7d62';
+    const p = n.p, isDef = n.side === 'D';
+    const accent = isDef ? '#ff6b7d' : '#3fe0b4';
     const isSel = sel && sel.kind === kind && sel.i === i;
-    const pos = n.side === 'D' ? (n.nickel ? 'NCB' : p.Position) : n.posText;
-    const name = n.side === 'D' ? p.Player : n.name;
-    const sub = n.side === 'D' ? `${p.Role === 'Nickel' ? 'nickel · ' : ''}${Math.round(num(p['Last Game Snap Pct'])*100)}% snaps` : n.sub;
+    const pos = isDef ? (n.nickel ? 'NCB' : p.Position) : n.posText;
+    const name = isDef ? p.Player : n.name;
+    const sub = isDef ? `${p.Role === 'Nickel' ? 'nickel · ' : ''}${Math.round(num(p['Last Game Snap Pct'])*100)}% snaps` : n.sub;
+    const s2 = isDef ? shut[defTeam + '|' + p.Player] : null;
+    const held = s2 ? s2.heldCount : 0;
+    const dot = isDef ? `<circle cx="${n.x + 15}" cy="${n.y - 15}" r="5" fill="${dfHealthColor(p.Availability)}" stroke="#0d2119" stroke-width="2"/>` : '';
+    const badge = held > 0 ? `<g><rect x="${n.x - 17}" y="${n.y - 36}" width="34" height="14" rx="7" fill="#e3a93b"/><text class="df-badge" x="${n.x}" y="${n.y - 26}">&#9733; ${held}</text></g>` : '';
+    const lab = (n.ol || n.lab);
+    const right = n.lab === 'R';
+    const tx = right ? n.x + 29 : n.x - 29, anchor = right ? 'start' : 'end';
+    const labels = lab
+      ? `<text class="df-name" style="text-anchor:${anchor}" x="${tx}" y="${n.y - 1}">${dfLast(name)}</text><text class="df-sub" style="text-anchor:${anchor}" x="${tx}" y="${n.y + 12}">${sub}</text>`
+      : `<text class="df-name" x="${n.x}" y="${n.y + 38}">${dfLast(name)}</text><text class="df-sub" x="${n.x}" y="${n.y + 51}">${sub}</text>`;
     return `<g class="df-node ${isSel ? 'sel' : ''}" data-kind="${kind}" data-i="${i}">
-      <circle class="body" cx="${n.x}" cy="${n.y}" r="22" fill="${fill}" stroke="${health}"/>
-      <text class="df-pos" x="${n.x}" y="${n.y + 4}">${pos}</text>
-      ${(n.ol || n.lab) ? `<text class="df-name" style="text-anchor:${n.lab === 'R' ? 'start' : 'end'}" x="${n.lab === 'R' ? n.x + 30 : n.x - 30}" y="${n.y - 1}">${dfLast(name)}</text>
-      <text class="df-sub" style="text-anchor:${n.lab === 'R' ? 'start' : 'end'}" x="${n.lab === 'R' ? n.x + 30 : n.x - 30}" y="${n.y + 12}">${sub}</text>` : `<text class="df-name" x="${n.x}" y="${n.y + 40}">${dfLast(name)}</text>
-      <text class="df-sub" x="${n.x}" y="${n.y + 53}">${sub}</text>`}</g>`;
+      <g class="body"><circle class="ring" cx="${n.x}" cy="${n.y}" r="21" fill="rgba(13,25,22,.92)" stroke="${held > 0 ? '#e3a93b' : accent}" stroke-width="${held > 0 ? 3 : 2}"/>
+      <circle cx="${n.x}" cy="${n.y}" r="15" fill="${accent}" fill-opacity=".16"/>
+      <text class="df-pos" x="${n.x}" y="${n.y + 3.5}">${pos}</text>${dot}</g>${badge}${labels}</g>`;
   };
   defNodes.forEach((n, i) => { g += node(n, i, 'D'); });
-  offNodes.forEach((n, i) => {
-    const o = n.o || n.ol;
-    const fake = {...n, p: o};
-    g += node(fake, i, 'O');
-  });
-  return `<svg class="df-field" viewBox="0 0 1000 580" role="img" aria-label="Offense and defense lined up on a field">${g}</svg>`;
+  offNodes.forEach((n, i) => { g += node({...n, p: n.o || n.ol}, i, 'O'); });
+  return `<svg class="df-field" viewBox="0 0 1000 580" role="img" aria-label="Offense and defense lined up on a field">${g}</svg>
+  <div class="df-legend"><span><i style="background:#ff6b7d"></i>Defense</span><span><i style="background:#3fe0b4"></i>Offense</span><span><i style="background:#33d6a6"></i>Healthy</span><span><i style="background:#e3a93b"></i>Questionable / limited</span><span><i style="background:#ff5c6c"></i>Out</span><span><span class="df-star">&#9733; n</span> = receivers this player is credited against who finished under 75% of their normal yards</span></div>`;
 }
 
 // What did each receiver who faced this defense do versus their normal
@@ -2951,6 +2995,13 @@ function renderField(){
       <div class="df-detail panel" id="df-detail"></div>
     </div>
   </div>
+  <div class="panel"><div class="panel-title">Shutdown Corner Watch</div>
+    <div class="panel-note">Ranks defenders by how many receivers they are <b>credited against</b> (breakup, interception or tackle after the catch) who then finished under 75% of their normal yards, counting only receivers who normally get 40+ yds/g. It is a floor, not a full picture: a corner who erases his man without touching the ball does not show up, and early-season samples are small. Click a row to jump to that player on the field.</div>
+    <div class="controls">
+      <div class="pill-group" id="df-grp-pills"><span class="pill active" data-g="CB">CB</span><span class="pill" data-g="S">S</span><span class="pill" data-g="LB">LB</span><span class="pill" data-g="">All</span></div>
+      <label class="ctl-label"><input type="checkbox" id="df-shut-team"> Only the selected defense</label>
+    </div>
+    <div id="df-shut"></div></div>
   <div class="panel"><div class="panel-title" id="df-faced-title"></div><div class="panel-note">Every WR/TE/RB who has faced this defense, compared with what he did in his other games. This is real team-level data and needs no coverage information.</div><div id="df-faced"></div></div>`;
 }
 
@@ -2988,8 +3039,42 @@ function mountField(){
     ], rows, {defaultSort:'avg', defaultDir:'desc', limit:15});
     if(!rows.length) $('#df-faced').innerHTML = '<div class="empty">No receivers with other-game history have faced this defense yet.</div>';
   }
-  $('#df-def').addEventListener('change', build);
-  $('#df-off').addEventListener('change', build);
+  let shutGroup = 'CB';
+  function shutTable(){
+    const defTeam = $('#df-def').value, only = $('#df-shut-team').checked;
+    const roster = {};
+    (DATA.defenseRoster || []).forEach(r => { roster[r.Team + '|' + r.Player] = r; });
+    const rows = Object.values(dfShutdownMap()).map(e => ({...e, r: roster[e.Team + '|' + e.Defender]}))
+      .filter(e => e.r && (!shutGroup || e.r.Group === shutGroup) && (!only || e.Team === defTeam) && e.plays >= 2)
+      .map(e => ({Defender:e.Defender, Team:e.Team, Pos:e.r.Position, held:e.heldCount, plays:e.plays, pbu:e.pbu, ints:e.ints, who:e.heldList}));
+    const box = $('#df-shut');
+    if(!rows.length){ box.innerHTML = '<div class="empty">No defenders match yet. This needs the defensive coverage file (run 14_defense_roster.py) and a few weeks of games.</div>'; return; }
+    buildTable(box, [
+      {key:'Defender', label:'Defender', render:v => `<b>${v}</b>`}, {key:'Team', label:'Team', render:teamChip}, {key:'Pos', label:'Pos'},
+      {key:'held', label:'Receivers held', numeric:true, render:v => v ? `<span class="df-star">&#9733; ${v}</span>` : '0'},
+      {key:'plays', label:'Credited plays', numeric:true}, {key:'pbu', label:'PBU', numeric:true}, {key:'ints', label:'INT', numeric:true},
+      {key:'who', label:'Held (normal avg &rarr; that game)', render:l => l.map(x => `${dfLast(x.Receiver)} ${x.avg}&rarr;${x.got} (W${x.Week})`).join(' &middot; ')},
+    ], rows, {defaultSort:'held', defaultDir:'desc', limit:25});
+    $$('#df-shut tbody tr', box).forEach((tr, i) => { tr.style.cursor = 'pointer'; });
+    $$('#df-shut tbody tr').forEach(tr => tr.addEventListener('click', () => {
+      const name = tr.querySelector('td b')?.textContent;
+      const team = (tr.querySelectorAll('td')[1]?.textContent || '');
+      const abbr = Object.keys(TEAM_NAMES).find(k => TEAM_NAMES[k] === team || teamName(k) === team);
+      if(!name || !abbr) return;
+      $('#df-def').value = abbr; build();
+      const i = defNodes.findIndex(n => n.p.Player === name);
+      if(i >= 0){ selected = {kind:'D', i}; draw(); detail(); $('#df-field').scrollIntoView({behavior:'smooth', block:'center'}); }
+    }));
+  }
+  const _build = build;
+  build = function(){ _build(); shutTable(); };
+  $$('#df-grp-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    $$('#df-grp-pills .pill').forEach(x => x.classList.remove('active')); pl.classList.add('active');
+    shutGroup = pl.dataset.g; shutTable();
+  }));
+  $('#df-shut-team').addEventListener('change', shutTable);
+  $('#df-def').addEventListener('change', () => build());
+  $('#df-off').addEventListener('change', () => build());
   $('#df-flip').addEventListener('click', () => {
     const a = $('#df-def').value; $('#df-def').value = $('#df-off').value; $('#df-off').value = a; build();
   });
