@@ -336,6 +336,15 @@
   .df-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--chalk-dim,#9aa);margin:8px 2px 0;}
   .df-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
   .df-star{color:#e3a93b;font-weight:700;}
+  .pl-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:1350px){.pl-grid{grid-template-columns:1fr;}}
+  .pl-svg{width:100%;height:auto;display:block;border-radius:12px;background:#0d2119;border:1px solid rgba(255,255,255,.08);}
+  .pl-cell-pct{font:700 20px sans-serif;fill:#fff;text-anchor:middle;}
+  .pl-cell-sub{font:500 10px sans-serif;fill:rgba(255,255,255,.7);text-anchor:middle;}
+  .pl-axis{font:700 10px sans-serif;fill:rgba(255,255,255,.45);letter-spacing:.12em;text-anchor:middle;}
+  .pl-read{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px;}
+  .pl-read span{background:rgba(255,255,255,.06);border-radius:6px;padding:4px 9px;font-size:12px;}
+  .pl-up{color:#e3a93b;font-weight:700;} .pl-down{color:#6aa5ff;font-weight:700;}
   .df-detail h4{margin:0 0 4px;font-size:16px;}
   .df-detail .df-kv{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
   .df-detail .df-kv span{background:rgba(255,255,255,0.06);border-radius:6px;padding:3px 8px;font-size:12px;}
@@ -744,6 +753,7 @@ const CSV_FILES = {
   lineInjuries:  'data/nfl_2026_line_injuries.csv',
   defenseRoster:   'data/nfl_2026_defense_roster.csv',
   defenseCoverage: 'data/nfl_2026_defense_coverage.csv',
+  passLocation:    'data/nfl_2026_pass_location.csv',
 };
 
 const TEAM_NAMES = {
@@ -2763,6 +2773,67 @@ function mountStreaks(){
 }
 
 
+
+// ---------- Pass location ("where the ball goes") ----------
+const PL_LOCS = ['Left','Middle','Right'], PL_LENS = ['Short','Deep'];
+function plSummarize(rows){
+  const cells = {}; let total = 0;
+  PL_LOCS.forEach(l => PL_LENS.forEach(d => { cells[l + '|' + d] = {att:0, comp:0, yds:0, td:0, int:0}; }));
+  rows.forEach(r => {
+    const c = cells[r.Location + '|' + r.Length]; if(!c) return;
+    c.att += num(r.Att); c.comp += num(r.Comp); c.yds += num(r.Yards); c.td += num(r.TD); c.int += num(r.INT);
+    total += num(r.Att);
+  });
+  return {cells, total};
+}
+function plSides(sum){
+  const out = {};
+  PL_LOCS.forEach(l => { out[l] = sum.total ? PL_LENS.reduce((a, d) => a + sum.cells[l + '|' + d].att, 0) / sum.total : 0; });
+  return out;
+}
+function plLeague(){
+  return plSummarize((DATA.passLocation || []).filter(r => r.Kind === 'OFF'));
+}
+function plSvg(sum, league, title){
+  const W = 460, H = 310, x0 = 62, x1 = 250, x2 = 448, y0 = 44, rowH = 78;
+  let g = `<text class="pl-axis" x="${(x0 + x2) / 2}" y="18" style="letter-spacing:.18em">${title}</text>`;
+  g += `<text class="pl-axis" x="${(x0 + x1) / 2}" y="36">SHORT &middot; under 15 yds</text><text class="pl-axis" x="${(x1 + x2) / 2}" y="36">DEEP &middot; 15+ yds</text>`;
+  PL_LOCS.forEach((l, ri) => {
+    const y = y0 + ri * rowH;
+    g += `<text class="pl-axis" x="${x0 - 8}" y="${y + rowH / 2 + 3}" style="text-anchor:end">${l.toUpperCase()}</text>`;
+    PL_LENS.forEach((d, ci) => {
+      const cx = ci === 0 ? x0 : x1, cw = ci === 0 ? x1 - x0 : x2 - x1;
+      const c = sum.cells[l + '|' + d], lg = league.cells[l + '|' + d];
+      const share = sum.total ? c.att / sum.total : 0, lshare = league.total ? lg.att / league.total : 0;
+      const diff = (share - lshare) * 100;
+      const a = Math.min(0.85, Math.abs(diff) / 12 * 0.75 + 0.08);
+      const fill = diff >= 0 ? `rgba(227,169,59,${a})` : `rgba(90,150,255,${a})`;
+      const ya = c.att ? c.yds / c.att : 0;
+      g += `<g><title>${l} ${d}: ${c.att} att, ${Math.round(share*100)}% of throws (league ${Math.round(lshare*100)}%), ${c.att ? Math.round(c.comp/c.att*100) : 0}% comp, ${ya.toFixed(1)} yds/att, ${c.td} TD, ${c.int} INT</title>
+        <rect x="${cx + 2}" y="${y + 2}" width="${cw - 4}" height="${rowH - 4}" rx="8" fill="${fill}" stroke="rgba(255,255,255,.08)"/>
+        <text class="pl-cell-pct" x="${cx + cw / 2}" y="${y + rowH / 2 - 2}">${sum.total ? Math.round(share * 100) : 0}%</text>
+        <text class="pl-cell-sub" x="${cx + cw / 2}" y="${y + rowH / 2 + 14}">${c.att} att &middot; ${c.att ? Math.round(c.comp / c.att * 100) : 0}% &middot; ${ya.toFixed(1)} Y/A</text></g>`;
+    });
+  });
+  g += `<line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y0 + rowH * 3}" stroke="#e3a93b" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round"/>`;
+  g += `<text class="pl-axis" x="${x0}" y="${y0 + rowH * 3 + 16}" style="text-anchor:start">&#8592; LINE OF SCRIMMAGE</text>`;
+  return `<svg class="pl-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${g}</svg>`;
+}
+function plReadChips(sum, league){
+  if(!sum.total) return '<span>No charted passes yet</span>';
+  const s = plSides(sum), lg = plSides(league);
+  const chips = PL_LOCS.map(l => {
+    const d = Math.round((s[l] - lg[l]) * 100);
+    const cls = d >= 5 ? 'pl-up' : (d <= -5 ? 'pl-down' : '');
+    return `<span>${l} <b class="${cls}">${Math.round(s[l] * 100)}%</b> <small>(${d >= 0 ? '+' : ''}${d} vs league)</small></span>`;
+  });
+  const deepShare = PL_LOCS.reduce((a, l) => a + sum.cells[l + '|Deep'].att, 0) / sum.total;
+  const lgDeep = PL_LOCS.reduce((a, l) => a + league.cells[l + '|Deep'].att, 0) / league.total;
+  chips.push(`<span>Deep <b>${Math.round(deepShare * 100)}%</b> <small>(${deepShare >= lgDeep ? '+' : ''}${Math.round((deepShare - lgDeep) * 100)} vs league)</small></span>`);
+  chips.push(`<span>${sum.total} charted throws</span>`);
+  return chips.join('');
+}
+
 // ---------- TAB: DEFENSE FIELD ----------
 // Players drawn on a field in their position groups. IMPORTANT: the public
 // nflverse data has no alignment or coverage-assignment information, so this
@@ -3005,6 +3076,13 @@ function renderField(){
       <div class="df-detail panel" id="df-detail"></div>
     </div>
   </div>
+  <div class="panel" id="pl-panel"><div class="panel-title">Where the Ball Goes</div>
+    <div class="panel-note">Share of charted passes by field third and depth, from the <b>offense's</b> point of view (left is the top of the field, as drawn above). Gold = more than the league average to that spot, blue = less. The right-hand graphic is every pass the selected <b>defense</b> has faced, so you can see where teams throw against them. This shows where the ball was thrown, not who covered it: a side a defense "faces" less could be taken away or just avoided. Sacks and spikes are excluded.</div>
+    <div class="controls"><label class="ctl-label">Quarterback <select id="pl-qb"></select></label></div>
+    <div class="pl-grid"><div><div class="pl-read" id="pl-read-off"></div><div id="pl-off"></div></div>
+    <div><div class="pl-read" id="pl-read-def"></div><div id="pl-def"></div></div></div>
+    <div class="line-note" id="pl-match"></div>
+  </div>
   <div class="panel"><div class="panel-title">Shutdown Corner Watch</div>
     <div class="panel-note">Ranks defenders by how many receivers they are <b>credited against</b> (breakup, interception or tackle after the catch) who then finished under 75% of their normal yards, counting only receivers who normally get 40+ yds/g. It is a floor, not a full picture: a corner who erases his man without touching the ball does not show up, and early-season samples are small. Click a row to jump to that player on the field.</div>
     <div class="controls">
@@ -3055,6 +3133,40 @@ function mountField(){
     ], rows, {defaultSort:'avg', defaultDir:'desc', limit:15});
     if(!rows.length) $('#df-faced').innerHTML = '<div class="empty">No receivers with other-game history have faced this defense yet.</div>';
   }
+  function plPanel(){
+    const panel = $('#pl-panel'); if(!panel) return;
+    const rows = DATA.passLocation || [];
+    if(!rows.length){
+      panel.innerHTML = '<div class="panel-title">Where the Ball Goes</div><div class="empty">No pass-location data yet. Run <code>15_pass_location.py</code> (part of <code>run_daily.py</code>) to create <code>data/nfl_2026_pass_location.csv</code>.</div>';
+      return;
+    }
+    const off = $('#df-off').value, def = $('#df-def').value;
+    const qbRows = rows.filter(r => r.Kind === 'QB' && r.Team === off);
+    const qbs = {}; qbRows.forEach(r => { qbs[r.Name] = (qbs[r.Name] || 0) + num(r.Att); });
+    const names = Object.keys(qbs).sort((a, b) => qbs[b] - qbs[a]);
+    const sel = $('#pl-qb'), prev = sel.value;
+    sel.innerHTML = `<option value="__team">${off} team total</option>` + names.map(n => `<option value="${n}">${n} (${qbs[n]} att)</option>`).join('');
+    sel.value = names.includes(prev) ? prev : (names[0] || '__team');
+    const league = plLeague();
+    const offRows = sel.value === '__team' ? rows.filter(r => r.Kind === 'OFF' && r.Team === off) : qbRows.filter(r => r.Name === sel.value);
+    const defRows = rows.filter(r => r.Kind === 'DEF' && r.Team === def);
+    const so = plSummarize(offRows), sd = plSummarize(defRows);
+    const offLabel = sel.value === '__team' ? `${off} THROWS` : `${dfLast(sel.value).toUpperCase()} THROWS`;
+    $('#pl-off').innerHTML = plSvg(so, league, offLabel);
+    $('#pl-def').innerHTML = plSvg(sd, league, `${def} FACES`);
+    $('#pl-read-off').innerHTML = plReadChips(so, league);
+    $('#pl-read-def').innerHTML = plReadChips(sd, league);
+    // Matchup read: which side the QB leans to vs where this defense sees the most volume.
+    if(so.total && sd.total){
+      const a = plSides(so), b = plSides(sd), lg = plSides(league);
+      const lean = PL_LOCS.slice().sort((x, y) => (a[y] - lg[y]) - (a[x] - lg[x]))[0];
+      const avoid = PL_LOCS.slice().sort((x, y) => (a[x] - lg[x]) - (a[y] - lg[y]))[0];
+      const faces = PL_LOCS.slice().sort((x, y) => (b[y] - lg[y]) - (b[x] - lg[x]))[0];
+      const fewer = PL_LOCS.slice().sort((x, y) => (b[x] - lg[x]) - (b[y] - lg[y]))[0];
+      $('#pl-match').innerHTML = `Read: the offense leans <b>${lean}</b> (${Math.round((a[lean]-lg[lean])*100) >= 0 ? '+' : ''}${Math.round((a[lean]-lg[lean])*100)} pts vs league) and goes <b>${avoid}</b> least (${Math.round((a[avoid]-lg[avoid])*100)}); this defense has faced the most volume to the <b>${faces}</b> (${Math.round((b[faces]-lg[faces])*100) >= 0 ? '+' : ''}${Math.round((b[faces]-lg[faces])*100)}) and the least to the <b>${fewer}</b> (${Math.round((b[fewer]-lg[fewer])*100)}). Small samples swing a lot early in the season.`;
+    } else $('#pl-match').textContent = '';
+  }
+  $('#pl-qb') && $('#pl-qb').addEventListener('change', () => { plPanel(); });
   let shutGroup = 'CB';
   function shutTable(){
     const defTeam = $('#df-def').value, only = $('#df-shut-team').checked;
@@ -3107,7 +3219,7 @@ function mountField(){
     e.preventDefault(); pickFromGame(c, e.target.closest('.mu-game-team'));
   });
   const _build = build;
-  build = function(){ _build(); shutTable(); syncSchedule(); };
+  build = function(){ _build(); shutTable(); syncSchedule(); plPanel(); };
   $$('#df-grp-pills .pill').forEach(pl => pl.addEventListener('click', () => {
     $$('#df-grp-pills .pill').forEach(x => x.classList.remove('active')); pl.classList.add('active');
     shutGroup = pl.dataset.g; shutTable();
@@ -5380,7 +5492,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
