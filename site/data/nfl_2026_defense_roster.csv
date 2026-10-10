@@ -5,7 +5,7 @@ Will Johnson,ARI,CB,CB,2,111,4,0,0.0,Reserve,8.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Garrett Williams,ARI,CB,CB,2,52,4,33,0.49,Nickel,4.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Kei'Trel Clark,ARI,CB,CB,4,38,4,18,0.27,Reserve,3.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Kalen King,ARI,CB,CB,2,10,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Walter Nolen,ARI,DL,DL,4,150,4,40,0.6,Starter,7.0,1.0,3.0,2.0,0.0,0.0,0.0,Limited,Calf
+Walter Nolen,ARI,DL,DL,4,150,4,40,0.6,Starter,7.0,1.0,3.0,2.0,0.0,0.0,0.0,Questionable,Calf
 Dante Stills,ARI,DL,DL,4,146,4,43,0.64,Starter,11.0,1.0,3.0,1.0,1.0,0.0,0.0,Full,
 Roy Lopez,ARI,DL,DL,4,138,4,28,0.42,Reserve,14.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 L.J. Collier,ARI,DL,DL,4,96,4,27,0.4,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -16,14 +16,14 @@ Jack Gibbens,ARI,LB,LB,4,234,4,61,0.91,Starter,32.0,0.5,3.0,1.0,1.0,0.0,0.0,Full
 Josh Sweat,ARI,LB,LB,4,123,4,36,0.54,Starter,6.0,1.0,2.0,2.0,0.0,0.0,0.0,Full,Not injury related - resting player
 Baron Browning,ARI,LB,LB,4,119,4,31,0.46,Starter,4.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Zaven Collins,ARI,LB,LB,4,112,4,34,0.51,Starter,12.0,1.0,1.0,2.0,2.0,0.0,1.0,Full,
-Jordan Burch,ARI,LB,LB,4,108,4,29,0.43,Reserve,8.0,1.0,1.0,2.0,0.0,0.0,0.0,DNP (no game status yet),Not injury related - personal matter
+Jordan Burch,ARI,LB,LB,4,108,4,29,0.43,Reserve,8.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,Not injury related - personal matter
 Eku Leota,ARI,LB,LB,4,39,4,9,0.13,Reserve,4.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Cody Simon,ARI,LB,LB,2,7,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Budda Baker,ARI,S,S,4,246,4,67,1.0,Starter,25.0,1.5,2.0,1.0,3.0,1.0,0.0,Full,Not injury related - resting player
-Andrew Wingard,ARI,S,S,4,182,4,3,0.04,Reserve,23.0,0.0,0.0,3.0,1.0,1.0,1.0,DNP (no game status yet),Knee
+Andrew Wingard,ARI,S,S,4,182,4,3,0.04,Reserve,23.0,0.0,0.0,3.0,1.0,1.0,1.0,Out,Knee
 Wydett Williams,ARI,S,S,3,80,4,64,0.96,Starter,6.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kitan Crawford,ARI,S,S,1,7,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Dadrion Taylor-Demerson,ARI,S,S,1,2,4,0,0.0,Reserve,,,,,,,,Limited,Back
+Dadrion Taylor-Demerson,ARI,S,S,1,2,4,0,0.0,Reserve,,,,,,,,Full,Back
 Mike Hughes,ATL,CB,CB,4,237,4,48,0.65,Nickel,18.0,0.0,0.0,1.0,3.0,0.0,0.0,Full,
 C.J. Henderson,ATL,CB,CB,4,192,4,64,0.86,Starter,23.0,0.0,0.0,1.0,6.0,0.0,1.0,Full,
 Avieon Terrell,ATL,CB,CB,4,98,4,36,0.49,Reserve,,,,,,,,Full,
@@ -34,16 +34,16 @@ Cameron Thomas,ATL,DL,DE,4,164,4,46,0.62,Starter,12.0,1.5,8.0,1.0,1.0,0.0,1.0,Fu
 Brandon Dorlus,ATL,DL,DL,4,151,4,42,0.57,Starter,6.0,0.0,6.0,0.0,0.0,0.0,0.0,Full,
 Gervon Dexter,ATL,DL,DT,4,150,4,44,0.59,Starter,9.0,0.5,3.0,0.0,1.0,0.0,0.0,Full,
 Maason Smith,ATL,DL,DL,4,141,4,32,0.43,Reserve,4.0,0.0,1.0,1.0,1.0,0.0,0.0,Full,
-Samson Ebukam,ATL,DL,DE,3,101,4,44,0.59,Starter,4.0,1.5,7.0,1.0,0.0,0.0,0.0,Limited,Hamstring
+Samson Ebukam,ATL,DL,DE,3,101,4,44,0.59,Starter,4.0,1.5,7.0,1.0,0.0,0.0,0.0,Questionable,Hamstring
 LaCale London,ATL,DL,DL,4,100,4,21,0.28,Reserve,9.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Za'Darius Smith,ATL,DL,DE,4,78,4,1,0.01,Reserve,5.0,2.5,3.0,4.0,1.0,0.0,0.0,DNP (no game status yet),Concussion
+Za'Darius Smith,ATL,DL,DE,4,78,4,1,0.01,Reserve,5.0,2.5,3.0,4.0,1.0,0.0,0.0,Questionable,Concussion
 Zach Harrison,ATL,DL,DL,3,75,4,31,0.42,Reserve,3.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Bralen Trice,ATL,DL,DE,2,35,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Da'Shawn Hand,ATL,DL,DT,1,7,4,0,0.0,Reserve,,,,,,,,Full,
-Divine Deablo,ATL,LB,LB,4,247,4,60,0.81,Starter,14.0,0.0,2.0,1.0,1.0,0.0,0.0,Limited,Hamstring
+Divine Deablo,ATL,LB,LB,4,247,4,60,0.81,Starter,14.0,0.0,2.0,1.0,1.0,0.0,0.0,Questionable,Hamstring
 Harold Perkins,ATL,LB,LB,4,144,4,52,0.7,Starter,16.0,0.5,1.0,0.0,1.0,0.0,0.0,Full,
 Kendal Daniels,ATL,LB,LB,4,140,4,29,0.39,Reserve,12.0,0.0,0.0,2.0,0.0,0.0,0.0,Full,
-Yasir Abdullah,ATL,LB,LB,4,84,4,37,0.5,Starter,1.0,0.0,4.0,0.0,1.0,0.0,0.0,DNP (no game status yet),Hamstring
+Yasir Abdullah,ATL,LB,LB,4,84,4,37,0.5,Starter,1.0,0.0,4.0,0.0,1.0,0.0,0.0,Out,Hamstring
 Jared Ivey,ATL,LB,LB,3,50,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Josh Woods,ATL,LB,LB,2,14,4,7,0.09,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Christian Harris,ATL,LB,LB,1,4,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -51,12 +51,12 @@ Xavier Watts,ATL,S,S,4,267,4,71,0.96,Starter,23.0,0.5,1.0,0.0,1.0,1.0,1.0,Full,
 Jessie Bates III,ATL,S,S,4,255,4,61,0.82,Starter,17.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 DeMarcco Hellams,ATL,S,S,3,18,4,13,0.18,Reserve,3.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
 Nate Wiggins,BAL,CB,CB,4,254,4,64,1.0,Starter,14.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
-Marlon Humphrey,BAL,CB,CB,4,187,4,8,0.12,Reserve,16.0,0.0,0.0,0.0,3.0,0.0,1.0,DNP (no game status yet),Hamstring
+Marlon Humphrey,BAL,CB,CB,4,187,4,8,0.12,Reserve,16.0,0.0,0.0,0.0,3.0,0.0,1.0,Questionable,Hamstring
 Chandler Rivers,BAL,CB,CB,3,85,4,29,0.45,Nickel,9.0,0.0,0.0,2.0,0.0,0.0,0.0,Full,
 Chidobe Awuzie,BAL,CB,CB,4,78,4,56,0.88,Starter,7.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Keyon Martin,BAL,CB,CB,2,24,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Travis Jones,BAL,DL,DL,4,144,4,33,0.52,Starter,8.0,0.0,0.0,4.0,1.0,0.0,1.0,Full,
-Calais Campbell,BAL,DL,DL,4,132,4,31,0.48,Starter,7.0,0.0,3.0,0.0,0.0,0.0,0.0,Full,Not injury related - resting player
+Calais Campbell,BAL,DL,DL,4,132,4,31,0.48,Starter,7.0,0.0,3.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
 Broderick Washington Jr.,BAL,DL,DL,4,93,4,19,0.3,Reserve,5.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Nnamdi Madubuike,BAL,DL,DL,2,93,4,46,0.72,Starter,7.0,0.0,2.0,0.0,0.0,0.0,0.0,Full,
 John Jenkins,BAL,DL,NT,4,55,4,9,0.14,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -64,7 +64,7 @@ Aeneas Peebles,BAL,DL,DL,2,18,4,0,0.0,Reserve,0.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Roquan Smith,BAL,LB,LB,4,260,4,64,1.0,Starter,34.0,1.0,2.0,1.0,1.0,1.0,1.0,Full,
 Tavius Robinson,BAL,LB,LB,4,201,4,46,0.72,Starter,9.0,2.0,6.0,2.0,1.0,0.0,0.0,Full,
 Trenton Simpson,BAL,LB,LB,4,156,4,36,0.56,Starter,25.0,0.0,0.0,5.0,1.0,1.0,0.0,Full,
-Trey Hendrickson,BAL,LB,LB,3,121,4,0,0.0,Reserve,4.0,1.0,3.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Finger
+Trey Hendrickson,BAL,LB,LB,3,121,4,0,0.0,Reserve,4.0,1.0,3.0,1.0,0.0,0.0,0.0,Out,Finger
 Mike Green,BAL,LB,LB,4,112,4,41,0.64,Starter,7.0,1.0,5.0,2.0,0.0,0.0,0.0,Full,
 Zion Young,BAL,LB,LB,4,86,4,25,0.39,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Ethan Burke,BAL,LB,LB,1,16,4,16,0.25,Reserve,2.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
@@ -151,32 +151,32 @@ Jalen Davis,CIN,CB,CB,3,123,4,0,0.0,Reserve,10.0,0.0,0.0,1.0,2.0,0.0,0.0,Full,
 DJ Ivey,CIN,CB,CB,4,58,4,41,0.67,Nickel,5.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Tacario Davis,CIN,CB,CB,4,55,4,12,0.2,Reserve,10.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Boye Mafe,CIN,DL,DE,4,191,4,51,0.84,Starter,8.0,2.0,2.0,4.0,0.0,0.0,1.0,Full,
-Dexter Lawrence,CIN,DL,DT,4,182,4,47,0.77,Starter,10.0,3.0,6.0,4.0,0.0,0.0,0.0,Limited,Wrist
-Jonathan Allen,CIN,DL,DT,4,174,4,43,0.7,Starter,9.0,2.0,6.0,4.0,0.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
+Dexter Lawrence,CIN,DL,DT,4,182,4,47,0.77,Starter,10.0,3.0,6.0,4.0,0.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
+Jonathan Allen,CIN,DL,DT,4,174,4,43,0.7,Starter,9.0,2.0,6.0,4.0,0.0,0.0,0.0,Limited,Not injury related - resting player
 Myles Murphy,CIN,DL,DE,4,165,4,41,0.67,Starter,5.0,1.5,3.0,1.0,0.0,0.0,1.0,Full,
 Cashius Howell,CIN,DL,DE,4,108,4,17,0.28,Reserve,3.0,0.0,3.0,0.0,0.0,0.0,0.0,Full,
 Tedarrell Slaton,CIN,DL,DT,4,89,4,19,0.31,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kris Jenkins,CIN,DL,DT,4,75,4,21,0.34,Starter,5.0,2.0,2.0,2.0,0.0,0.0,0.0,Full,
 Cedric Johnson,CIN,DL,DE,4,68,4,14,0.23,Reserve,8.0,2.0,2.0,2.0,0.0,0.0,0.0,Full,
-B.J. Hill,CIN,DL,DT,1,24,4,0,0.0,Reserve,,,,,,,,Limited,Achilles
+B.J. Hill,CIN,DL,DT,1,24,4,0,0.0,Reserve,,,,,,,,DNP (no game status yet),Not injury related - resting player
 Shemar Stewart,CIN,DL,DE,2,9,4,4,0.07,Reserve,2.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
 Barrett Carter,CIN,LB,LB,4,260,4,61,1.0,Starter,29.0,0.5,2.0,3.0,2.0,0.0,1.0,Full,Ankle
 Demetrius Knight,CIN,LB,LB,4,224,4,45,0.74,Starter,34.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Oren Burks,CIN,LB,LB,3,17,4,11,0.18,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Jordan Battle,CIN,S,S,4,259,4,61,1.0,Starter,25.0,0.0,0.0,0.0,2.0,1.0,0.0,Full,Hamstring
-Bryan Cook,CIN,S,S,3,158,4,0,0.0,Reserve,12.0,0.0,0.0,0.0,0.0,0.0,1.0,Limited,Ankle
-Kyle Dugger,CIN,S,S,1,41,4,0,0.0,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,DNP (no game status yet),Quadricep
+Bryan Cook,CIN,S,S,3,158,4,0,0.0,Reserve,12.0,0.0,0.0,0.0,0.0,0.0,1.0,Questionable,Ankle
+Kyle Dugger,CIN,S,S,1,41,4,0,0.0,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,Out,Quadricep
 PJ Jules,CIN,S,S,1,40,4,40,0.66,Starter,6.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Russ Yeast,CIN,S,S,1,21,4,21,0.34,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Denzel Ward,CLE,CB,CB,4,270,4,72,1.0,Starter,17.0,0.0,1.0,0.0,2.0,1.0,2.0,Full,
 Myles Harden,CLE,CB,CB,4,179,4,38,0.53,Nickel,13.0,0.0,0.0,0.0,3.0,1.0,0.0,Full,
 Tyson Campbell,CLE,CB,CB,3,177,4,71,0.99,Starter,18.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
-Mekhi Blackmon,CLE,CB,CB,3,93,4,1,0.01,Reserve,11.0,0.0,0.0,0.0,2.0,0.0,0.0,Limited,Back
+Mekhi Blackmon,CLE,CB,CB,3,93,4,1,0.01,Reserve,11.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,Back
 Noah Igbinoghene,CLE,CB,CB,2,10,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Maliek Collins,CLE,DL,DT,4,173,4,57,0.79,Starter,8.0,1.0,4.0,2.0,0.0,0.0,0.0,Full,
 Jared Verse,CLE,DL,DE,4,172,4,41,0.57,Starter,10.0,0.0,2.0,3.0,0.0,0.0,0.0,Full,
 Isaiah McGuire,CLE,DL,DE,4,163,4,43,0.6,Starter,11.0,2.0,2.0,4.0,0.0,0.0,0.0,Full,
-Mason Graham,CLE,DL,DT,4,138,4,7,0.1,Reserve,14.0,4.0,5.0,6.0,0.0,0.0,0.0,DNP (no game status yet),Knee
+Mason Graham,CLE,DL,DT,4,138,4,7,0.1,Reserve,14.0,4.0,5.0,6.0,0.0,0.0,0.0,Out,Knee
 Michael Hall,CLE,DL,DT,4,123,4,30,0.42,Reserve,4.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
 Adin Huntington,CLE,DL,DE,4,117,4,49,0.68,Starter,9.0,1.0,3.0,1.0,0.0,0.0,0.0,Full,
 Derek Barnett,CLE,DL,DE,4,99,4,33,0.46,Starter,2.0,0.0,2.0,1.0,1.0,0.0,0.0,Limited,Ankle
@@ -220,7 +220,7 @@ Malik Hooker,DAL,S,S,3,101,5,49,0.68,Starter,13.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,F
 P.J. Locke,DAL,S,S,2,31,5,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Alijah Clark,DAL,S,S,3,29,5,1,0.01,Reserve,5.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,Ankle
 Juanyeh Thomas,DAL,S,S,1,1,5,1,0.01,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Riley Moss,DEN,CB,CB,4,247,4,34,0.52,Nickel,15.0,0.0,0.0,0.0,5.0,1.0,0.0,DNP (no game status yet),Ribs
+Riley Moss,DEN,CB,CB,4,247,4,34,0.52,Nickel,15.0,0.0,0.0,0.0,5.0,1.0,0.0,Out,Ribs
 Patrick Surtain II,DEN,CB,CB,4,243,4,29,0.44,Reserve,21.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Ja'Quan McMillian,DEN,CB,CB,4,164,4,21,0.32,Reserve,6.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 Jahdae Barron,DEN,CB,CB,4,70,4,40,0.61,Starter,8.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
@@ -229,7 +229,7 @@ Devon Key,DEN,CB,DB,2,9,4,2,0.03,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Zach Allen,DEN,DL,DL,4,193,4,42,0.64,Starter,13.0,3.0,12.0,3.0,0.0,0.0,0.0,Full,Not injury related - resting player
 Malcolm Roach,DEN,DL,DT,4,162,4,43,0.65,Starter,13.0,1.0,3.0,3.0,3.0,0.0,0.0,Full,
 Eyioma Uwazurike,DEN,DL,DL,4,146,4,43,0.65,Starter,6.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
-D.J. Jones,DEN,DL,DT,4,137,4,35,0.53,Reserve,6.0,0.0,1.0,0.0,1.0,0.0,0.0,Limited,Not injury related - resting player
+D.J. Jones,DEN,DL,DT,4,137,4,35,0.53,Reserve,6.0,0.0,1.0,0.0,1.0,0.0,0.0,Full,Not injury related - resting player
 Sai'vion Jones,DEN,DL,DE,3,34,4,13,0.2,Reserve,,,,,,,,Full,
 Jordan Jackson,DEN,DL,DL,2,31,4,14,0.21,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Alex Singleton,DEN,LB,LB,4,279,4,66,1.0,Starter,45.0,0.0,1.0,1.0,1.0,0.0,0.0,Full,
@@ -244,7 +244,7 @@ Brandon Jones,DEN,S,S,4,274,4,66,1.0,Starter,31.0,0.0,1.0,1.0,2.0,1.0,0.0,Full,
 JL Skinner,DEN,S,S,1,1,4,0,0.0,Reserve,,,,,,,,Full,
 D.J. Reed,DET,CB,CB,4,297,4,75,1.0,Starter,30.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 Roger McCreary,DET,CB,CB,4,196,4,75,1.0,Starter,12.0,1.0,1.0,1.0,1.0,0.0,1.0,Full,
-Rock Ya-Sin,DET,CB,CB,3,172,4,0,0.0,Reserve,15.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Hamstring
+Rock Ya-Sin,DET,CB,CB,3,172,4,0,0.0,Reserve,15.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Hamstring
 Christian Izien,DET,CB,DB,3,163,4,73,0.97,Nickel,24.0,1.0,0.0,4.0,1.0,0.0,0.0,Full,
 Avonte Maddox,DET,CB,DB,2,112,4,0,0.0,Reserve,10.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 Ennis Rakestraw,DET,CB,CB,2,54,4,31,0.41,Reserve,4.0,0.0,0.0,0.0,2.0,0.0,1.0,Full,
@@ -253,8 +253,8 @@ Jalen Mills,DET,CB,DB,1,4,4,4,0.05,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Khalil Dorsey,DET,CB,CB,1,2,4,0,0.0,Reserve,4.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Aidan Hutchinson,DET,DL,DE,4,272,4,70,0.93,Starter,13.0,3.5,9.0,3.0,0.0,0.0,1.0,Full,
 Alim McNeill,DET,DL,DL,4,259,4,62,0.83,Starter,8.0,3.0,6.0,4.0,0.0,0.0,0.0,Full,
-D.J. Wonnum,DET,DL,DE,4,176,4,36,0.48,Starter,8.0,3.0,4.0,2.0,1.0,0.0,0.0,Limited,Back
-Tyleik Williams,DET,DL,DL,4,162,4,50,0.67,Starter,14.0,0.0,1.0,0.0,0.0,0.0,0.0,Limited,Foot
+D.J. Wonnum,DET,DL,DE,4,176,4,36,0.48,Starter,8.0,3.0,4.0,2.0,1.0,0.0,0.0,Full,Back
+Tyleik Williams,DET,DL,DL,4,162,4,50,0.67,Starter,14.0,0.0,1.0,0.0,0.0,0.0,0.0,Questionable,Foot
 Skyler Gill-Howard,DET,DL,DL,4,136,4,32,0.43,Reserve,6.0,0.5,3.0,0.0,0.0,0.0,0.0,Full,
 Tyler Lacy,DET,DL,DL,4,103,4,33,0.44,Reserve,5.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Derrick Moore,DET,DL,DE,4,52,4,8,0.11,Reserve,0.0,0.0,2.0,0.0,0.0,0.0,0.0,Full,
@@ -281,8 +281,8 @@ Chris McClellan,GB,DL,DT,4,115,4,24,0.38,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Ful
 Dani Dennis-Sutton,GB,DL,DE,4,114,4,24,0.38,Reserve,10.0,0.5,2.0,0.0,0.0,0.0,0.0,Full,
 Brenton Cox,GB,DL,DE,4,106,4,24,0.38,Reserve,12.0,0.0,2.0,2.0,0.0,0.0,0.0,Full,
 Jonathan Ford,GB,DL,DT,4,100,4,13,0.21,Reserve,5.0,0.5,1.0,0.0,0.0,0.0,0.0,Full,
-Javon Hargrave,GB,DL,DT,3,92,4,29,0.46,Starter,5.0,0.0,1.0,0.0,1.0,0.0,0.0,Full,
-Anthony Campbell,GB,DL,DT,1,9,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Ankle
+Javon Hargrave,GB,DL,DT,3,92,4,29,0.46,Starter,5.0,0.0,1.0,0.0,1.0,0.0,0.0,Questionable,Toe
+Anthony Campbell,GB,DL,DT,1,9,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Questionable,Ankle
 Zaire Franklin,GB,LB,LB,4,273,4,63,1.0,Starter,29.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Edgerrin Cooper,GB,LB,LB,4,227,4,34,0.54,Starter,27.0,3.0,3.0,6.0,1.0,1.0,0.0,Full,
 Isaiah McDuffie,GB,LB,LB,3,44,4,25,0.4,Reserve,9.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
@@ -293,18 +293,18 @@ Javon Bullard,GB,S,S,4,197,4,60,0.95,Reserve,21.0,0.0,0.0,3.0,2.0,0.0,0.0,Full,
 Derek Stingley Jr.,HOU,CB,CB,4,267,4,78,1.0,Starter,8.0,0.0,0.0,0.0,3.0,0.0,1.0,Full,
 Kamari Lassiter,HOU,CB,CB,4,267,4,78,1.0,Starter,24.0,0.0,0.0,3.0,3.0,0.0,0.0,Full,
 Jaylin Smith,HOU,CB,CB,1,7,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Will Anderson,HOU,DL,DE,4,217,4,62,0.79,Starter,22.0,4.5,11.0,7.0,1.0,0.0,1.0,Limited,Ankle
+Will Anderson,HOU,DL,DE,4,217,4,62,0.79,Starter,22.0,4.5,11.0,7.0,1.0,0.0,1.0,Full,Ankle
 Danielle Hunter,HOU,DL,DE,4,211,4,60,0.77,Starter,9.0,2.0,4.0,1.0,3.0,0.0,1.0,Full,
 Sheldon Rankins,HOU,DL,DT,4,186,4,57,0.73,Starter,10.0,2.0,5.0,3.0,1.0,0.0,0.0,Full,
 Tommy Togiai,HOU,DL,DT,4,172,4,50,0.64,Starter,19.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Logan Hall,HOU,DL,DE,4,101,4,30,0.38,Reserve,8.0,1.0,3.0,1.0,0.0,0.0,0.0,Full,Knee
 Mario Edwards,HOU,DL,DT,3,56,4,0,0.0,Reserve,6.0,1.0,2.0,0.0,0.0,0.0,0.0,Full,
-Jadeveon Clowney,HOU,DL,DE,2,50,4,30,0.38,Starter,5.0,1.5,4.0,2.0,0.0,0.0,0.0,Full,Knee
+Jadeveon Clowney,HOU,DL,DE,2,50,4,30,0.38,Starter,5.0,1.5,4.0,2.0,0.0,0.0,0.0,DNP (no game status yet),Knee
 Dominique Robinson,HOU,DL,DE,4,44,4,9,0.12,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Jaden Crumedy,HOU,DL,DT,3,40,4,22,0.28,Reserve,1.0,0.5,1.0,0.0,0.0,0.0,0.0,Full,
 Sabastian Harsh,HOU,DL,DE,2,17,4,0,0.0,Reserve,6.0,0.5,1.0,0.0,0.0,0.0,0.0,Full,
 Jake Hansen,HOU,LB,LB,4,205,4,74,0.95,Starter,24.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,
-Azeez Al-Shaair,HOU,LB,LB,3,172,4,0,0.0,Reserve,31.0,0.0,0.0,1.0,0.0,0.0,0.0,Limited,Groin
+Azeez Al-Shaair,HOU,LB,LB,3,172,4,0,0.0,Reserve,31.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,Groin
 Kenneth Murray,HOU,LB,LB,1,64,4,64,0.82,Starter,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Henry To'oTo'o,HOU,LB,LB,1,51,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Wade Woodaz,HOU,LB,LB,2,21,4,4,0.05,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,Thumb
@@ -313,15 +313,15 @@ Calen Bullock,HOU,S,S,4,262,4,75,0.96,Starter,21.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
 Reed Blankenship,HOU,S,S,4,245,4,73,0.94,Reserve,30.0,0.0,1.0,0.0,2.0,1.0,0.0,Full,
 Kamari Ramsey,HOU,S,S,2,17,4,16,0.21,Reserve,3.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Sauce Gardner,IND,CB,CB,4,257,4,64,1.0,Starter,,,,,,,,Full,
-Charvarius Ward,IND,CB,CB,4,217,4,64,1.0,Starter,13.0,0.0,0.0,0.0,4.0,0.0,0.0,Limited,Not injury related - resting player
+Charvarius Ward,IND,CB,CB,4,217,4,64,1.0,Starter,13.0,0.0,0.0,0.0,4.0,0.0,0.0,Questionable,Not injury related - resting player
 Justin Walley,IND,CB,CB,4,188,4,49,0.77,Nickel,22.0,1.0,1.0,1.0,3.0,0.0,0.0,Full,
 Cam Taylor-Britt,IND,CB,CB,3,39,4,4,0.06,Reserve,3.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Kapena Gushiken,IND,CB,CB,1,8,4,0,0.0,Reserve,3.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
 Kenneth Harris,IND,CB,CB,1,4,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-DeForest Buckner,IND,DL,DT,4,214,4,51,0.8,Starter,18.0,3.0,7.0,3.0,2.0,0.0,0.0,Full,
+DeForest Buckner,IND,DL,DT,4,214,4,51,0.8,Starter,18.0,3.0,7.0,3.0,2.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
 Laiatu Latu,IND,DL,DE,4,193,4,49,0.77,Starter,15.0,1.0,5.0,0.0,0.0,0.0,0.0,Full,
-Arden Key,IND,DL,DE,4,171,4,26,0.41,Reserve,8.0,0.5,3.0,0.0,0.0,0.0,1.0,DNP (no game status yet),Hamstring
-Grover Stewart,IND,DL,DT,4,160,4,32,0.5,Starter,10.0,0.5,2.0,2.0,1.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
+Arden Key,IND,DL,DE,4,171,4,26,0.41,Reserve,8.0,0.5,3.0,0.0,0.0,0.0,1.0,Out,Hamstring
+Grover Stewart,IND,DL,DT,4,160,4,32,0.5,Starter,10.0,0.5,2.0,2.0,1.0,0.0,0.0,Full,Not injury related - resting player
 Jerry Tillery,IND,DL,DT,4,116,4,21,0.33,Reserve,11.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,
 JT Tuimoloau,IND,DL,DE,4,112,4,34,0.53,Starter,7.0,0.0,1.0,0.0,1.0,0.0,0.0,Full,
 Adetomiwa Adebawore,IND,DL,DT,4,86,4,29,0.45,Starter,7.0,2.0,5.0,1.0,0.0,0.0,0.0,Full,
@@ -329,7 +329,7 @@ Micheal Clemons,IND,DL,DE,2,38,4,0,0.0,Reserve,,,,,,,,Full,
 Tim Smith,IND,DL,DT,4,36,4,10,0.16,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Caden Curry,IND,DL,DE,4,34,4,15,0.23,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Akeem Davis-Gaither,IND,LB,LB,4,255,4,62,0.97,Starter,37.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,Knee
-Jaylon Carlies,IND,LB,LB,4,159,4,30,0.47,Starter,13.0,0.0,0.0,0.0,1.0,1.0,0.0,DNP (no game status yet),Ribs
+Jaylon Carlies,IND,LB,LB,4,159,4,30,0.47,Starter,13.0,0.0,0.0,0.0,1.0,1.0,0.0,Out,Ribs
 Bryce Boettcher,IND,LB,LB,4,79,4,18,0.28,Reserve,19.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Austin Ajiake,IND,LB,LB,1,17,4,17,0.27,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 CJ Allen,IND,LB,LB,2,11,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -358,7 +358,7 @@ Dennis Gardeck,JAX,LB,LB,4,93,4,22,0.29,Reserve,8.0,0.0,4.0,1.0,0.0,0.0,0.0,Full
 Branson Combs,JAX,LB,LB,4,53,4,15,0.2,Reserve,10.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
 Jahlani Tavai,JAX,LB,LB,2,16,4,0,0.0,Reserve,6.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Antonio Johnson,JAX,S,S,4,237,4,76,1.0,Starter,20.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Eric Murray,JAX,S,S,4,191,4,45,0.59,Starter,12.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Concussion
+Eric Murray,JAX,S,S,4,191,4,45,0.59,Starter,12.0,0.0,0.0,0.0,0.0,0.0,0.0,Doubtful,Concussion
 Caleb Ransaw,JAX,S,S,3,59,4,0,0.0,Reserve,9.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Rayuan Lane,JAX,S,S,3,58,4,43,0.57,Reserve,8.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Nohl Williams,KC,CB,DB,4,254,4,70,0.83,Starter,15.0,1.0,1.0,2.0,4.0,0.0,0.0,Full,
@@ -385,15 +385,15 @@ Jeffrey Bassa,KC,LB,LB,4,18,4,7,0.08,Reserve,6.0,0.0,0.0,0.0,0.0,0.0,1.0,Full,
 Alohi Gilman,KC,S,S,4,265,4,76,0.9,Starter,17.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Xavier Nwankpa,KC,S,S,2,2,4,1,0.01,Starter,4.0,0.0,0.0,0.0,1.0,1.0,0.0,Full,
 Tarheeb Still,LAC,CB,CB,4,238,4,59,0.98,Starter,8.0,0.0,0.0,0.0,2.0,0.0,1.0,Full,
-Cam Hart,LAC,CB,CB,4,227,4,59,0.98,Starter,17.0,0.0,0.0,0.0,4.0,1.0,0.0,Limited,Knee
-Donte Jackson,LAC,CB,CB,4,113,4,7,0.12,Reserve,7.0,0.0,0.0,1.0,2.0,0.0,1.0,DNP (no game status yet),Hamstring
+Cam Hart,LAC,CB,CB,4,227,4,59,0.98,Starter,17.0,0.0,0.0,0.0,4.0,1.0,0.0,Full,Knee
+Donte Jackson,LAC,CB,CB,4,113,4,7,0.12,Reserve,7.0,0.0,0.0,1.0,2.0,0.0,1.0,Out,Hamstring
 Elijah Molden,LAC,CB,DB,2,84,4,31,0.52,Nickel,9.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Rodney Shelley,LAC,CB,CB,4,31,4,17,0.28,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Deane Leonard,LAC,CB,DB,1,9,4,9,0.15,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Rib
+Rodney Shelley,LAC,CB,CB,4,31,4,17,0.28,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Questionable,Hamstring
+Deane Leonard,LAC,CB,DB,1,9,4,9,0.15,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,Rib
 Justin Eboigbe,LAC,DL,DL,4,164,4,42,0.7,Starter,13.0,0.5,2.0,0.0,0.0,0.0,1.0,Full,
 Jamaree Caldwell,LAC,DL,DL,4,155,4,42,0.7,Starter,9.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Teair Tart,LAC,DL,DL,4,140,4,37,0.62,Starter,9.0,0.0,4.0,1.0,0.0,0.0,0.0,Full,
-Dalvin Tomlinson,LAC,DL,DL,2,65,4,0,0.0,Reserve,8.0,0.5,1.0,0.0,0.0,0.0,0.0,Limited,Hamstring
+Dalvin Tomlinson,LAC,DL,DL,2,65,4,0,0.0,Reserve,8.0,0.5,1.0,0.0,0.0,0.0,0.0,Full,Hamstring
 Nick Barrett,LAC,DL,DL,4,56,4,16,0.27,Reserve,6.0,0.5,2.0,0.0,0.0,0.0,0.0,Full,
 Daiyan Henley,LAC,LB,LB,4,232,4,54,0.9,Starter,24.0,0.5,2.0,1.0,0.0,0.0,1.0,Full,
 Tuli Tuipulotu,LAC,LB,LB,4,205,4,51,0.85,Starter,17.0,2.0,7.0,2.0,2.0,1.0,1.0,Full,
@@ -403,7 +403,7 @@ Akheem Mesidor,LAC,LB,LB,4,127,4,26,0.43,Reserve,14.0,1.5,3.0,1.0,0.0,0.0,0.0,Fu
 Bud Dupree,LAC,LB,LB,4,71,4,13,0.22,Reserve,4.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Troy Dye,LAC,LB,LB,4,56,4,2,0.03,Reserve,19.0,1.5,2.0,2.0,1.0,0.0,1.0,Full,
 Marlowe Wax,LAC,LB,LB,1,2,4,2,0.03,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Derwin James,LAC,S,S,3,193,4,0,0.0,Reserve,21.0,0.0,0.0,0.0,1.0,0.0,0.0,DNP (no game status yet),Hamstring
+Derwin James,LAC,S,S,3,193,4,0,0.0,Reserve,21.0,0.0,0.0,0.0,1.0,0.0,0.0,Out,Hamstring
 Tony Jefferson,LAC,S,S,4,168,4,44,0.73,Starter,14.0,0.0,0.0,1.0,2.0,0.0,0.0,Full,
 Genesis Smith,LAC,S,S,4,144,4,39,0.65,Starter,12.0,0.0,0.0,0.0,3.0,2.0,0.0,Full,
 R.J. Mickens,LAC,S,S,3,78,4,18,0.3,Reserve,8.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
@@ -453,7 +453,7 @@ Treydan Stukes,LV,S,S,3,147,4,60,1.0,Starter,12.0,0.0,0.0,0.0,1.0,1.0,0.0,Full,
 Isaiah Pola-Mao,LV,S,S,2,112,4,0,0.0,Reserve,11.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Chris Johnson,MIA,CB,CB,4,240,4,78,1.0,Starter,24.0,0.0,0.0,2.0,2.0,0.0,0.0,Full,
 Jason Marshall,MIA,CB,CB,4,208,4,60,0.77,Nickel,13.0,0.0,0.0,2.0,0.0,0.0,0.0,Full,
-Julius Brents,MIA,CB,CB,4,163,4,69,0.88,Starter,15.0,0.0,0.0,1.0,0.0,0.0,0.0,Limited,Heel
+Julius Brents,MIA,CB,CB,4,163,4,69,0.88,Starter,15.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,Heel
 Zach Sieler,MIA,DL,DL,4,187,4,61,0.78,Starter,10.0,2.0,3.0,5.0,0.0,0.0,0.0,Full,
 Jordan Phillips,MIA,DL,DL,4,153,4,46,0.59,Starter,8.0,0.0,1.0,1.0,0.0,0.0,0.0,Full,
 Joshua Uche,MIA,DL,DE,4,152,4,55,0.71,Starter,18.0,1.0,4.0,2.0,0.0,0.0,1.0,Full,
@@ -469,10 +469,10 @@ Max Llewellyn,MIA,DL,DE,1,2,4,0,0.0,Reserve,,,,,,,,Full,
 Jacob Rodriguez,MIA,LB,LB,4,246,4,78,1.0,Starter,45.0,0.0,1.0,3.0,1.0,1.0,0.0,Full,
 Jordyn Brooks,MIA,LB,LB,4,241,4,78,1.0,Starter,35.0,0.0,1.0,0.0,1.0,0.0,0.0,Full,
 Willie Gay Jr.,MIA,LB,LB,4,123,4,27,0.35,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Jackson Woodard,MIA,LB,LB,2,9,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Ankle
+Jackson Woodard,MIA,LB,LB,2,9,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Questionable,Ankle
 Liam Anderson,MIA,LB,LB,1,4,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Michael Taaffe,MIA,S,S,4,225,4,78,1.0,Starter,26.0,0.0,0.0,0.0,1.0,1.0,0.0,Full,
-Dante Trader,MIA,S,S,4,176,4,52,0.67,Starter,19.0,0.0,0.0,0.0,2.0,1.0,0.0,Limited,Shin
+Dante Trader,MIA,S,S,4,176,4,52,0.67,Starter,19.0,0.0,0.0,0.0,2.0,1.0,0.0,Full,Shin
 Zayne Anderson,MIA,S,S,3,95,4,29,0.37,Reserve,10.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
 Julius Wood,MIA,S,S,2,17,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kyle Louis,MIA,S,S,1,3,4,0,0.0,Reserve,,,,,,,,Full,
@@ -480,7 +480,7 @@ Byron Murphy,MIN,CB,CB,4,241,4,33,0.85,Starter,18.0,0.0,0.0,0.0,3.0,1.0,0.0,Full
 Isaiah Rodgers,MIN,CB,CB,4,239,4,34,0.87,Starter,13.0,0.0,0.0,0.0,3.0,1.0,0.0,Full,
 James Pierre,MIN,CB,CB,4,89,4,12,0.31,Nickel,13.0,0.0,0.0,0.0,3.0,1.0,0.0,Full,
 Zemaiah Vaughn,MIN,CB,CB,1,3,4,3,0.08,Reserve,,,,,,,,Full,
-Charles Demmings,MIN,CB,CB,1,2,4,0,0.0,Reserve,,,,,,,,Limited,Hamstring
+Charles Demmings,MIN,CB,CB,1,2,4,0,0.0,Reserve,,,,,,,,Out,Hamstring
 Jalen Redmond,MIN,DL,DL,4,200,4,31,0.79,Starter,12.0,0.0,0.0,0.0,2.0,0.0,1.0,Full,
 Levi Drake Rodriguez,MIN,DL,DL,4,142,4,20,0.51,Starter,,,,,,,,Full,
 Tyrion Ingram-Dawkins,MIN,DL,DL,4,123,4,18,0.46,Reserve,6.0,0.0,0.0,1.0,2.0,0.0,0.0,Full,
@@ -495,35 +495,35 @@ Ivan Pace,MIN,LB,LB,4,45,4,5,0.13,Reserve,11.0,0.5,2.0,1.0,0.0,0.0,0.0,Full,
 Jake Golday,MIN,LB,LB,2,7,4,5,0.13,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Josh Metellus,MIN,S,S,4,250,4,39,1.0,Starter,25.0,0.5,1.0,0.0,3.0,0.0,0.0,Full,
 Theo Jackson,MIN,S,S,4,160,4,18,0.46,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
-Harrison Smith,MIN,S,S,4,111,4,25,0.64,Starter,7.0,0.0,1.0,0.0,2.0,0.0,0.0,Full,
+Harrison Smith,MIN,S,S,4,111,4,25,0.64,Starter,7.0,0.0,1.0,0.0,2.0,0.0,0.0,Limited,Not injury related - resting player
 Jacob Thomas,MIN,S,S,3,19,4,0,0.0,Reserve,,,,,,,,Full,
 Jay Ward,MIN,S,S,1,2,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Marcus Jones,NE,CB,CB,4,188,4,59,1.0,Starter,15.0,0.0,0.0,0.0,4.0,1.0,0.0,Full,
-Christian Gonzalez,NE,CB,CB,3,172,4,0,0.0,Reserve,8.0,0.0,0.0,0.0,5.0,0.0,0.0,DNP (no game status yet),Shoulder
-Carlton Davis,NE,CB,CB,3,162,4,59,1.0,Starter,16.0,0.0,0.0,1.0,1.0,0.0,0.0,DNP (no game status yet),Neck
-Charles Woods,NE,CB,CB,4,108,4,35,0.59,Nickel,18.0,0.0,0.0,0.0,1.0,0.0,0.0,Limited,Shoulder
+Christian Gonzalez,NE,CB,CB,3,172,4,0,0.0,Reserve,8.0,0.0,0.0,0.0,5.0,0.0,0.0,Out,Shoulder
+Carlton Davis,NE,CB,CB,3,162,4,59,1.0,Starter,16.0,0.0,0.0,1.0,1.0,0.0,0.0,Out,Neck
+Charles Woods,NE,CB,CB,4,108,4,35,0.59,Nickel,18.0,0.0,0.0,0.0,1.0,0.0,0.0,Questionable,Shoulder
 Kindle Vildor,NE,CB,CB,1,8,4,8,0.14,Reserve,2.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Channing Canada,NE,CB,CB,2,5,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Hamstring
-Karon Prunty,NE,CB,CB,1,3,4,0,0.0,Reserve,,,,,,,,DNP (no game status yet),Hamstring
+Channing Canada,NE,CB,CB,2,5,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Hamstring
+Karon Prunty,NE,CB,CB,1,3,4,0,0.0,Reserve,,,,,,,,Out,Hamstring
 Milton Williams,NE,DL,DT,4,164,4,46,0.78,Starter,9.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Cory Durden,NE,DL,DT,4,128,4,34,0.58,Starter,6.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
-Christian Barmore,NE,DL,DT,3,94,4,0,0.0,Reserve,4.0,1.0,3.0,1.0,0.0,0.0,1.0,Limited,Shoulder
+Christian Barmore,NE,DL,DT,3,94,4,0,0.0,Reserve,4.0,1.0,3.0,1.0,0.0,0.0,1.0,Questionable,Shoulder
 Joshua Farmer,NE,DL,DT,4,73,4,16,0.27,Reserve,5.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
 DaQuan Jones,NE,DL,DT,3,51,4,18,0.31,Reserve,,,,,,,,Full,
 Leonard Taylor,NE,DL,DL,2,27,4,20,0.34,Reserve,,,,,,,,Full,
 Jeremiah Pharms,NE,DL,DT,1,13,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Robert Spillane,NE,LB,LB,4,238,4,59,1.0,Starter,29.0,0.0,1.0,0.0,0.0,0.0,1.0,Full,
-Christian Elliss,NE,LB,LB,4,235,4,59,1.0,Starter,24.0,1.0,2.0,1.0,0.0,0.0,1.0,Limited,Chest
+Christian Elliss,NE,LB,LB,4,235,4,59,1.0,Starter,24.0,1.0,2.0,1.0,0.0,0.0,1.0,Questionable,Chest
 Elijah Ponder,NE,LB,LB,4,185,4,41,0.69,Starter,12.0,2.5,6.0,4.0,0.0,0.0,0.0,Full,
 Gabe Jacas,NE,LB,LB,4,142,4,25,0.42,Starter,14.0,1.5,4.0,2.0,1.0,1.0,0.0,Full,
-Dre'Mont Jones,NE,LB,LB,3,104,4,44,0.75,Starter,,,,,,,,Limited,Shoulder
+Dre'Mont Jones,NE,LB,LB,3,104,4,44,0.75,Starter,,,,,,,,Questionable,Shoulder
 Darius Muasau,NE,LB,LB,2,16,4,8,0.14,Reserve,5.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Quintayvious Hutchins,NE,LB,LB,1,16,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Jose Ramirez,NE,LB,LB,1,8,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Erick Hunter,NE,LB,LB,1,3,4,0,0.0,Reserve,6.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Namdi Obiazor,NE,LB,LB,1,3,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kevin Byard,NE,S,S,4,238,4,59,1.0,Starter,16.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
-Craig Woodson,NE,S,S,3,155,4,59,1.0,Starter,15.0,0.0,0.0,0.0,2.0,1.0,0.0,Limited,Shoulder
+Craig Woodson,NE,S,S,3,155,4,59,1.0,Starter,15.0,0.0,0.0,0.0,2.0,1.0,0.0,Questionable,Shoulder
 Jaylen Reed,NE,S,S,2,80,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Dell Pettus,NE,S,S,1,20,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Mike Brown,NE,S,S,1,12,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -534,21 +534,21 @@ Jordan Howden,NO,CB,DB,2,3,4,1,0.02,Nickel,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Chase Young,NO,DL,DE,4,190,4,39,0.68,Starter,8.0,3.5,5.0,3.0,2.0,0.0,1.0,Full,
 Nathan Shepherd,NO,DL,DL,4,175,4,33,0.58,Starter,12.0,0.5,3.0,0.0,0.0,0.0,0.0,Full,
 Vernon Broughton,NO,DL,DL,4,155,4,30,0.53,Starter,6.0,0.0,2.0,0.0,0.0,0.0,1.0,Full,
-Carl Granderson,NO,DL,DE,3,134,4,0,0.0,Reserve,11.0,1.0,1.0,2.0,0.0,0.0,0.0,Limited,Ankle
-Davon Godchaux,NO,DL,DL,4,107,4,21,0.37,Reserve,11.0,0.0,0.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Groin
+Carl Granderson,NO,DL,DE,3,134,4,0,0.0,Reserve,11.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,Ankle
+Davon Godchaux,NO,DL,DL,4,107,4,21,0.37,Reserve,11.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,Groin
 Cameron Jordan,NO,DL,DE,3,96,4,28,0.49,Starter,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Colby Wooden,NO,DL,DL,4,77,4,22,0.39,Reserve,7.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Khristian Boyd,NO,DL,DL,3,71,4,25,0.44,Reserve,6.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,
 Tyree Wilson,NO,DL,DE,2,54,4,31,0.54,Starter,8.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
-Anfernee Jennings,NO,DL,DE,3,53,4,0,0.0,Reserve,6.0,0.0,0.0,0.0,1.0,0.0,1.0,DNP (no game status yet),Knee
-Christen Miller,NO,DL,DL,1,25,4,0,0.0,Reserve,,,,,,,,Full,
+Anfernee Jennings,NO,DL,DE,3,53,4,0,0.0,Reserve,6.0,0.0,0.0,0.0,1.0,0.0,1.0,Out,Knee
+Christen Miller,NO,DL,DL,1,25,4,0,0.0,Reserve,,,,,,,,Questionable,Illness
 Fadil Diggs,NO,DL,DE,1,18,4,18,0.32,Reserve,4.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 John Ridgeway,NO,DL,DL,1,11,4,11,0.19,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Kaden Elliss,NO,LB,LB,3,205,4,0,0.0,Reserve,23.0,0.0,5.0,2.0,1.0,0.0,0.0,DNP (no game status yet),Calf
+Kaden Elliss,NO,LB,LB,3,205,4,0,0.0,Reserve,23.0,0.0,5.0,2.0,1.0,0.0,0.0,Out,Calf
 Pete Werner,NO,LB,LB,4,157,4,44,0.77,Starter,24.0,1.0,2.0,3.0,1.0,0.0,0.0,Full,
 Danny Stutsman,NO,LB,LB,4,130,4,57,1.0,Starter,22.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Chris Rumph,NO,LB,LB,2,7,4,4,0.07,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Julian Blackmon,NO,S,S,4,262,4,57,1.0,Starter,21.0,0.0,0.0,0.0,1.0,1.0,0.0,Limited,Shoulder
+Julian Blackmon,NO,S,S,4,262,4,57,1.0,Starter,21.0,0.0,0.0,0.0,1.0,1.0,0.0,Questionable,Shoulder
 Justin Reid,NO,S,S,4,262,4,57,1.0,Starter,19.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Jonas Sanker,NO,S,S,4,166,4,35,0.61,Reserve,26.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Greg Newsome II,NYG,CB,CB,4,238,4,66,1.0,Starter,18.0,0.0,0.0,0.0,5.0,1.0,0.0,Full,
@@ -558,7 +558,7 @@ Deonte Banks,NYG,CB,CB,2,114,4,66,1.0,Starter,8.0,0.0,0.0,0.0,6.0,1.0,0.0,Full,C
 Paulson Adebo,NYG,CB,CB,1,10,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Nic Jones,NYG,CB,CB,2,5,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 D.J. Reader,NYG,DL,DL,4,132,4,42,0.64,Starter,8.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
-Chauncey Golston,NYG,DL,DL,4,127,4,25,0.38,Reserve,12.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Neck
+Chauncey Golston,NYG,DL,DL,4,127,4,25,0.38,Reserve,12.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Neck
 Shelby Harris,NYG,DL,DL,4,118,4,37,0.56,Starter,7.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
 Darius Alexander,NYG,DL,DL,3,77,4,36,0.55,Starter,2.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 CJ Okoye,NYG,DL,DL,3,51,4,15,0.23,Reserve,,,,,,,,Full,
@@ -572,19 +572,19 @@ Trace Ford,NYG,LB,LB,1,3,4,3,0.05,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Zaire Barnes,NYG,LB,LB,1,3,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,1.0,Full,
 Jevon Holland,NYG,S,S,4,246,4,66,1.0,Starter,19.0,0.0,0.0,0.0,4.0,3.0,2.0,Full,
 Tyler Nubin,NYG,S,S,3,171,4,51,0.77,Starter,15.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,
-Jason Pinnock,NYG,S,S,2,62,4,17,0.26,Reserve,3.0,0.0,0.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Concussion
+Jason Pinnock,NYG,S,S,2,62,4,17,0.26,Reserve,3.0,0.0,0.0,1.0,0.0,0.0,0.0,Out,Concussion
 Ar'Darius Washington,NYG,S,S,3,18,4,0,0.0,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Azareye'h Thomas,NYJ,CB,CB,4,267,4,93,1.0,Starter,18.0,0.0,0.0,2.0,2.0,0.0,0.0,Full,
 Brandon Stephens,NYJ,CB,CB,4,263,4,91,0.98,Starter,11.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
-Jarvis Brownlee,NYJ,CB,DB,4,151,4,38,0.41,Nickel,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Concussion
+Jarvis Brownlee,NYJ,CB,DB,4,151,4,38,0.41,Nickel,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,Concussion
 D'Angelo Ponds,NYJ,CB,CB,2,20,4,18,0.19,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Malachi Moore,NYJ,CB,DB,2,8,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 David Bailey,NYJ,DL,DE,4,195,4,73,0.78,Starter,18.0,2.0,3.0,3.0,1.0,0.0,1.0,Full,
 Harrison Phillips,NYJ,DL,DL,4,155,4,52,0.56,Starter,12.0,0.0,3.0,0.0,0.0,0.0,0.0,Full,
 Jowon Briggs,NYJ,DL,DL,4,146,4,56,0.6,Starter,12.0,1.0,1.0,1.0,0.0,0.0,1.0,Full,
-Will McDonald,NYJ,DL,DE,4,138,4,66,0.71,Starter,7.0,1.0,1.0,1.0,0.0,0.0,0.0,Full,
+Will McDonald,NYJ,DL,DE,4,138,4,66,0.71,Starter,7.0,1.0,1.0,1.0,0.0,0.0,0.0,Questionable,Calf
 T'Vondre Sweat,NYJ,DL,DL,4,131,4,46,0.49,Reserve,10.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Kingsley Enagbare,NYJ,DL,DE,3,111,4,0,0.0,Reserve,8.0,2.0,2.0,2.0,0.0,0.0,1.0,Limited,Knee
+Kingsley Enagbare,NYJ,DL,DE,3,111,4,0,0.0,Reserve,8.0,2.0,2.0,2.0,0.0,0.0,1.0,Questionable,Knee
 Darrell Jackson Jr.,NYJ,DL,DL,4,85,4,41,0.44,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Joseph Ossai,NYJ,DL,DE,2,85,4,57,0.61,Starter,9.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Braiden McGregor,NYJ,DL,DE,4,49,4,7,0.08,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -608,19 +608,19 @@ Moro Ojomo,PHI,DL,DT,4,190,4,60,0.71,Starter,12.0,0.0,2.0,2.0,0.0,0.0,0.0,Full,
 Jordan Davis,PHI,DL,DT,4,128,4,29,0.35,Starter,16.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Byron Young,PHI,DL,DT,4,60,4,13,0.15,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Ty Robinson,PHI,DL,DT,3,21,4,6,0.07,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Jihaad Campbell,PHI,LB,LB,4,263,4,79,0.94,Starter,37.0,1.0,1.0,1.0,0.0,0.0,1.0,Limited,Knee
+Jihaad Campbell,PHI,LB,LB,4,263,4,79,0.94,Starter,37.0,1.0,1.0,1.0,0.0,0.0,1.0,Full,Knee
 Jalyx Hunt,PHI,LB,LB,4,211,4,63,0.75,Starter,12.0,0.0,4.0,1.0,1.0,0.0,0.0,Full,
 Nolan Smith,PHI,LB,LB,4,196,4,64,0.76,Starter,8.0,2.0,2.0,3.0,1.0,0.0,0.0,Full,
-Zack Baun,PHI,LB,LB,3,189,4,0,0.0,Reserve,22.0,0.0,0.0,4.0,3.0,0.0,0.0,Limited,Concussion
+Zack Baun,PHI,LB,LB,3,189,4,0,0.0,Reserve,22.0,0.0,0.0,4.0,3.0,0.0,0.0,Full,Concussion
 Arnold Ebiketie,PHI,LB,LB,4,93,4,21,0.25,Reserve,6.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Jeremiah Trotter Jr.,PHI,LB,LB,2,90,4,84,1.0,Starter,18.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
-Jonathan Greenard,PHI,LB,LB,2,37,4,19,0.23,Reserve,1.0,0.0,1.0,0.0,0.0,0.0,1.0,DNP (no game status yet),Ankle
-A.J. Epenesa,PHI,LB,LB,3,23,4,3,0.04,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
+Jonathan Greenard,PHI,LB,LB,2,37,4,19,0.23,Reserve,1.0,0.0,1.0,0.0,0.0,0.0,1.0,Questionable,Ankle
+A.J. Epenesa,PHI,LB,LB,3,23,4,3,0.04,Reserve,3.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Back
 Andrew Mukuba,PHI,S,S,4,278,4,84,1.0,Starter,20.0,0.0,0.0,0.0,1.0,1.0,0.0,Full,
-Marcus Epps,PHI,S,S,3,119,4,0,0.0,Reserve,14.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Groin
-Jalen Ramsey,PIT,CB,CB,4,235,4,63,0.98,Starter,17.0,0.0,0.0,1.0,1.0,0.0,1.0,Limited,Wrist
+Marcus Epps,PHI,S,S,3,119,4,0,0.0,Reserve,14.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Groin
+Jalen Ramsey,PIT,CB,CB,4,235,4,63,0.98,Starter,17.0,0.0,0.0,1.0,1.0,0.0,1.0,Questionable,Wrist
 Asante Samuel Jr.,PIT,CB,CB,4,214,4,58,0.91,Starter,11.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,
-Jamel Dean,PIT,CB,CB,4,169,4,16,0.25,Reserve,14.0,0.0,0.0,0.0,2.0,0.0,2.0,DNP (no game status yet),Ankle
+Jamel Dean,PIT,CB,CB,4,169,4,16,0.25,Reserve,14.0,0.0,0.0,0.0,2.0,0.0,2.0,Out,Ankle
 Daylen Everette,PIT,CB,CB,4,87,4,52,0.81,Nickel,5.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 Brandin Echols,PIT,CB,CB,3,15,4,2,0.03,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Cameron Heyward,PIT,DL,DT,4,156,4,46,0.72,Starter,14.0,0.0,4.0,0.0,4.0,0.0,1.0,Full,Not injury related - resting player
@@ -640,16 +640,16 @@ Rayshawn Jenkins,PIT,S,S,4,126,4,13,0.2,Reserve,16.0,0.0,0.0,0.0,0.0,0.0,0.0,Ful
 Robert Spears-Jennings,PIT,S,S,2,38,4,37,0.58,Starter,10.0,0.0,0.0,0.0,2.0,1.0,0.0,Full,
 Devon Witherspoon,SEA,CB,CB,4,258,4,71,1.0,Starter,28.0,0.0,1.0,2.0,0.0,0.0,0.0,Full,
 Josh Jobe,SEA,CB,CB,4,258,4,71,1.0,Starter,16.0,0.0,0.0,1.0,1.0,1.0,0.0,Full,
-Nehemiah Pritchett,SEA,CB,CB,4,147,4,20,0.28,Nickel,11.0,0.0,0.0,0.0,3.0,1.0,0.0,Limited,Ankle
+Nehemiah Pritchett,SEA,CB,CB,4,147,4,20,0.28,Nickel,11.0,0.0,0.0,0.0,3.0,1.0,0.0,Full,Ankle
 Trevon Diggs,SEA,CB,CB,1,9,4,9,0.13,Reserve,,,,,,,,Full,
-Julian Neal,SEA,CB,CB,1,2,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Limited,Hamstring
-Leonard Williams,SEA,DL,DT,4,181,4,41,0.58,Starter,11.0,3.0,6.0,5.0,0.0,0.0,0.0,DNP (no game status yet),Ankle
+Julian Neal,SEA,CB,CB,1,2,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Hamstring
+Leonard Williams,SEA,DL,DT,4,181,4,41,0.58,Starter,11.0,3.0,6.0,5.0,0.0,0.0,0.0,Full,Ankle
 Byron Murphy,SEA,DL,DE,4,173,4,42,0.59,Starter,12.0,1.0,2.0,2.0,0.0,0.0,0.0,Full,
 Jarran Reed,SEA,DL,DE,4,126,4,35,0.49,Reserve,9.0,1.0,3.0,1.0,0.0,0.0,0.0,Full,
 Rylie Mills,SEA,DL,DT,4,66,4,20,0.28,Reserve,6.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Mike Morris,SEA,DL,DE,2,9,4,7,0.1,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Brandon Pili,SEA,DL,NT,1,6,4,0,0.0,Reserve,,,,,,,,Full,
-Ernest Jones,SEA,LB,LB,4,259,4,71,1.0,Starter,41.0,1.0,1.0,1.0,2.0,1.0,0.0,Limited,Not injury related - resting player
+Ernest Jones,SEA,LB,LB,4,259,4,71,1.0,Starter,41.0,1.0,1.0,1.0,2.0,1.0,0.0,Full,Not injury related - resting player
 Drake Thomas,SEA,LB,LB,4,231,4,56,0.79,Starter,30.0,1.0,2.0,4.0,1.0,1.0,0.0,Full,
 DeMarcus Lawrence,SEA,LB,LB,4,159,4,42,0.59,Starter,10.0,0.0,5.0,3.0,1.0,0.0,0.0,Full,
 Derick Hall,SEA,LB,LB,4,150,4,42,0.59,Starter,9.0,2.0,6.0,2.0,0.0,0.0,0.0,Full,
@@ -657,14 +657,14 @@ Uchenna Nwosu,SEA,LB,LB,4,129,4,36,0.51,Starter,11.0,1.0,3.0,2.0,2.0,0.0,1.0,Ful
 Dante Fowler,SEA,LB,LB,4,60,4,21,0.3,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Tyrice Knight,SEA,LB,LB,2,21,4,0,0.0,Reserve,,,,,,,,Full,Ankle
 Patrick O'Connell,SEA,LB,LB,2,3,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,Thumb
-Chazz Surratt,SEA,LB,LB,1,2,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Calf
+Chazz Surratt,SEA,LB,LB,1,2,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Calf
 Rodney Thomas II,SEA,S,S,4,259,4,70,0.99,Starter,12.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,
 Julian Love,SEA,S,S,3,190,4,71,1.0,Starter,14.0,0.0,0.0,2.0,4.0,2.0,0.0,Full,
 Nick Emmanwori,SEA,S,S,3,101,4,56,0.79,Reserve,12.0,1.0,2.0,2.0,1.0,0.0,0.0,Full,
 AJ Finley,SEA,S,S,2,71,4,0,0.0,Reserve,5.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Renardo Green,SF,CB,CB,4,263,4,65,0.98,Starter,21.0,0.0,0.0,0.0,2.0,1.0,0.0,Full,
 Deommodore Lenoir,SF,CB,DB,4,254,4,65,0.98,Starter,19.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
-Upton Stout,SF,CB,CB,4,161,4,36,0.55,Nickel,15.0,0.5,2.0,1.0,1.0,0.0,0.0,Limited,Shoulder
+Upton Stout,SF,CB,CB,4,161,4,36,0.55,Nickel,15.0,0.5,2.0,1.0,1.0,0.0,0.0,Questionable,Shoulder
 Jack Jones,SF,CB,CB,4,60,4,14,0.21,Reserve,6.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,
 Osa Odighizuwa,SF,DL,DL,4,199,4,51,0.77,Starter,7.0,0.0,5.0,0.0,1.0,0.0,0.0,Full,
 Keion White,SF,DL,DL,4,171,4,49,0.74,Starter,6.0,2.0,3.0,2.0,0.0,0.0,0.0,Full,
@@ -672,10 +672,10 @@ Gracen Halton,SF,DL,DL,4,118,4,25,0.38,Starter,11.0,0.0,0.0,2.0,1.0,0.0,0.0,Full
 Ogbonnia Okoronkwo,SF,DL,DL,4,107,4,25,0.38,Starter,2.0,1.0,3.0,0.0,0.0,0.0,0.0,Full,
 Khalid Kareem,SF,DL,DL,4,103,4,19,0.29,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Romello Height,SF,DL,DL,3,99,4,37,0.56,Starter,3.0,1.0,0.0,0.0,0.0,0.0,0.0,Full,Hand
-Nick Bosa,SF,DL,DL,2,76,4,0,0.0,Reserve,7.0,0.0,1.0,2.0,0.0,0.0,0.0,DNP (no game status yet),Knee
+Nick Bosa,SF,DL,DL,2,76,4,0,0.0,Reserve,7.0,0.0,1.0,2.0,0.0,0.0,0.0,Out,Knee
 Sebastian Valdez,SF,DL,DL,2,57,4,25,0.38,Reserve,5.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 CJ West,SF,DL,DL,2,49,4,0,0.0,Reserve,5.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
-James Thompson,SF,DL,DL,2,42,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Ankle
+James Thompson,SF,DL,DL,2,42,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Ankle
 Naquan Jones,SF,DL,DL,2,33,4,15,0.23,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kevin Givens,SF,DL,DL,1,21,4,0,0.0,Reserve,1.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Matt Judon,SF,DL,DL,1,14,4,14,0.21,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
@@ -686,7 +686,7 @@ Jaden Dugger,SF,LB,LB,4,100,4,15,0.23,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,S
 Garret Wallow,SF,LB,LB,4,55,4,9,0.14,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Luke Gifford,SF,LB,LB,1,1,4,0,0.0,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Ji'Ayir Brown,SF,S,S,4,258,4,64,0.97,Starter,27.0,0.0,0.0,1.0,1.0,0.0,0.0,Full,
-Marques Sigle,SF,S,S,4,237,4,45,0.68,Starter,26.0,1.0,1.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Ankle
+Marques Sigle,SF,S,S,4,237,4,45,0.68,Starter,26.0,1.0,1.0,1.0,0.0,0.0,0.0,Out,Ankle
 Malik Mustapha,SF,S,S,4,49,4,21,0.32,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Zyon McCollum,TB,CB,CB,5,300,5,60,1.0,Starter,16.0,0.0,0.0,1.0,6.0,0.0,0.0,Full,
 Jacob Parrish,TB,CB,CB,4,196,5,58,0.97,Starter,21.0,0.0,0.0,1.0,7.0,1.0,0.0,Full,
@@ -716,10 +716,10 @@ Alontae Taylor,TEN,CB,CB,4,270,4,64,1.0,Starter,20.0,1.0,1.0,4.0,0.0,0.0,0.0,Ful
 Cordale Flott,TEN,CB,CB,3,194,4,64,1.0,Starter,11.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Marcus Harris,TEN,CB,CB,4,152,4,34,0.53,Nickel,22.0,0.5,1.0,3.0,1.0,1.0,0.0,Limited,Knee
 Micah Robinson,TEN,CB,CB,2,77,4,0,0.0,Reserve,8.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Jeffery Simmons,TEN,DL,DT,4,232,4,53,0.83,Starter,24.0,2.0,5.0,3.0,1.0,0.0,0.0,Limited,Back
+Jeffery Simmons,TEN,DL,DT,4,232,4,53,0.83,Starter,24.0,2.0,5.0,3.0,1.0,0.0,0.0,Full,Back
 Jermaine Johnson II,TEN,DL,DE,4,166,4,31,0.48,Starter,12.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,
 Jacob Martin,TEN,DL,DE,4,155,4,37,0.58,Starter,3.0,1.5,5.0,1.0,0.0,0.0,0.0,Full,
-John Franklin-Myers,TEN,DL,DL,4,145,4,38,0.59,Starter,9.0,1.0,2.0,2.0,1.0,0.0,0.0,Limited,Back
+John Franklin-Myers,TEN,DL,DL,4,145,4,38,0.59,Starter,9.0,1.0,2.0,2.0,1.0,0.0,0.0,Full,Back
 Jordan Elliott,TEN,DL,DL,4,92,4,25,0.39,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Keldric Faulk,TEN,DL,DE,4,84,4,21,0.33,Reserve,6.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,
 Nazir Stackhouse,TEN,DL,DT,4,77,4,20,0.31,Reserve,2.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
@@ -731,7 +731,7 @@ Cody Barton,TEN,LB,LB,4,221,4,53,0.83,Starter,20.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Cedric Gray,TEN,LB,LB,3,90,4,30,0.47,Starter,14.0,0.0,0.0,2.0,0.0,0.0,0.0,Full,
 James Williams,TEN,LB,LB,1,28,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Kevin Winston,TEN,S,S,4,271,4,64,1.0,Starter,29.0,0.0,0.0,0.0,0.0,0.0,1.0,Limited,Shoulder
-Amani Hooker,TEN,S,S,4,268,4,63,0.98,Starter,27.0,0.0,0.0,1.0,2.0,1.0,0.0,DNP (no game status yet),Concussion
+Amani Hooker,TEN,S,S,4,268,4,63,0.98,Starter,27.0,0.0,0.0,1.0,2.0,1.0,0.0,Out,Concussion
 Tony Adams,TEN,S,S,3,26,4,10,0.16,Reserve,3.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Erick Hallett,TEN,S,S,1,11,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Amik Robertson,WSH,CB,CB,4,240,4,65,0.98,Starter,26.0,0.0,0.0,0.0,7.0,0.0,1.0,Full,
@@ -740,13 +740,13 @@ Mike Sainristil,WSH,CB,CB,4,130,4,5,0.08,Reserve,11.0,0.0,0.0,1.0,0.0,0.0,0.0,Fu
 Fabian Moreau,WSH,CB,CB,2,46,4,26,0.39,Nickel,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,Knee
 Daron Payne,WSH,DL,DT,4,176,4,57,0.86,Starter,8.0,0.0,3.0,0.0,0.0,0.0,0.0,Full,
 Javon Kinlaw,WSH,DL,DT,4,156,4,53,0.8,Starter,9.0,1.0,2.0,2.0,2.0,0.0,0.0,Full,Shoulder
-Charles Omenihu,WSH,DL,DE,4,110,4,5,0.08,Reserve,1.0,0.0,1.0,0.0,1.0,0.0,0.0,DNP (no game status yet),Groin
+Charles Omenihu,WSH,DL,DE,4,110,4,5,0.08,Reserve,1.0,0.0,1.0,0.0,1.0,0.0,0.0,Out,Groin
 Tim Settle,WSH,DL,DT,4,89,4,29,0.44,Reserve,8.0,0.5,1.0,0.0,1.0,0.0,0.0,Full,
 Shy Tuttle,WSH,DL,DT,4,88,4,32,0.48,Starter,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Sonny Styles,WSH,LB,LB,4,219,4,49,0.74,Starter,19.0,1.0,2.0,2.0,2.0,1.0,1.0,Full,Groin
-K'Lavon Chaisson,WSH,LB,LB,4,168,4,45,0.68,Starter,10.0,1.5,5.0,2.0,0.0,0.0,0.0,Full,
+K'Lavon Chaisson,WSH,LB,LB,4,168,4,45,0.68,Starter,10.0,1.5,5.0,2.0,0.0,0.0,0.0,DNP (no game status yet),Not injury related - resting player
 Odafe Oweh,WSH,LB,LB,4,166,4,42,0.64,Starter,11.0,2.0,5.0,3.0,0.0,0.0,1.0,Full,
-Frankie Luvu,WSH,LB,LB,2,92,4,63,0.95,Starter,9.0,1.0,1.0,2.0,0.0,0.0,0.0,Limited,Groin
+Frankie Luvu,WSH,LB,LB,2,92,4,63,0.95,Starter,9.0,1.0,1.0,2.0,0.0,0.0,0.0,Full,Groin
 Dorance Armstrong Jr.,WSH,LB,LB,3,85,4,28,0.42,Reserve,6.0,0.0,2.0,0.0,0.0,0.0,0.0,Full,
 Leo Chenal,WSH,LB,LB,3,84,4,0,0.0,Reserve,18.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
 Kain Medrano,WSH,LB,LB,2,65,4,21,0.32,Reserve,7.0,0.0,1.0,0.0,1.0,1.0,0.0,Full,
@@ -756,5 +756,5 @@ Jordan Magee,WSH,LB,LB,1,9,4,0,0.0,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Ale Kaho,WSH,LB,LB,2,3,4,1,0.02,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Jeremy Reaves,WSH,S,S,4,221,4,53,0.8,Starter,27.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,Finger
 Quan Martin,WSH,S,S,4,168,4,59,0.89,Starter,15.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Nick Cross,WSH,S,S,2,109,4,0,0.0,Reserve,11.0,0.0,0.0,3.0,0.0,0.0,0.0,Limited,Illness
-Percy Butler,WSH,S,S,2,32,4,19,0.29,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Hamstring
+Nick Cross,WSH,S,S,2,109,4,0,0.0,Reserve,11.0,0.0,0.0,3.0,0.0,0.0,0.0,Out,Illness
+Percy Butler,WSH,S,S,2,32,4,19,0.29,Reserve,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Out,Hamstring
