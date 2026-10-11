@@ -597,7 +597,8 @@ function saveMyPicksList(list){
 function isPickSaved(pick){
   return getMyPicks().some(p =>
     p.player===pick.player && p.stat===pick.stat && p.source===pick.source && p.week===pick.week &&
-    (p.threshold ?? null) === (pick.threshold ?? null)
+    (p.threshold ?? null) === (pick.threshold ?? null) &&
+    (p.direction || '') === (pick.direction || '')
   );
 }
 
@@ -611,14 +612,20 @@ function isPickSaved(pick){
 // "consider removing" callout) calls this instead of repeating the ternary,
 // so a special case like Any TD only has to be handled once.
 function pickLegLabel(pick){
-  return pick.stat === 'Any TD' ? 'Any TD' : `${pick.threshold}+ ${pick.stat}`;
+  if(pick.stat === 'Any TD') return 'Any TD';
+  if(pick.direction === 'under') return `Under ${pick.threshold} ${pick.stat}`;
+  if(pick.direction === 'over') return `Over ${pick.threshold} ${pick.stat}`;
+  return `${pick.threshold}+ ${pick.stat}`;
 }
 function gradeMyPick(pick){
   if(pick.threshold === undefined || pick.threshold === null || pick.threshold === '') return null;
   const actualRow = (DATA.playerGame || []).find(r => r.Player === pick.player && String(r.Week) === String(pick.week));
   if(!actualRow) return {status: 'PENDING', actual: null};
   const actual = getStatValue(actualRow, pick.stat);
-  return {status: actual >= num(pick.threshold) ? 'HIT' : 'MISS', actual};
+  // "Under 33.5" hits when the player finishes BELOW the line; everything else
+  // (alt lines like 25+, and "Over 4.5" on whole-number stats) hits at or above it.
+  const hit = pick.direction === 'under' ? actual < num(pick.threshold) : actual >= num(pick.threshold);
+  return {status: hit ? 'HIT' : 'MISS', actual};
 }
 
 // Pre-game estimate for a gradeable pick, reusing the same two data points
@@ -634,6 +641,12 @@ function estimatePickProbability(pick){
   const playerRate = getPlayerStatFloorRate(pick.player, pick.position, pick.stat, num(pick.threshold));
   if(!playerRate) return null;
   const defenseRate = pick.opponent ? getDefenseLeadPlayerFloorRate(pick.opponent, pick.position, pick.stat, num(pick.threshold)) : null;
+  if(pick.direction === 'under'){
+    // The rates above count how often the number was CLEARED; an under needs the opposite.
+    const flip = r => r && {hits: r.total - r.hits, total: r.total, rate: 1 - r.rate};
+    const pr = flip(playerRate), dr = flip(defenseRate);
+    return {probability: dr ? (pr.rate + dr.rate) / 2 : pr.rate, playerRate: pr, defenseRate: dr};
+  }
   const probability = defenseRate ? (playerRate.rate + defenseRate.rate) / 2 : playerRate.rate;
   return {probability, playerRate, defenseRate};
 }
@@ -685,7 +698,7 @@ function editMyPickThreshold(index, newThreshold){
   const pick = list[index];
   if(!pick || isNaN(newThreshold)) return false;
   pick.threshold = newThreshold;
-  pick.summary = `${newThreshold}+ ${pick.stat}${pick.opponent ? ` vs ${pick.opponent}` : ''}${pick.week ? ` (Wk ${pick.week})` : ''}`;
+  pick.summary = `${pickLegLabel({...pick, threshold:newThreshold})}${pick.opponent ? ` vs ${pick.opponent}` : ''}${pick.week ? ` (Wk ${pick.week})` : ''}`;
   saveMyPicksList(list);
   return true;
 }
@@ -4169,8 +4182,212 @@ function mountPredictions(){
 }
 
 // ---------- TAB: MY PICKS ----------
+
+// ---------- Betslip import: parse text (from OCR or pasted) into legs ----------
+// Works on the text of a FanDuel / DraftKings slip: a title line per leg
+// ("Makai Lemon 20+ Yards", "Will Shipley Under 33.5", "CeeDee Lamb Over 4.5
+// Receptions", "Jalen Hurts Anytime Touchdown Scorer") followed by an ALL-CAPS
+// market line ("MAKAI LEMON - ALT RECEIVING YDS") that says which stat it is.
+function slipNorm(name){
+  return String(name || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, ' ').replace(/[^a-z]/g, '');
+}
+function slipEditDistance(a, b){
+  if(Math.abs(a.length - b.length) > 3) return 99;
+  const dp = Array.from({length: a.length + 1}, (_, i) => [i]);
+  for(let j = 1; j <= b.length; j++) dp[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++)
+    dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return dp[a.length][b.length];
+}
+let _slipIdx = {src:null, val:null};
+function slipPlayerIndex(){
+  if(_slipIdx.src === DATA.playerGame) return _slipIdx.val;
+  const byPlayer = new Map();
+  (DATA.playerGame || []).forEach(r => {
+    const k = r.Player + '|' + r.Team, cur = byPlayer.get(k);
+    if(!cur || num(r.Week) >= num(cur.Week)) byPlayer.set(k, r);
+  });
+  const list = [...byPlayer.values()].map(r => ({Player:r.Player, Team:r.Team, Position:r.Position, norm:slipNorm(r.Player), Week:r.Week, Opponent:r.Opponent}));
+  _slipIdx = {src: DATA.playerGame, val: list};
+  return list;
+}
+function slipMatchPlayer(raw){
+  const idx = slipPlayerIndex();
+  const tokens = String(raw || '').replace(/[^A-Za-z.'\- ]/g, ' ').split(/\s+/).filter(Boolean);
+  // OCR sometimes prefixes an icon fragment ("he Kenneth Gainwell"): try dropping up to two leading tokens.
+  // Exact matches across every drop come first, then the looser last-name / typo matches.
+  const cands = [];
+  for(let drop = 0; drop <= 2 && tokens.length - drop >= 1; drop++){
+    const cand = tokens.slice(drop).join(' ');
+    if(slipNorm(cand).length < 4 && tokens.length - drop > 1) continue;
+    cands.push(cand);
+  }
+  for(const cand of cands){
+    const exact = idx.filter(p => p.norm === slipNorm(cand));
+    if(exact.length) return {...exact.sort((a, b) => num(b.Week) - num(a.Week))[0], how:'exact'};
+  }
+  for(const cand of cands){
+    const n = slipNorm(cand), parts = cand.split(/\s+/);
+    const last = slipNorm(parts[parts.length - 1]);
+    if(last.length >= 3){
+      let pool = idx.filter(p => p.norm.endsWith(last));
+      if(parts.length > 1) pool = pool.filter(p => p.norm[0] === slipNorm(parts[0])[0]);
+      if(pool.length === 1) return {...pool[0], how:'fuzzy'};
+    }
+    let best = null, bestD = 3, tie = false;
+    idx.forEach(p => { const d = slipEditDistance(n, p.norm); if(d < bestD){ best = p; bestD = d; tie = false; } else if(d === bestD && best && p.Player !== best.Player) tie = true; });
+    if(best && !tie && bestD <= 2 && n.length >= 6) return {...best, how:'fuzzy'};
+  }
+  return null;
+}
+function slipStatFromText(text, position){
+  const U = String(text || '').toUpperCase();
+  if(/RUSH/.test(U) && /RECEIV|RECEP/.test(U)) return {stat:'Rush + Rec Yards', guessed:false};
+  if(/RECEPTION/.test(U) && !/RECEIVING/.test(U)) return {stat:'Receptions', guessed:false};
+  if(/RECEIV/.test(U)) return {stat:'Receiving Yards', guessed:false};
+  if(/RUSH/.test(U)) return {stat:'Rush Yards', guessed:false};
+  if(/PASS/.test(U) && /\bTDS?\b|TOUCHDOWN/.test(U)) return {stat:'Pass TD', guessed:false};
+  if(/PASS/.test(U)) return {stat:'Pass Yards', guessed:false};
+  const byPos = {QB:'Pass Yards', RB:'Rush Yards', WR:'Receiving Yards', TE:'Receiving Yards'};
+  return {stat: byPos[position] || 'Receiving Yards', guessed:true};
+}
+function slipIsSubtitle(line){
+  const letters = line.replace(/[^A-Za-z]/g, '');
+  if(letters.length < 6) return false;
+  const upper = letters.replace(/[^A-Z]/g, '').length;
+  return upper / letters.length >= 0.7;
+}
+function parseSlipText(text){
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const titleRe = /^(.{3,60}?)\s+(?:(\d+(?:\.\d+)?)\s?\+|(Over|Under)\s+(\d+(?:\.\d+)?))(?=\s|$)(.*)$/i;
+  const tdRe = /^(.{3,60}?)\s+(?:to score a touchdown|anytime (?:touchdown|td)(?: scorer)?)\b/i;
+  const legs = [], seen = new Set();
+  lines.forEach((line, i) => {
+    let m = line.match(titleRe), threshold, direction, rest, rawName, isTd = false;
+    if(m){
+      rawName = m[1]; rest = m[5] || '';
+      if(m[2]){ threshold = parseFloat(m[2]); direction = ''; }
+      else { threshold = parseFloat(m[4]); direction = m[3].toLowerCase(); }
+    } else {
+      const t = line.match(tdRe);
+      if(!t) return;
+      rawName = t[1]; rest = ''; threshold = 1; direction = ''; isTd = true;
+    }
+    const match = slipMatchPlayer(rawName);
+    // Market text: the rest of the title line plus the all-caps line right under it, if there is one.
+    let market = rest;
+    const next = lines[i + 1];
+    if(next && slipIsSubtitle(next) && !titleRe.test(next)) market += ' ' + next;
+    let stat, guessed = false;
+    if(isTd) stat = 'Any TD';
+    else {
+      const r = slipStatFromText(market, match && match.Position);
+      stat = r.stat; guessed = r.guessed;
+      if(/\bReceptions?\b/i.test(rest) && !/RECEIVING/i.test(market)) { stat = 'Receptions'; guessed = false; }
+    }
+    const key = (match ? match.Player : slipNorm(rawName)) + '|' + stat + '|' + threshold + '|' + direction;
+    if(seen.has(key)) return;               // collapsed header repeats every leg
+    seen.add(key);
+    legs.push({rawName: rawName.trim(), player: match ? match.Player : rawName.trim(), matched: !!match, how: match ? match.how : null,
+      team: match ? match.Team : '', position: match ? match.Position : '', stat, statGuessed: guessed, threshold, direction, include: true});
+  });
+  return legs;
+}
+// A settled slip (DraftKings/FanDuel "My Bets" view) mentions things an open slip never does.
+function slipLooksSettled(text){
+  return /\bRETURNED\b|TOTAL WAGER|\bFinished\b|\bSettled\b|\bPLACED:|\bFINAL\b|\bPAYOUT\b/i.test(String(text || ''));
+}
+let SLIP_WEEK_MODE = 'upcoming';
+function slipDefaultWeek(leg){
+  const wk2 = SLIP_WEEK_MODE === 'upcoming' ? (DATA.week2 || []).find(r => r.Team === leg.team) : null;
+  if(wk2) return {week: wk2.Week, opponent: wk2.Opponent};
+  const mine = (DATA.playerGame || []).filter(r => r.Player === leg.player && r.Team === leg.team).sort((a, b) => num(b.Week) - num(a.Week))[0];
+  return mine ? {week: mine.Week, opponent: mine.Opponent} : {week:'', opponent:''};
+}
+function slipLegToPick(leg){
+  const direction = leg.direction === 'under' ? 'under' : (leg.direction === 'over' ? 'over' : undefined);
+  const pick = {source:'Betslip Import', player:leg.player, position:leg.position, team:leg.team, opponent:leg.opponent || '',
+    stat:leg.stat, week:String(leg.week || ''), threshold:num(leg.threshold)};
+  if(direction) pick.direction = direction;
+  pick.summary = `${pickLegLabel(pick)}${pick.opponent ? ' vs ' + pick.opponent : ''}${pick.week ? ` (Wk ${pick.week})` : ''}`;
+  return pick;
+}
+
+// Reading the photo: Tesseract.js (OCR) runs in this browser tab -- the image is never uploaded anywhere.
+let _tessPromise = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve(window.Tesseract);
+  if(_tessPromise) return _tessPromise;
+  _tessPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    sc.onload = () => resolve(window.Tesseract);
+    sc.onerror = () => { _tessPromise = null; reject(new Error('Could not load the text reader (needs an internet connection).')); };
+    document.head.appendChild(sc);
+  });
+  return _tessPromise;
+}
+// Betslips are dark-mode: invert to dark-on-light and upscale, which is what OCR reads best.
+function prepSlipImage(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const scale = Math.max(1, Math.min(2400, Math.max(1600, img.width * 2)) / img.width);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data;
+      let sum = 0, n = 0;
+      for(let i = 0; i < px.length; i += 160){ sum += 0.299 * px[i] + 0.587 * px[i+1] + 0.114 * px[i+2]; n++; }
+      const invert = sum / n < 128;
+      for(let i = 0; i < px.length; i += 4){
+        let g = 0.299 * px[i] + 0.587 * px[i+1] + 0.114 * px[i+2];
+        if(invert) g = 255 - g;
+        px[i] = px[i+1] = px[i+2] = g;
+      }
+      ctx.putImageData(d, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not open that image.')); };
+    img.src = url;
+  });
+}
+async function ocrSlipImage(file, onProgress){
+  const T = await loadTesseract();
+  const canvas = await prepSlipImage(file);
+  const worker = await T.createWorker('eng', 1, {logger: m => { if(onProgress && m.status === 'recognizing text') onProgress(m.progress); }});
+  try {
+    await worker.setParameters({tessedit_pageseg_mode: '6'});
+    const res = await worker.recognize(canvas);
+    return res.data.text;
+  } finally { try { await worker.terminate(); } catch(e){} }
+}
+
 function renderMyPicks(){
   return `
+  <div class="panel" id="slip-panel">
+    <div class="panel-title">Import a Betslip</div>
+    <div class="panel-note">
+      Upload a screenshot of a FanDuel or DraftKings slip (open or settled) and the legs are read into the list below,
+      graded against the same hit-rate check as everything else, and added to a ticket. The photo is read inside your
+      browser and is never uploaded. Reading text from a screenshot is not perfect, so check every row (player, stat,
+      line, week) before adding. Rows with an amber flag were guessed. You can also paste the text of a slip.
+      Unders are supported. Alt lines like "25+" and "Over" lines are graded as at-or-above, "Under" as below.
+    </div>
+    <div class="controls">
+      <input type="file" id="slip-file" accept="image/*">
+      <button class="save-pick-btn" id="slip-read-btn">Read slip</button>
+    </div>
+    <div class="controls">
+      <textarea id="slip-text" rows="3" placeholder="...or paste slip text here, e.g. 'Makai Lemon 20+ Yards' on one line and 'MAKAI LEMON - ALT RECEIVING YDS' under it" style="width:100%;max-width:640px;"></textarea>
+      <button class="save-pick-btn" id="slip-parse-btn">Parse text</button>
+    </div>
+    <div class="line-note" id="slip-status"></div>
+    <div id="slip-review"></div>
+  </div>
+  <datalist id="slip-players"></datalist>
   <div class="panel">
     <div class="panel-title">Custom Matchup Checker</div>
     <div class="panel-note">
@@ -4198,6 +4415,7 @@ function renderMyPicks(){
         <option value="Receiving Yards">Receiving Yards</option>
         <option value="Receiving TD">Receiving TD</option>
         <option value="Receptions">Receptions</option>
+        <option value="Rush + Rec Yards">Rush + Rec Yards</option>
       </select>
       <input type="number" id="checker-threshold" placeholder="Threshold (e.g. 65)" style="width:120px;">
       <button class="save-pick-btn" id="checker-btn">Check</button>
@@ -4478,6 +4696,115 @@ function mountMyPicks(){
     });
   }
 
+  // ----- Betslip import UI -----
+  (function(){
+    const statusEl = $('#slip-status'), reviewEl = $('#slip-review');
+    if(!statusEl) return;
+    const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
+    let legs = [];
+    $('#slip-players').innerHTML = slipPlayerIndex().map(p => `<option value="${p.Player.replace(/"/g, '&quot;')}">`).join('');
+
+    function fillDefaults(leg){
+      const m = slipMatchPlayer(leg.player);
+      if(m){ leg.player = m.Player; leg.team = m.Team; leg.position = m.Position; leg.matched = true; }
+      else { leg.matched = false; leg.team = ''; leg.position = ''; leg.opponent = ''; return; }
+      const d = slipDefaultWeek(leg);
+      if(leg.week === undefined || leg.week === '') leg.week = d.week;
+      const row = (DATA.playerGame || []).find(r => r.Player === leg.player && String(r.Week) === String(leg.week));
+      leg.opponent = String(leg.week) === String(d.week) ? d.opponent : (row ? row.Opponent : '');
+    }
+    function draw(){
+      if(!legs.length){ reviewEl.innerHTML = ''; return; }
+      const picks = legs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
+      const rows = legs.map((l, i) => {
+        const pk = (l.include && l.matched && l.week !== '') ? slipLegToPick(l) : null;
+        const est = pk ? estimatePickProbability(pk) : null;
+        const g = pk ? gradeMyPick(pk) : null;
+        const chip = g && g.status !== 'PENDING'
+          ? `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual)</span>`
+          : (est ? `<b>${fmt(est.probability * 100, 0)}%</b> <span style="color:var(--chalk-dim);">${est.playerRate.hits}/${est.playerRate.total}${est.defenseRate ? ` &middot; opp ${est.defenseRate.hits}/${est.defenseRate.total}` : ''}</span>` : '<span style="color:var(--chalk-dim);">--</span>');
+        const flag = !l.matched ? '<span style="color:var(--red);">player not found</span>'
+          : (l.statGuessed ? '<span style="color:var(--gold);">stat guessed, check it</span>' : (l.how === 'fuzzy' ? '<span style="color:var(--gold);">name matched loosely</span>' : '<span style="color:var(--mint);">&#10003;</span>'));
+        return `<tr>
+          <td><input type="checkbox" data-i="${i}" data-f="include" ${l.include ? 'checked' : ''}></td>
+          <td><input type="text" list="slip-players" data-i="${i}" data-f="player" value="${String(l.player).replace(/"/g, '&quot;')}" style="width:170px;"></td>
+          <td>${l.position || '--'} ${l.team ? teamChip(l.team) : ''}</td>
+          <td><select data-i="${i}" data-f="stat">${STATS.map(s => `<option ${s === l.stat ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td><select data-i="${i}" data-f="direction"><option value="" ${!l.direction ? 'selected' : ''}>at least</option><option value="over" ${l.direction === 'over' ? 'selected' : ''}>over</option><option value="under" ${l.direction === 'under' ? 'selected' : ''}>under</option></select></td>
+          <td><input type="number" step="0.5" data-i="${i}" data-f="threshold" value="${l.threshold}" style="width:64px;"></td>
+          <td><input type="number" data-i="${i}" data-f="week" value="${l.week ?? ''}" style="width:52px;"></td>
+          <td>${l.opponent ? teamChip(l.opponent) : '--'}</td>
+          <td>${flag}</td><td>${chip}</td></tr>`;
+      }).join('');
+      const odds = picks.length ? analyzeTicketOdds(picks) : null;
+      let grade = '';
+      if(odds && odds.estimable.length){
+        const parlay = fmt(odds.parlayProbability * 100, 1);
+        const weakLabel = odds.weakest ? `${odds.weakest.player} ${pickLegLabel(odds.weakest)} (${fmt(odds.weakest.est.probability * 100, 0)}%)` : '';
+        grade = `<div class="player-preview-stats"><b>Slip grade:</b> all ${odds.estimable.length} gradeable legs hitting together is about <b style="color:var(--mint);">${parlay}%</b> by this dashboard's hit rates
+          ${odds.estimable.length > 1 && odds.weakest ? `&middot; weakest leg: ${weakLabel}; without it about <b style="color:var(--mint);">${fmt(odds.withoutWeakest * 100, 1)}%</b>` : ''}
+          ${odds.skipped.length ? `&middot; ${odds.skipped.length} leg(s) had no history to grade` : ''}</div>
+          <div class="line-note">A rough read built from each player's own season hit rate (and the opponent's, when known). It ignores game script, injuries, primetime and who covers him, so treat it as a floor check, not a prediction.</div>`;
+      }
+      const tickets = getAllTicketNames();
+      reviewEl.innerHTML = `<div class="controls"><label class="ctl-label">These legs are for
+          <select id="slip-week-mode"><option value="upcoming" ${SLIP_WEEK_MODE === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${SLIP_WEEK_MODE === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
+        <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th></tr></thead><tbody>${rows}</tbody></table></div>
+        ${grade}
+        <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket">${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">New ticket...</option></select></label>
+        <button class="save-pick-btn" id="slip-add-btn">+ Add ${picks.length} leg${picks.length === 1 ? '' : 's'} to My Picks</button></div>`;
+      $('#slip-week-mode').addEventListener('change', e => {
+        SLIP_WEEK_MODE = e.target.value;
+        legs.forEach(l => { l.week = ''; fillDefaults(l); });
+        draw();
+      });
+      $$('input[data-f], select[data-f]', reviewEl).forEach(el => el.addEventListener('change', () => {
+        const l = legs[parseInt(el.dataset.i, 10)], f = el.dataset.f;
+        if(f === 'include') l.include = el.checked;
+        else if(f === 'threshold') l.threshold = parseFloat(el.value);
+        else if(f === 'week'){ l.week = el.value; fillDefaults(l); }
+        else if(f === 'player'){ l.player = el.value; l.matched = false; l.week = ''; fillDefaults(l); }
+        else { l[f] = el.value; if(f === 'stat') l.statGuessed = false; }
+        draw();
+      }));
+      $('#slip-add-btn').addEventListener('click', () => {
+        let ticket = $('#slip-ticket').value;
+        if(ticket === '__new'){
+          ticket = (prompt('Name for the new ticket:') || '').trim();
+          if(!ticket) return;
+          addNewTicketName(ticket);
+        }
+        let added = 0, dupes = 0;
+        picks.forEach(p => { if(addToMyPicks({...p, ticket})) added++; else dupes++; });
+        statusEl.textContent = `Added ${added} leg${added === 1 ? '' : 's'} to ${ticket}${dupes ? ` (${dupes} already saved)` : ''}. Scroll down to see the ticket, its grades and weakest leg.`;
+        legs = []; reviewEl.innerHTML = '';
+        apply();
+      });
+    }
+    function setLegs(parsed, rawText){
+      SLIP_WEEK_MODE = slipLooksSettled(rawText) ? 'played' : 'upcoming';
+      legs = parsed;
+      legs.forEach(l => { l.week = ''; fillDefaults(l); });
+      if(!legs.length) statusEl.textContent = "Couldn't find any legs in that. It looks for lines like '25+ Yards' or 'Under 33.5'. Try a sharper screenshot of just the slip, or paste the text.";
+      else statusEl.textContent = `Found ${legs.length} leg${legs.length === 1 ? '' : 's'}${SLIP_WEEK_MODE === 'played' ? ' (this looks like a settled slip, so legs are set to the games already played)' : ''}. Check each row, fix anything amber or red, then add.`;
+      draw();
+    }
+    $('#slip-parse-btn').addEventListener('click', () => setLegs(parseSlipText($('#slip-text').value), $('#slip-text').value));
+    $('#slip-read-btn').addEventListener('click', async () => {
+      const file = $('#slip-file').files && $('#slip-file').files[0];
+      if(!file){ statusEl.textContent = 'Choose a screenshot first.'; return; }
+      statusEl.textContent = 'Loading the text reader...';
+      try {
+        const text = await ocrSlipImage(file, p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%`; });
+        $('#slip-text').value = text;
+        setLegs(parseSlipText(text), text);
+      } catch(err){
+        console.error(err);
+        statusEl.textContent = `Couldn't read that image (${err.message}). You can paste the slip text instead.`;
+      }
+    });
+  })();
+
   apply();
 }
 
@@ -4559,6 +4886,7 @@ function getTeamTopVolumePlayer(team, position){
 // grading/estimating function below reads a stat value through this
 // instead of indexing playerGame rows directly.
 function getStatValue(row, statKey){
+  if(statKey === 'Rush + Rec Yards') return num(row['Rush Yards']) + num(row['Receiving Yards']);
   return statKey === 'Any TD' ? num(row['Rush TD']) + num(row['Receiving TD']) : num(row[statKey]);
 }
 
