@@ -75,17 +75,17 @@ Jaylinn Hawkins,BAL,S,S,4,222,4,45,0.7,Reserve,18.0,0.0,0.0,0.0,0.0,0.0,0.0,Full
 K'Von Wallace,BAL,S,S,1,2,4,2,0.03,Reserve,,,,,,,,Full,
 Keondre Jackson,BAL,S,S,1,1,4,0,0.0,Reserve,2.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Maxwell Hairston,BUF,CB,CB,4,245,4,74,0.97,Starter,9.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
-Christian Benford,BUF,CB,CB,3,195,4,0,0.0,Reserve,16.0,0.0,0.0,0.0,3.0,0.0,0.0,Limited,Toe
+Christian Benford,BUF,CB,CB,3,195,4,0,0.0,Reserve,16.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,Toe
 Davison Igbinosun,BUF,CB,CB,4,133,4,76,1.0,Starter,18.0,0.0,0.0,0.0,3.0,0.0,0.0,Full,
 DeAundre Alford,BUF,CB,CB,2,86,4,0,0.0,Reserve,,,,,,,,Full,
-Dee Alford,BUF,CB,CB,2,60,4,24,0.32,Nickel,,,,,,,,DNP (no game status yet),Ankle
+Dee Alford,BUF,CB,CB,2,60,4,24,0.32,Nickel,,,,,,,,Questionable,Ankle
 Jordan Hancock,BUF,CB,DB,1,13,4,0,0.0,Reserve,6.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Deone Walker,BUF,DL,DL,4,202,4,59,0.78,Starter,12.0,1.0,4.0,3.0,4.0,0.0,0.0,Full,
 DeWayne Carter,BUF,DL,DL,4,127,4,45,0.59,Starter,10.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Ed Oliver,BUF,DL,DL,3,117,4,24,0.32,Reserve,9.0,0.5,4.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Knee
-Landon Jackson,BUF,DL,DL,4,112,4,29,0.38,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,Limited,Knee
+Ed Oliver,BUF,DL,DL,3,117,4,24,0.32,Reserve,9.0,0.5,4.0,1.0,0.0,0.0,0.0,Out,Knee
+Landon Jackson,BUF,DL,DL,4,112,4,29,0.38,Reserve,9.0,0.0,0.0,0.0,1.0,0.0,0.0,Questionable,Knee
 Greg Gaines,BUF,DL,DL,4,86,4,31,0.41,Starter,7.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Terrel Bernard,BUF,LB,LB,4,278,4,70,0.92,Starter,28.0,0.0,0.0,2.0,1.0,0.0,0.0,Full,Knee
+Terrel Bernard,BUF,LB,LB,4,278,4,70,0.92,Starter,28.0,0.0,0.0,2.0,1.0,0.0,0.0,DNP (no game status yet),Knee
 Bradley Chubb,BUF,LB,LB,4,224,4,63,0.83,Starter,15.0,1.5,7.0,2.0,0.0,0.0,0.0,Full,Thumb
 Gregory Rousseau,BUF,LB,LB,4,224,4,62,0.82,Starter,19.0,6.0,16.0,8.0,3.0,0.0,3.0,Full,
 Dorian Williams,BUF,LB,LB,4,194,4,52,0.68,Starter,30.0,0.0,0.0,3.0,1.0,0.0,0.0,Full,Hip
@@ -409,24 +409,24 @@ Genesis Smith,LAC,S,S,4,144,4,39,0.65,Starter,12.0,0.0,0.0,0.0,3.0,2.0,0.0,Full,
 R.J. Mickens,LAC,S,S,3,78,4,18,0.3,Reserve,8.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Trent McDuffie,LAR,CB,CB,4,250,4,61,1.0,Starter,13.0,0.0,0.0,1.0,7.0,1.0,0.0,Full,
 Josh Wallace,LAR,CB,CB,4,162,4,61,1.0,Starter,9.0,0.0,0.0,0.0,2.0,1.0,0.0,Full,
-Jaylen Watson,LAR,CB,CB,3,140,4,0,0.0,Reserve,10.0,0.0,0.0,1.0,3.0,0.0,0.0,Limited,Shoulder
+Jaylen Watson,LAR,CB,CB,3,140,4,0,0.0,Reserve,10.0,0.0,0.0,1.0,3.0,0.0,0.0,Full,Shoulder
 Emmanuel Forbes,LAR,CB,CB,3,67,4,21,0.34,Nickel,3.0,0.0,0.0,0.0,1.0,0.0,0.0,Full,
 Kobie Turner,LAR,DL,DE,4,166,4,48,0.79,Starter,17.0,0.0,1.0,0.0,2.0,0.0,0.0,Full,
 Braden Fiske,LAR,DL,DE,4,138,4,44,0.72,Starter,6.0,0.0,3.0,0.0,0.0,0.0,0.0,Full,
 Poona Ford,LAR,DL,NT,4,98,4,26,0.43,Starter,9.0,0.0,1.0,1.0,1.0,0.0,0.0,Full,
 Tyler Davis,LAR,DL,DE,4,97,4,22,0.36,Reserve,11.0,0.0,0.0,1.0,0.0,0.0,0.0,Full,
-Aaron Donald,LAR,DL,DE,2,68,4,0,0.0,Reserve,4.0,0.0,1.0,1.0,0.0,0.0,0.0,Limited,Back
+Aaron Donald,LAR,DL,DE,2,68,4,0,0.0,Reserve,4.0,0.0,1.0,1.0,0.0,0.0,0.0,DNP (no game status yet),Back
 Ty Hamilton,LAR,DL,NT,4,40,4,11,0.18,Reserve,4.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Larrell Murchison,LAR,DL,DE,1,12,4,12,0.2,Reserve,1.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
 Nathan Landman,LAR,LB,LB,4,229,4,57,0.93,Starter,27.0,0.0,1.0,1.0,1.0,0.0,0.0,Full,
-Byron Young,LAR,LB,LB,4,201,4,54,0.89,Starter,16.0,3.5,6.0,3.0,0.0,0.0,1.0,Full,
-Josaiah Stewart,LAR,LB,LB,4,158,4,32,0.52,Starter,10.0,0.0,1.0,0.0,0.0,0.0,0.0,DNP (no game status yet),Groin
+Byron Young,LAR,LB,LB,4,201,4,54,0.89,Starter,16.0,3.5,6.0,3.0,0.0,0.0,1.0,DNP (no game status yet),Not injury related - resting player
+Josaiah Stewart,LAR,LB,LB,4,158,4,32,0.52,Starter,10.0,0.0,1.0,0.0,0.0,0.0,0.0,Limited,Groin
 Omar Speights,LAR,LB,LB,4,113,4,18,0.3,Reserve,17.0,2.0,2.0,1.0,1.0,0.0,1.0,Full,
 Wesley Bailey,LAR,LB,LB,3,61,4,29,0.48,Starter,4.0,1.0,1.0,0.0,0.0,0.0,0.0,Full,
 Desjuan Johnson,LAR,LB,LB,4,44,4,7,0.11,Reserve,4.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Myles Garrett,LAR,LB,LB,1,40,4,0,0.0,Reserve,,,,,,,,Full,
 Shaun Dolac,LAR,LB,LB,1,19,4,0,0.0,Reserve,8.0,0.0,0.0,0.0,0.0,0.0,0.0,Full,
-Quentin Lake,LAR,S,S,4,251,4,61,1.0,Starter,29.0,0.0,0.0,0.0,7.0,1.0,1.0,DNP (no game status yet),Hip
+Quentin Lake,LAR,S,S,4,251,4,61,1.0,Starter,29.0,0.0,0.0,0.0,7.0,1.0,1.0,Questionable,Hip
 Kamren Curl,LAR,S,S,4,215,4,61,1.0,Starter,14.0,0.0,0.0,0.0,2.0,0.0,0.0,Full,
 Jaylen McCollough,LAR,S,S,4,97,4,3,0.05,Reserve,8.0,0.0,1.0,0.0,0.0,0.0,0.0,Full,
 Kamren Kinchens,LAR,S,S,2,95,4,43,0.7,Reserve,14.0,0.5,1.0,0.0,1.0,0.0,0.0,Full,
