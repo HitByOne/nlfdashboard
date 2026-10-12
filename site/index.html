@@ -1525,6 +1525,7 @@ function renderPlayers(){
         <span class="pill active" data-pos="">ALL</span>
         ${positions.map(p=>`<span class="pill" data-pos="${p}">${p}</span>`).join('')}
       </div>
+      ${starterPillHtml('pl-starters')}
     </div>
     <div id="pl-table"></div>
   </div>`;
@@ -1551,10 +1552,17 @@ function mountPlayers(){
     const rows = DATA.playerGame.filter(r=>
       (!q || r.Player.toLowerCase().includes(q)) &&
       (!t || r.Team === t) &&
-      (!pos || r.Position === pos)
+      (!pos || r.Position === pos) &&
+      (!getStartersOnly() || isStarter(r))
     );
     buildTable($('#pl-table'), cols, rows, {defaultSort:'Week', defaultDir:'asc', limit:150});
   }
+  $('#pl-starters').addEventListener('click', ()=>{
+    const on = !getStartersOnly();
+    setStartersOnly(on);
+    $('#pl-starters').classList.toggle('active', on);
+    apply();
+  });
   $('#pl-search').addEventListener('input', apply);
   $('#pl-team').addEventListener('change', apply);
   $$('#pl-pos-pills .pill').forEach(p=>{
@@ -2150,6 +2158,48 @@ function matchupScheduleGames(){
   return games;
 }
 
+
+// ---------- "Starters only" filter ----------
+// There's no depth chart in the box-score data, so a starter is whoever leads
+// his team's position group in usage over the games logged: QB1 by pass
+// attempts, RB1 by rush attempts plus targets, the top three WRs and TE1 by
+// targets. It's a usage proxy, so a player who just took over a job (or lost
+// one to injury) can lag a game or two behind. One flag drives every table.
+const STARTER_SLOTS = {QB:1, RB:1, WR:3, TE:1};
+const STARTERS_KEY = 'nfl_dashboard_starters_only';
+function getStartersOnly(){ try { return localStorage.getItem(STARTERS_KEY) === '1'; } catch(e){ return false; } }
+function setStartersOnly(on){ try { localStorage.setItem(STARTERS_KEY, on ? '1' : '0'); } catch(e){} }
+let _starterCache = {src:null, set:null};
+function getStarterSet(){
+  if(_starterCache.src === DATA.playerGame) return _starterCache.set;
+  const usage = {};
+  (DATA.playerGame || []).forEach(r => {
+    const k = r.Team + '|' + r.Position + '|' + r.Player;
+    const u = r.Position === 'QB' ? num(r['Pass Attempts'])
+      : r.Position === 'RB' ? num(r['Rush Attempts']) + num(r.Targets)
+      : num(r.Targets);
+    usage[k] = (usage[k] || 0) + u;
+  });
+  const groups = {};
+  Object.entries(usage).forEach(([k, u]) => {
+    const [team, pos, player] = k.split('|');
+    if(!STARTER_SLOTS[pos]) return;
+    (groups[team + '|' + pos] = groups[team + '|' + pos] || []).push({player, u});
+  });
+  const set = new Set();
+  Object.entries(groups).forEach(([k, list]) => {
+    const [team, pos] = k.split('|');
+    list.sort((a, b) => b.u - a.u).slice(0, STARTER_SLOTS[pos]).forEach(x => set.add(team + '|' + x.player));
+  });
+  _starterCache = {src: DATA.playerGame, set};
+  return set;
+}
+function isStarter(row){ return getStarterSet().has(row.Team + '|' + row.Player); }
+const STARTER_TIP = 'Starters = QB1, RB1, WR1-3, TE1 on each team, ranked by usage so far this season (pass attempts / rush attempts + targets / targets).';
+function starterPillHtml(id){
+  return `<span class="pill ${getStartersOnly() ? 'active' : ''}" id="${id}" title="${STARTER_TIP}">Starters only</span>`;
+}
+
 function renderMatchup(){
   const teams = [...new Set(DATA.teamSummary.map(r=>r.Team))].sort();
   const schedule = matchupScheduleGames();
@@ -2182,6 +2232,7 @@ function renderMatchup(){
       <div class="pill-group" id="mu-pos-pills">
         ${MATCHUP_POSITIONS.map((p,i)=>`<span class="pill ${i===0?'active':''}" data-pos="${p}">${p}</span>`).join('')}
       </div>
+      ${starterPillHtml('mu-starters')}
     </div>
     <div id="mu-rank"></div>
     <div id="mu-faced"></div>
@@ -2427,15 +2478,17 @@ function mountMatchup(){
     }};
     const cols = [...MATCHUP_COLS.base, ...statCols, saveCol];
 
-    const offRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Team===off && r.Position===pos), pos);
+    const startersOnly = getStartersOnly();
+    const keep = r => !startersOnly || isStarter(r);
+    const offRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Team===off && r.Position===pos && keep(r)), pos);
     // Exclude the offense's own team here -- the point of this table is to
     // show OTHER teams' performances against the defense, for comparison.
     // Without this, a team that already played this defense sees its own
     // game mirrored back in both tables.
-    const defRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off), pos);
+    const defRows = matchupAugmentRows(DATA.playerGame.filter(r=>r.Opponent===def && r.Position===pos && r.Team!==off && keep(r)), pos);
 
-    $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s`;
-    $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}`;
+    $('#mu-off-title').textContent = `Offensive Stats for ${teamName(off)} ${pos}s${startersOnly ? ' (starters only)' : ''}`;
+    $('#mu-def-title').textContent = `${pos}s Played Against ${teamName(def)}${startersOnly ? ' (starters only)' : ''}`;
 
     // Totals row: every stat column summed across the rows shown.
     const footerFor = rows => ({
@@ -2516,6 +2569,12 @@ function mountMatchup(){
     pickFromGame(card, e.target.closest('.mu-game-team'));
   });
 
+  $('#mu-starters').addEventListener('click', ()=>{
+    const on = !getStartersOnly();
+    setStartersOnly(on);
+    $('#mu-starters').classList.toggle('active', on);
+    apply();
+  });
   $('#mu-off').addEventListener('change', apply);
   $('#mu-def').addEventListener('change', apply);
   $('#mu-flip').addEventListener('click', ()=>{
