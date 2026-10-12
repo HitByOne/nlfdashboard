@@ -2169,7 +2169,8 @@ const STARTER_SLOTS = {QB:1, RB:1, WR:3, TE:1};
 const STARTERS_KEY = 'nfl_dashboard_starters_only';
 function getStartersOnly(){ try { return localStorage.getItem(STARTERS_KEY) === '1'; } catch(e){ return false; } }
 function setStartersOnly(on){ try { localStorage.setItem(STARTERS_KEY, on ? '1' : '0'); } catch(e){} }
-let _starterCache = {src:null, set:null};
+let _starterCache = {src:null, set:null, slots:null};
+function getStarterSlots(){ getStarterSet(); return _starterCache.slots; }
 function getStarterSet(){
   if(_starterCache.src === DATA.playerGame) return _starterCache.set;
   const usage = {};
@@ -2186,12 +2187,15 @@ function getStarterSet(){
     if(!STARTER_SLOTS[pos]) return;
     (groups[team + '|' + pos] = groups[team + '|' + pos] || []).push({player, u});
   });
-  const set = new Set();
+  const set = new Set(), slots = new Map();
   Object.entries(groups).forEach(([k, list]) => {
     const [team, pos] = k.split('|');
-    list.sort((a, b) => b.u - a.u).slice(0, STARTER_SLOTS[pos]).forEach(x => set.add(team + '|' + x.player));
+    list.sort((a, b) => b.u - a.u).slice(0, STARTER_SLOTS[pos]).forEach((x, i) => {
+      set.add(team + '|' + x.player);
+      slots.set(team + '|' + x.player, STARTER_SLOTS[pos] > 1 ? pos + (i + 1) : pos + '1');
+    });
   });
-  _starterCache = {src: DATA.playerGame, set};
+  _starterCache = {src: DATA.playerGame, set, slots};
   return set;
 }
 function isStarter(row){ return getStarterSet().has(row.Team + '|' + row.Player); }
@@ -3671,98 +3675,95 @@ function isPlayerOut(player){
   return (DATA.injuries || []).some(r=>r.Player===player && /out|doubtful/i.test(r.Status || ''));
 }
 
-// League-wide percentile per position PER STAT: 1.0 = the top producer at
-// that position in that specific stat this season, 0.0 = the lowest.
-function buildPlayerPercentileRanks(){
-  const ranks = {};
-  PICKS_POSITIONS.forEach(pos=>{
-    ranks[pos] = {};
-    (PICKS_STAT_OPTIONS[pos] || []).forEach(opt=>{
-      const byPlayer = {};
-      (DATA.playerGame || []).filter(r=>r.Position===pos).forEach(r=>{
-        if(!byPlayer[r.Player]) byPlayer[r.Player] = [];
-        byPlayer[r.Player].push(num(r[opt.key]));
-      });
-      const avgs = Object.entries(byPlayer).map(([player, vals]) => ({player, avg: vals.reduce((s,v)=>s+v,0)/vals.length}));
-      avgs.sort((a,b)=>b.avg-a.avg);
-      const n = avgs.length;
-      ranks[pos][opt.key] = {};
-      avgs.forEach((e,i)=>{ ranks[pos][opt.key][e.player] = n>1 ? 1 - i/(n-1) : 1; });
-    });
-  });
-  return ranks;
+// ---------- BEST PICKS (starter-based) ----------
+// For each game, every offensive starter (QB1, RB1, WR1-3, TE1) is matched
+// against what the opposing defense has actually given up to STARTERS at that
+// position -- not to the whole position group, where backups and one-off
+// players drag the numbers around. A pick only appears when both sides agree
+// on a floor: the player cleared it in most of his own games AND starters
+// cleared it in most of their games against this defense. The line shown is
+// the HIGHEST such floor, which is the genuine overlap, not an easy number.
+// Touchdown stats are left to the Anytime TD tab; this page is yardage and
+// receptions. Switch "Starters only" off to compare against every player.
+const BP_FLOORS = {
+  'Pass Yards': [150,175,200,225,250,275,300],
+  'Rush Yards': [20,30,40,50,60,70,80,90,100],
+  'Receiving Yards': [15,20,25,30,40,50,60,70,80,90,100],
+  'Receptions': [2,3,4,5,6,7,8],
+};
+const BP_STATS = {
+  QB: ['Pass Yards'], RB: ['Rush Yards','Receiving Yards','Receptions'],
+  WR: ['Receiving Yards','Receptions'], TE: ['Receiving Yards','Receptions'],
+};
+const BP_PLAYER_MIN_RATE = 0.75, BP_DEF_MIN_RATE = 0.60, BP_MIN_PLAYER_GAMES = 2, BP_MIN_DEF_SAMPLES = 3;
+const BP_STARTERS_KEY = 'nfl_dashboard_bestpicks_starters';
+function bpStartersOn(){ try { return localStorage.getItem(BP_STARTERS_KEY) !== '0'; } catch(e){ return true; } }
+function bpSetStarters(on){ try { localStorage.setItem(BP_STARTERS_KEY, on ? '1' : '0'); } catch(e){} }
+
+// Rows of players who faced `defense` at `position`: starters only, or everyone.
+// The offense's own team is left out: a past game between these two teams is already in the player's own log.
+function bpDefenseSamples(defense, position, startersOnly, offense){
+  return (DATA.playerGame || []).filter(r => r.Opponent === defense && r.Position === position && r.Team !== offense && (!startersOnly || isStarter(r)));
+}
+let _bpLeague = {src:null, startersOnly:null, val:null};
+function bpLeagueAvg(position, stat, startersOnly){
+  if(_bpLeague.src !== DATA.playerGame || _bpLeague.startersOnly !== startersOnly) _bpLeague = {src: DATA.playerGame, startersOnly, val:{}};
+  const key = position + '|' + stat;
+  if(!(key in _bpLeague.val)){
+    const rows = (DATA.playerGame || []).filter(r => r.Position === position && (!startersOnly || isStarter(r)));
+    _bpLeague.val[key] = rows.length ? rows.reduce((a, r) => a + getStatValue(r, stat), 0) / rows.length : 0;
+  }
+  return _bpLeague.val[key];
 }
 
-// Same idea for defenses, per stat: 1.0 = allows the most of that specific
-// stat at this position (weakest, best matchup), 0.0 = allows the least.
-function buildDefensePercentileRanks(){
-  const ranks = {};
-  PICKS_POSITIONS.forEach(pos=>{
-    ranks[pos] = {};
-    (PICKS_STAT_OPTIONS[pos] || []).forEach(opt=>{
-      const rows = (DATA.defVsPos || []).filter(r=>r.Position===pos);
-      const sorted = [...rows].sort((a,b)=>num(b[opt.defenseKey]) - num(a[opt.defenseKey]));
-      const n = sorted.length;
-      ranks[pos][opt.key] = {};
-      sorted.forEach((r,i)=>{ ranks[pos][opt.key][r.Defense] = n>1 ? 1 - i/(n-1) : 1; });
-    });
+// Offensive players for a team: starters (next man up if a starter is Out) or everyone with history.
+function bpTeamPlayers(team, startersOnly){
+  const byPlayer = {};
+  (DATA.playerGame || []).filter(r => r.Team === team && BP_STATS[r.Position]).forEach(r => {
+    (byPlayer[r.Player] = byPlayer[r.Player] || {Player:r.Player, Position:r.Position, games:[]}).games.push(r);
   });
-  return ranks;
+  const list = Object.values(byPlayer);
+  if(!startersOnly) return list.filter(p => !isPlayerOut(p.Player)).map(p => ({...p, slot:p.Position}));
+  const usage = p => p.games.reduce((a, r) => a + (p.Position === 'QB' ? num(r['Pass Attempts']) : p.Position === 'RB' ? num(r['Rush Attempts']) + num(r.Targets) : num(r.Targets)), 0);
+  const out = [];
+  Object.keys(STARTER_SLOTS).forEach(pos => {
+    const healthy = list.filter(p => p.Position === pos && !isPlayerOut(p.Player)).sort((a, b) => usage(b) - usage(a));
+    healthy.slice(0, STARTER_SLOTS[pos]).forEach((p, i) => out.push({...p, slot: STARTER_SLOTS[pos] > 1 ? pos + (i + 1) : pos + '1'}));
+  });
+  return out;
 }
 
-function computeGamePicks(awayTeam, homeTeam, playerPercentiles, defensePercentiles){
-  const sides = [[awayTeam, homeTeam], [homeTeam, awayTeam]]; // [offenseTeam, defenseTeam]
-  const candidates = [];
-
-  sides.forEach(([offenseTeam, defenseTeam])=>{
-    const players = [...new Set(
-      (DATA.playerGame || []).filter(r=>r.Team===offenseTeam && PICKS_POSITIONS.includes(r.Position)).map(r=>r.Player)
-    )];
-
-    players.forEach(player=>{
-      if(isPlayerOut(player)) return;
-      const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===offenseTeam);
-      const position = posRow.Position;
-      const statOptions = PICKS_STAT_OPTIONS[position] || [];
-
-      // Evaluate every applicable stat for this player and keep whichever
-      // gives the strongest combined signal -- that becomes their pick.
-      let best = null;
-      statOptions.forEach(opt=>{
-        const playerTrend = getPlayerSeasonAndLast3(player, position, opt.key);
-        const defTrend = getDefenseSeasonAndLast3(defenseTeam, position, opt);
-        if(!playerTrend || !defTrend) return;
-        if(playerTrend.seasonAvg <= 0) return; // this player doesn't actually produce this stat
-
-        const playerPct = playerPercentiles[position]?.[opt.key]?.[player] ?? 0;
-        const defPct = defensePercentiles[position]?.[opt.key]?.[defenseTeam] ?? 0;
-        let score = playerPct * defPct;
-
-        const defenseTrendUp = defTrend.last3Allowed > defTrend.seasonAllowed * 1.1;
-        const playerTrendUp = playerTrend.last3Avg > playerTrend.seasonAvg * 1.1;
-        if(defenseTrendUp) score *= 1.1;
-        if(playerTrendUp) score *= 1.1;
-
-        const entry = {
-          player, position, team: offenseTeam, opponent: defenseTeam,
-          statLabel: opt.label,
-          playerSeasonAvg: playerTrend.seasonAvg, playerLast3Avg: playerTrend.last3Avg,
-          defenseSeasonAllowed: defTrend.seasonAllowed, defenseLast3Allowed: defTrend.last3Allowed,
-          defenseTrendUp, playerTrendUp, score,
-        };
-        if(!best || score > best.score) best = entry;
+function bpPicksForGame(offense, defense, startersOnly){
+  const picks = [];
+  let noLine = 0;
+  bpTeamPlayers(offense, startersOnly).forEach(p => {
+    if(p.games.length < BP_MIN_PLAYER_GAMES) return;
+    const defRows = bpDefenseSamples(defense, p.Position, startersOnly, offense);
+    if(defRows.length < BP_MIN_DEF_SAMPLES) return;
+    let best = null;
+    BP_STATS[p.Position].forEach(stat => {
+      const vals = p.games.map(g => getStatValue(g, stat));
+      const avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+      if(avg <= 0) return;
+      let found = null;
+      BP_FLOORS[stat].forEach(f => {
+        const ph = vals.filter(v => v >= f).length, pr = ph / vals.length;
+        const dh = defRows.filter(r => getStatValue(r, stat) >= f).length, dr = dh / defRows.length;
+        if(pr >= BP_PLAYER_MIN_RATE && dr >= BP_DEF_MIN_RATE) found = {floor:f, ph, pt:vals.length, dh, dt:defRows.length, pr, dr};
       });
-
-      if(!best) return;
-      const milestone = getClosestMilestoneGlobal(player);
-      if(milestone) best.score *= 1.05;
-      best.milestone = milestone;
-      candidates.push(best);
+      if(!found) return;
+      const l3 = p.games.slice().sort((a, b) => num(a.Week) - num(b.Week)).slice(-3).map(g => getStatValue(g, stat));
+      const allowed = defRows.reduce((a, r) => a + getStatValue(r, stat), 0) / defRows.length;
+      const league = bpLeagueAvg(p.Position, stat, startersOnly);
+      const entry = {player:p.Player, position:p.Position, slot:p.slot, team:offense, opponent:defense, stat, ...found,
+        score:(found.pr + found.dr) / 2, avg, l3avg:l3.reduce((a, v) => a + v, 0) / l3.length, allowed, league,
+        edge: league > 0 ? allowed / league - 1 : 0};
+      if(!best || entry.score > best.score || (entry.score === best.score && entry.floor > best.floor)) best = entry;
     });
+    if(best) picks.push(best); else noLine++;
   });
-
-  candidates.sort((a,b)=>b.score-a.score);
-  return candidates.slice(0,5);
+  picks.sort((a, b) => b.score - a.score || b.edge - a.edge);
+  return {picks, noLine};
 }
 
 function renderPicks(){
@@ -3770,12 +3771,21 @@ function renderPicks(){
   <div class="panel">
     <div class="panel-title">Best Picks</div>
     <div class="panel-note">
-      Ranked matchup edges for this week's games -- how a player's own season production compares to what
-      the opposing defense allows at their position, whether both are trending the right way over the last
-      3 games, and any milestone they're closing in on. Out/Doubtful players are excluded. Click a pick to
-      see that player's full week-by-week game log. This is a data lens built from your own pulled stats,
-      not a guarantee -- always check for the latest injury news before acting on anything here.
+      Each offensive starter (QB1, RB1, WR1-3, TE1) checked against what the opposing defense has actually given up
+      to <b>starters</b> at that position. A pick shows up only when both sides agree on a floor: the player cleared
+      it in at least ${Math.round(BP_PLAYER_MIN_RATE * 100)}% of his own games <i>and</i> starters cleared it in at least
+      ${Math.round(BP_DEF_MIN_RATE * 100)}% of their games against this defense. The line shown is the highest floor that
+      passes both, so it's the real overlap, not an easy number. Touchdowns are on the Anytime TD tab. Out / Doubtful
+      players are skipped, and the next starter moves up. Starters are ranked by usage this season, so
+      treat early weeks with care. Click a row for the player's game log.
     </div>
+    <div class="controls">
+      <span class="pill ${bpStartersOn() ? 'active' : ''}" id="bp-starters" title="${STARTER_TIP}">Starters only</span>
+      <div class="pill-group" id="bp-pos-pills">
+        <span class="pill active" data-pos="">ALL</span><span class="pill" data-pos="QB">QB</span><span class="pill" data-pos="RB">RB</span><span class="pill" data-pos="WR">WR</span><span class="pill" data-pos="TE">TE</span>
+      </div>
+    </div>
+    <div id="picks-top"></div>
     <div id="picks-list"></div>
   </div>`;
 }
@@ -3803,106 +3813,95 @@ function playerGameLogHtml(player, position){
 }
 
 function mountPicks(){
-  const container = $('#picks-list');
-  const expandedPicks = new Set(); // keyed by "player|team", persists across re-renders
+  const container = $('#picks-list'), topEl = $('#picks-top');
+  const expandedPicks = new Set();   // keyed by "player|team", persists across re-renders
+  let posFilter = '';
 
   const games = new Map();
-  (DATA.week2 || []).forEach(r=>{
+  (DATA.week2 || []).forEach(r => {
     const gid = r['Game ID'];
     if(!gid) return;
     if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
-    const isHome = r['Home/Away'] === 'Home';
-    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+    games.get(gid).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r;
   });
-  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away)
-    .sort((a,b)=> new Date(a.date) - new Date(b.date));
+  const gameList = [...games.values()].filter(g => g.sides.home && g.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date));
+  if(!gameList.length){ container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>'; return; }
 
-  if(!gameList.length){
-    container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>';
-    return;
+  const pct = v => Math.round(v * 100) + '%';
+  function rowHtml(p, week){
+    const key = `${p.player}|${p.team}|${p.stat}`;
+    const open = expandedPicks.has(key);
+    const saved = isPickSaved({source:'Best Picks', player:p.player, stat:p.stat, week, threshold:p.floor});
+    const edge = Math.round(p.edge * 100);
+    const scoreColor = p.score >= 0.8 ? 'var(--mint)' : 'var(--gold)';
+    const row = `<tr class="pick-row" data-pick-key="${key}" style="cursor:pointer;">
+        <td class="num" style="color:var(--chalk-dim);">${open ? '&#9662;' : '&#9656;'}</td>
+        <td><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
+        <td>${teamChip(p.team)}</td><td>${teamChip(p.opponent)}</td>
+        <td style="font-weight:700;color:var(--gold);">${p.floor}+ ${p.stat}</td>
+        <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
+        <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
+        <td class="num">${fmt(p.avg)} <span style="color:var(--chalk-dim);">L3 ${fmt(p.l3avg)}</span></td>
+        <td class="num">${fmt(p.allowed)} <span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}%</span></td>
+        <td class="num" style="font-weight:700;color:${scoreColor};">${pct(p.score)}</td>
+        <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.stat}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${p.stat} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
+      </tr>`;
+    const detail = open ? `<tr class="def-detail-row"><td colspan="11" style="background:var(--field-deep);padding:10px 16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
+        ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
+    return row + detail;
   }
-
-  const playerPercentiles = buildPlayerPercentileRanks();
-  const defensePercentiles = buildDefensePercentileRanks();
+  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Pick</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
 
   function apply(){
-    const sections = gameList.map(g=>{
-      const away = g.sides.away.Team, home = g.sides.home.Team;
-      const picks = computeGamePicks(away, home, playerPercentiles, defensePercentiles);
-      if(!picks.length) return '';
+    const startersOnly = bpStartersOn();
+    const all = [];
+    const sections = gameList.map(g => {
+      const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
+      const a = bpPicksForGame(away, home, startersOnly), h = bpPicksForGame(home, away, startersOnly);
+      const picks = [...a.picks, ...h.picks].filter(p => !posFilter || p.position === posFilter).sort((x, y) => y.score - x.score || y.edge - x.edge);
+      picks.forEach(p => all.push({...p, week}));
+      const spread = g.sides.away.Spread || g.sides.home.Spread || '';
+      const none = a.noLine + h.noLine;
+      return `<div class="log-pos-group" style="margin-bottom:20px;">
+        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spread}</span>` : ''}</div>
+        ${picks.length ? `<div class="table-scroll"><table>${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
+          : '<div class="empty" style="padding:8px 0;">No line where both sides agree for this game yet.</div>'}
+        ${none && !posFilter ? `<div class="line-note">${none} starter${none === 1 ? '' : 's'} had no floor that both they and the defense clear.</div>` : ''}
+      </div>`;
+    });
+    all.sort((x, y) => y.score - x.score || y.edge - x.edge);
+    topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across the slate</div>
+        <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
+    container.innerHTML = sections.join('') || '<div class="empty">No picks yet.</div>';
+    if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or lower the bar by turning Starters only off.</div>';
 
-      return `
-        <div class="log-pos-group" style="margin-bottom:20px;">
-          <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}</div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr>
-                <th></th><th>Player</th><th>Pos</th><th>Team</th><th>Opp</th><th>Stat</th>
-                <th>Season Avg</th><th>Last 3 Avg</th>
-                <th>Opp Allows (Season)</th><th>Opp Allows (L3)</th>
-                <th>Notes</th><th></th>
-              </tr></thead>
-              <tbody>
-                ${picks.map(p=>{
-                  const pickKey = `${p.player}|${p.team}`;
-                  const isOpen = expandedPicks.has(pickKey);
-                  const week = g.sides.away.Week;
-                  const saved = isPickSaved({source:'Best Picks', player:p.player, stat:p.statLabel, week});
-                  const rowHtml = `
-                    <tr class="pick-row" data-pick-key="${pickKey}" style="cursor:pointer;">
-                      <td class="num" style="color:var(--chalk-dim);">${isOpen ? '&#9662;' : '&#9656;'}</td>
-                      <td>${p.player}</td>
-                      <td>${p.position}</td>
-                      <td>${teamChip(p.team)}</td>
-                      <td>${teamChip(p.opponent)}</td>
-                      <td style="font-weight:600;color:var(--gold);">${p.statLabel}</td>
-                      <td class="num">${fmt(p.playerSeasonAvg)}</td>
-                      <td class="num">${fmt(p.playerLast3Avg)} ${p.playerTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
-                      <td class="num">${fmt(p.defenseSeasonAllowed)}</td>
-                      <td class="num">${fmt(p.defenseLast3Allowed)} ${p.defenseTrendUp ? '<span style="color:var(--mint);">&#9650;</span>' : ''}</td>
-                      <td style="font-family:var(--mono);font-size:11px;color:var(--gold);">${p.milestone ? `&#127919; ${num(p.milestone.Remaining)} ${p.milestone.Stat} from ${p.milestone.Milestone}` : ''}</td>
-                      <td><button class="save-pick-btn" ${saved?'disabled':''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.statLabel}" data-week="${week}" data-summary="Season avg ${fmt(p.playerSeasonAvg)}, opp allows ${fmt(p.defenseSeasonAllowed)}/g (L3: ${fmt(p.defenseLast3Allowed)})">${saved?'&#10003; Saved':'+ Add'}</button></td>
-                    </tr>`;
-                  const detailHtml = isOpen ? `
-                    <tr class="def-detail-row">
-                      <td colspan="12" style="background:var(--field-deep);padding:10px 16px;">
-                        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
-                        ${playerGameLogHtml(p.player, p.position)}
-                      </td>
-                    </tr>` : '';
-                  return rowHtml + detailHtml;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }).filter(Boolean);
-
-    container.innerHTML = sections.length ? sections.join('') :
-      '<div class="empty">No standout picks found for this week yet -- check back once more games/stats are logged.</div>';
-
-    $$('.save-pick-btn', container).forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
+    $$('.save-pick-btn', $('#content')).forEach(btn => {
+      if(btn.dataset.floor === undefined) return;
+      btn.addEventListener('click', e => {
         e.stopPropagation();
-        addToMyPicks({
-          source: 'Best Picks', player: btn.dataset.player, position: btn.dataset.position,
-          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: btn.dataset.stat,
-          week: btn.dataset.week, summary: btn.dataset.summary,
-        });
+        addToMyPicks({source:'Best Picks', player:btn.dataset.player, position:btn.dataset.position, team:btn.dataset.team,
+          opponent:btn.dataset.opponent, stat:btn.dataset.stat, week:btn.dataset.week, threshold:parseFloat(btn.dataset.floor), summary:btn.dataset.summary});
         apply();
       });
     });
-
-    $$('.pick-row', container).forEach(tr=>{
-      tr.addEventListener('click', ()=>{
-        const key = tr.dataset.pickKey;
-        if(expandedPicks.has(key)) expandedPicks.delete(key);
-        else expandedPicks.add(key);
-        apply();
-      });
-    });
+    $$('.pick-row', $('#content')).forEach(tr => tr.addEventListener('click', () => {
+      const key = tr.dataset.pickKey;
+      if(expandedPicks.has(key)) expandedPicks.delete(key); else expandedPicks.add(key);
+      apply();
+    }));
   }
 
+  $('#bp-starters').addEventListener('click', () => {
+    const on = !bpStartersOn();
+    bpSetStarters(on);
+    $('#bp-starters').classList.toggle('active', on);
+    apply();
+  });
+  $$('#bp-pos-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    $$('#bp-pos-pills .pill').forEach(x => x.classList.remove('active'));
+    pl.classList.add('active'); posFilter = pl.dataset.pos; apply();
+  }));
   apply();
 }
 
