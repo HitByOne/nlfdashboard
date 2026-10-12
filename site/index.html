@@ -5170,82 +5170,59 @@ function mountMikesTemplate(){
 }
 
 // ---------- TAB: ANYTIME TD PROPS ----------
-// Same convergence philosophy as Mike's Template, applied to touchdowns
-// specifically: for each team, which player is most likely to score,
-// based on their own season rate of scoring at least one TD (rushing or
-// receiving combined) AND how often the upcoming opponent has allowed
-// ANY player at that position to score against them, game by game.
-const TD_STRONG_RATE = 0.5; // lower bar than yardage floors -- TDs are inherently rarer events
-
-function getPlayerAnytimeTDRate(player, position){
-  const games = (DATA.playerGame || []).filter(r=>r.Player===player && r.Position===position);
-  if(!games.length) return null;
-  const hits = games.filter(g => (num(g['Rush TD']) + num(g['Receiving TD'])) >= 1).length;
-  return {hits, total: games.length, rate: hits / games.length};
+// Built like Best Picks: each offensive starter (QB1 for rushing scores, RB1, WR1-3, TE1)
+// against what the opposing defense has given up to STARTERS at that position. Floor-style
+// signal kept: how often he scored in his own games, how often starters scored against this
+// defense (his own team's past games vs them are left out of the defense sample). On top of
+// that is a Vegas-style projection: expected TDs, turned into a chance to score at least one
+// (Poisson: 1 - e^-expected) and the fair American odds that chance implies.
+const TD_STARTERS_KEY = 'nfl_dashboard_anytimetd_starters';
+const TD_MIN_PLAYER_GAMES = 2, TD_MIN_DEF_SAMPLES = 3;
+function tdStartersOn(){ try { return localStorage.getItem(TD_STARTERS_KEY) !== '0'; } catch(e){ return true; } }
+function tdSetStarters(on){ try { localStorage.setItem(TD_STARTERS_KEY, on ? '1' : '0'); } catch(e){} }
+function tdOdds(p){
+  p = Math.max(0.03, Math.min(0.97, p));
+  const o = p >= 0.5 ? -100 * p / (1 - p) : 100 * (1 - p) / p;
+  return (o > 0 ? '+' : '-') + Math.abs(Math.round(o));
 }
-
-// Per week, did ANY opposing player at this position score against this
-// defense? Rate across all their games so far.
-function getDefenseAllowsAnyTDRate(defense, position){
-  const rows = (DATA.playerGame || []).filter(r=>r.Opponent===defense && r.Position===position);
-  const byWeek = {};
-  rows.forEach(r=>{
-    const wk = r.Week;
-    const scored = (num(r['Rush TD']) + num(r['Receiving TD'])) >= 1 ? 1 : 0;
-    byWeek[wk] = Math.max(byWeek[wk] || 0, scored);
-  });
-  const weeks = Object.values(byWeek);
-  if(!weeks.length) return null;
-  const hits = weeks.filter(v=>v >= 1).length;
-  return {hits, total: weeks.length, rate: hits / weeks.length};
+// Expected TDs: season/last-3 blend of TDs per game, times how this defense treats starters at
+// the position versus the league (capped, shrunk toward neutral until the defense has 6 games),
+// times a small game-script nudge (favorites run it in, underdogs throw more).
+function tdProject(tds, l3, allowed, league, defGames, position, spread){
+  const avg = tds.reduce((a, v) => a + v, 0) / tds.length;
+  const baseline = avg * 0.6 + l3 * 0.4;
+  let raw = league > 0 ? allowed / league : 1;
+  raw = Math.max(0.6, Math.min(1.6, raw));
+  const matchup = 1 + (raw - 1) * Math.min(1, defGames / 6);
+  const script = bpScriptFactor(position === 'RB' || position === 'QB' ? 'Rush Yards' : 'Receiving Yards', spread);
+  const lambda = baseline * matchup * script;
+  const prob = 1 - Math.exp(-lambda);
+  return {lambda, prob, matchup, script, odds: tdOdds(prob)};
 }
-
-function computeAnytimeTDPicks(){
-  const games = new Map();
-  (DATA.week2 || []).forEach(r=>{
-    const gid = r['Game ID'];
-    if(!gid) return;
-    if(!games.has(gid)) games.set(gid, {sides:{}});
-    const isHome = r['Home/Away'] === 'Home';
-    games.get(gid).sides[isHome ? 'home' : 'away'] = r;
+function tdPicksForGame(offense, defense, startersOnly, spread){
+  const picks = [];
+  bpTeamPlayers(offense, startersOnly).forEach(p => {
+    if(p.games.length < TD_MIN_PLAYER_GAMES) return;
+    const defRows = bpDefenseSamples(defense, p.Position, startersOnly, offense);
+    if(defRows.length < TD_MIN_DEF_SAMPLES) return;
+    const tds = p.games.map(g => getStatValue(g, 'Any TD'));
+    const ph = tds.filter(v => v >= 1).length;
+    const dTds = defRows.map(r => getStatValue(r, 'Any TD'));
+    const dh = dTds.filter(v => v >= 1).length;
+    const l3 = p.games.slice().sort((a, b) => num(a.Week) - num(b.Week)).slice(-3).map(g => getStatValue(g, 'Any TD'));
+    const l3avg = l3.reduce((a, v) => a + v, 0) / l3.length;
+    const allowed = dTds.reduce((a, v) => a + v, 0) / dTds.length;
+    const league = bpLeagueAvg(p.Position, 'Any TD', startersOnly);
+    const defGames = new Set((DATA.playerGame || []).filter(r => r.Opponent === defense).map(r => r.Week)).size;
+    const pj = tdProject(tds, l3avg, allowed, league, defGames, p.Position, spread || 0);
+    if(pj.lambda <= 0) return;
+    picks.push({player:p.Player, position:p.Position, slot:p.slot, team:offense, opponent:defense, pj,
+      ph, pt:tds.length, pr:ph / tds.length, dh, dt:defRows.length, dr:dh / defRows.length,
+      combined:(ph / tds.length) * (dh / defRows.length), allowed, league,
+      edge: league > 0 ? allowed / league - 1 : 0});
   });
-  const gameList = [...games.values()].filter(g=>g.sides.home && g.sides.away);
-
-  const results = [];
-  gameList.forEach(g=>{
-    const home = g.sides.home.Team, away = g.sides.away.Team;
-    const week = g.sides.home.Week;
-
-    [[home, away], [away, home]].forEach(([team, opponent])=>{
-      // Every eligible skill player on the team is a candidate, not just
-      // the top-volume one -- a WR2 who scores often is still relevant here.
-      const players = [...new Set(
-        (DATA.playerGame || []).filter(r=>r.Team===team && PICKS_POSITIONS.includes(r.Position)).map(r=>r.Player)
-      )];
-
-      let best = null;
-      players.forEach(player=>{
-        if(isPlayerOut(player)) return;
-        const posRow = (DATA.playerGame || []).find(r=>r.Player===player && r.Team===team);
-        const position = posRow.Position;
-
-        const playerRate = getPlayerAnytimeTDRate(player, position);
-        const defenseRate = getDefenseAllowsAnyTDRate(opponent, position);
-        if(!playerRate || !defenseRate) return;
-
-        const score = playerRate.rate * defenseRate.rate;
-        if(!best || score > best.score){
-          best = {player, position, playerRate, defenseRate, score};
-        }
-      });
-
-      if(!best || best.score <= 0) return;
-      results.push({team, opponent, week, ...best});
-    });
-  });
-
-  results.sort((a,b)=>b.score-a.score);
-  return results;
+  picks.sort((a, b) => b.pj.prob - a.pj.prob);
+  return picks;
 }
 
 function renderAnytimeTD(){
@@ -5253,60 +5230,119 @@ function renderAnytimeTD(){
   <div class="panel">
     <div class="panel-title">Anytime TD Props</div>
     <div class="panel-note">
-      For each team, the player most likely to score based on two things multiplied together: their own
-      season rate of scoring at least one TD (rushing or receiving combined) per game, and how often the
-      upcoming opponent has let ANY player at that position score against them, game by game. Out/Doubtful
-      players are excluded. TD scoring is inherently streaky and lower-sample than yardage stats -- treat
-      these as a starting point for research, not a settled answer.
+      Each offensive starter (QB1, RB1, WR1-3, TE1) against what the opposing defense has given up to
+      <b>starters</b> at that position. Two floor-style signals are kept: how often he scored (rushing or receiving)
+      in his own games, and how often starters scored against this defense. Next to them is a <b>projection</b>:
+      expected TDs from his season and last-3 scoring rate, scaled by how this defense treats starters compared with
+      the league (capped, and shrunk toward neutral until the defense has 6 games), plus a small game-script nudge from
+      the spread. That becomes a <b>chance to score</b> (1 minus e to the minus expected TDs) and the <b>fair odds</b> that
+      chance implies. Compare the fair odds with the book's price: a book paying better than the fair odds is the value side.
+      It is an estimate from this season's box scores, not a sportsbook line. Passing TDs do not count. Out / Doubtful players
+      are skipped and the next starter moves up. TD scoring is streaky and the samples are small, so treat these as a
+      starting point for research. Click a row for the player's game log.
     </div>
+    <div class="controls">
+      <span class="pill ${tdStartersOn() ? 'active' : ''}" id="td-starters" title="${STARTER_TIP}">Starters only</span>
+      <div class="pill-group" id="td-pos-pills">
+        <span class="pill active" data-pos="">ALL</span><span class="pill" data-pos="QB">QB</span><span class="pill" data-pos="RB">RB</span><span class="pill" data-pos="WR">WR</span><span class="pill" data-pos="TE">TE</span>
+      </div>
+    </div>
+    <div id="td-top"></div>
     <div id="anytime-td-list"></div>
   </div>`;
 }
 
 function mountAnytimeTD(){
-  const container = $('#anytime-td-list');
-  const picks = computeAnytimeTDPicks();
+  const container = $('#anytime-td-list'), topEl = $('#td-top');
+  const expanded = new Set();
+  let posFilter = '';
 
-  if(!picks.length){
-    container.innerHTML = '<div class="empty">No strong anytime-TD signals yet -- check back once more games/stats are logged.</div>';
-    return;
+  const games = new Map();
+  (DATA.week2 || []).forEach(r => {
+    const gid = r['Game ID'];
+    if(!gid) return;
+    if(!games.has(gid)) games.set(gid, {date: r.Date, sides: {}});
+    games.get(gid).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r;
+  });
+  const gameList = [...games.values()].filter(g => g.sides.home && g.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date));
+  if(!gameList.length){ container.innerHTML = '<div class="empty">No upcoming matchups loaded yet.</div>'; return; }
+
+  const pct = v => Math.round(v * 100) + '%';
+  function rowHtml(p, week){
+    const key = `${p.player}|${p.team}`;
+    const open = expanded.has(key);
+    const saved = isPickSaved({source:'Anytime TD Props', player:p.player, stat:'Any TD', week, threshold:1});
+    const edge = Math.round(p.edge * 100);
+    const probColor = p.pj.prob >= 0.5 ? 'var(--mint)' : 'var(--gold)';
+    const summary = `Anytime TD vs ${p.opponent} (Wk ${week}) - scored in ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.lambda, 2)} TD, ${pct(p.pj.prob)} chance`;
+    const row = `<tr class="pick-row" data-pick-key="${key}" style="cursor:pointer;">
+        <td class="num" style="color:var(--chalk-dim);">${open ? '&#9662;' : '&#9656;'}</td>
+        <td><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
+        <td>${teamChip(p.team)}</td><td>${teamChip(p.opponent)}</td>
+        <td class="num" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x"><b>${fmt(p.pj.lambda, 2)}</b></td>
+        <td class="num" style="font-weight:700;color:${probColor};">${pct(p.pj.prob)}</td>
+        <td class="num">${p.pj.odds}</td>
+        <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
+        <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
+        <td class="num">${fmt(p.allowed, 2)} <span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}%</span></td>
+        <td class="num">${pct(p.combined)}</td>
+        <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-week="${week}" data-summary="${summary.replace(/"/g, '&quot;')}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
+      </tr>`;
+    const detail = open ? `<tr class="def-detail-row"><td colspan="12" style="background:var(--field-deep);padding:10px 16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
+        ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
+    return row + detail;
   }
+  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th title="Projected touchdowns (rushing + receiving)">Proj TDs</th><th>Chance to score</th><th title="American odds that match the chance to score, with no vig">Fair odds</th><th>Own games scored</th><th>Opp starter-games scored</th><th>Opp gives TD/g (vs league)</th><th>Combined</th><th></th></tr></thead>`;
 
-  // "Any TD" is graded as Rush TD + Receiving TD >= 1 -- getStatValue (used
-  // by gradeMyPick/estimatePickProbability) already knows this special stat
-  // name, so these picks plug straight into the same grading/likelihood
-  // system every other threshold pick uses, with threshold fixed at 1.
-  function wireAnytimeTDSaves(tableContainer){
-    $$('.save-pick-btn', tableContainer).forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        addToMyPicks({
-          source: 'Anytime TD Props', player: btn.dataset.player, position: btn.dataset.position,
-          team: btn.dataset.team, opponent: btn.dataset.opponent, stat: 'Any TD',
-          week: btn.dataset.week, threshold: 1, summary: btn.dataset.summary,
-        });
-        mountAnytimeTD();
+  function apply(){
+    const startersOnly = tdStartersOn();
+    const all = [];
+    const sections = gameList.map(g => {
+      const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
+      const spreadText = g.sides.away.Spread || g.sides.home.Spread || '';
+      const picks = [...tdPicksForGame(away, home, startersOnly, bpSpreadFor(away, spreadText)), ...tdPicksForGame(home, away, startersOnly, bpSpreadFor(home, spreadText))]
+        .filter(p => !posFilter || p.position === posFilter).sort((x, y) => y.pj.prob - x.pj.prob);
+      picks.forEach(p => all.push({...p, week}));
+      return `<div class="log-pos-group" style="margin-bottom:20px;">
+        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spreadText ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spreadText}</span>` : ''}</div>
+        ${picks.length ? `<div class="table-scroll"><table>${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
+          : '<div class="empty" style="padding:8px 0;">Not enough games logged for this matchup yet.</div>'}
+      </div>`;
+    });
+    all.sort((x, y) => y.pj.prob - x.pj.prob);
+    topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Most likely scorers across the slate</div>
+        <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>`
+      : '<div class="empty">No anytime-TD signals yet. Wait for more games to be logged, or turn Starters only off.</div>';
+    container.innerHTML = sections.join('');
+
+    $$('.save-pick-btn', $('#content')).forEach(btn => {
+      if(btn.dataset.floor !== undefined || btn.dataset.threshold !== undefined) return;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        addToMyPicks({source:'Anytime TD Props', player:btn.dataset.player, position:btn.dataset.position, team:btn.dataset.team,
+          opponent:btn.dataset.opponent, stat:'Any TD', week:btn.dataset.week, threshold:1, summary:btn.dataset.summary});
+        apply();
       });
     });
+    $$('.pick-row', $('#content')).forEach(tr => tr.addEventListener('click', () => {
+      const key = tr.dataset.pickKey;
+      if(expanded.has(key)) expanded.delete(key); else expanded.add(key);
+      apply();
+    }));
   }
 
-  const cols = [
-    {key:'player', label:'Player'},
-    {key:'position', label:'Pos'},
-    {key:'team', label:'Team', render:teamChip},
-    {key:'opponent', label:'Opp', render:teamChip},
-    {key:'_playerRate', label:'Player TD Rate', numeric:true, render:(v,row)=>`${row.playerRate.hits}/${row.playerRate.total} (${fmt(row.playerRate.rate*100,0)}%)`},
-    {key:'_defenseRate', label:'Opp Allows TD Rate', numeric:true, render:(v,row)=>`${row.defenseRate.hits}/${row.defenseRate.total} (${fmt(row.defenseRate.rate*100,0)}%)`},
-    {key:'score', label:'Combined', numeric:true, render:v=>fmt(v*100,0)+'%'},
-    {key:'_save', label:'', render:(v,row)=>{
-      if(!row.week) return '<span style="color:var(--chalk-dim);">--</span>';
-      const saved = isPickSaved({source:'Anytime TD Props', player:row.player, stat:'Any TD', week:row.week, threshold:1});
-      const summary = `Anytime TD vs ${teamName(row.opponent)} (Wk ${row.week}) -- own rate ${fmt(row.playerRate.rate*100,0)}%, opp allows ${fmt(row.defenseRate.rate*100,0)}%`;
-      return `<button class="save-pick-btn" ${saved?'disabled':''}
-        data-player="${row.player}" data-position="${row.position}" data-team="${row.team}" data-opponent="${row.opponent}"
-        data-week="${row.week}" data-summary="${summary.replace(/"/g,'&quot;')}">${saved?'&#10003;':'+ Add'}</button>`;
-    }},
-  ];
-  buildTable(container, cols, picks, {defaultSort:'score', defaultDir:'desc', onRender: wireAnytimeTDSaves});
+  $('#td-starters').addEventListener('click', () => {
+    const on = !tdStartersOn();
+    tdSetStarters(on);
+    $('#td-starters').classList.toggle('active', on);
+    apply();
+  });
+  $$('#td-pos-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    $$('#td-pos-pills .pill').forEach(x => x.classList.remove('active'));
+    pl.classList.add('active'); posFilter = pl.dataset.pos; apply();
+  }));
+  apply();
 }
 
 // ---------- TAB: LIVE NOW ----------
