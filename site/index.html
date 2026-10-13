@@ -560,6 +560,7 @@
 
       <div class="tab-group-label">Picks &amp; Tools</div>
       <button data-tab="picks">Best Picks</button>
+      <button data-tab="backtest">Backtest</button>
       <button data-tab="predictions">Predictions</button>
       <button data-tab="mikes">Mike's Template</button>
       <button data-tab="anytimetd">Anytime TD Props</button>
@@ -594,6 +595,7 @@ function saveMyPicksList(list){
   } catch(e) {
     console.warn('Could not save picks (storage may be full or disabled):', e);
   }
+  if(window.syncSchedule) syncSchedule();
 }
 function isPickSaved(pick){
   return getMyPicks().some(p =>
@@ -747,7 +749,7 @@ function persistSettledPicks(){
   list.forEach(p => {
     const g = gradeMyPick(p);
     if(g && g.final && g.persist && typeof g.actual === 'number' && (p.finalActual !== g.actual || p.finalStat !== p.stat)){
-      p.finalActual = g.actual; p.finalStat = p.stat; changed = true;
+      p.finalActual = g.actual; p.finalStat = p.stat; p.updatedAt = new Date().toISOString(); changed = true;
     }
   });
   if(changed) saveMyPicksList(list);
@@ -805,12 +807,13 @@ function addToMyPicks(pick){
 }
 function removeFromMyPicks(index){
   const list = getMyPicks();
+  if(list[index]) addTomb(list[index]);
   list.splice(index, 1);
   saveMyPicksList(list);
 }
 function moveMyPickToTicket(index, newTicket){
   const list = getMyPicks();
-  if(list[index]) list[index].ticket = newTicket;
+  if(list[index]){ list[index].ticket = newTicket; list[index].updatedAt = new Date().toISOString(); }
   saveMyPicksList(list);
 }
 // Changing the number on a saved pick -- regenerates its summary line to
@@ -823,6 +826,7 @@ function editMyPickThreshold(index, newThreshold){
   const pick = list[index];
   if(!pick || isNaN(newThreshold)) return false;
   pick.threshold = newThreshold;
+  pick.updatedAt = new Date().toISOString();
   pick.summary = `${pickLegLabel({...pick, threshold:newThreshold})}${pick.opponent ? ` vs ${pick.opponent}` : ''}${pick.week ? ` (Wk ${pick.week})` : ''}`;
   saveMyPicksList(list);
   return true;
@@ -848,6 +852,131 @@ function addNewTicketName(name){
   const names = getKnownTicketNames();
   if(!names.includes(name)) names.push(name);
   try { localStorage.setItem(TICKET_NAMES_KEY, JSON.stringify(names)); } catch(e){}
+  if(window.syncSchedule) syncSchedule();
+}
+
+// ---------- CLOUD SYNC (Supabase) ----------
+// Keeps My Picks, tickets (with odds/wager), tombstones for deleted picks and the Best Picks record in a
+// Supabase table so every device sees the same thing. The browser only calls two functions (sync_get /
+// sync_put) with a secret sync code; the project URL and key are typed in once per device and kept in this
+// browser only, never in the page's code. Local data always works without it.
+const SYNC_CFG_KEY = 'nfl_dashboard_sync_cfg';
+const TOMB_KEY = 'nfl_dashboard_pick_tombstones';
+let _syncTimer = null, _syncBusy = false;
+const SYNC_STATE = {last:null, error:null, running:false};
+function syncCfg(){ try { const c = JSON.parse(localStorage.getItem(SYNC_CFG_KEY) || 'null'); return c && c.url && c.key && c.code ? c : null; } catch(e){ return null; } }
+function syncSetCfg(c){ try { if(c) localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(c)); else localStorage.removeItem(SYNC_CFG_KEY); } catch(e){} }
+function pickIdentity(p){ return [p.source, p.player, p.stat, p.week, (p.threshold ?? ''), (p.direction || '')].join('|'); }
+function getTombs(){ try { return JSON.parse(localStorage.getItem(TOMB_KEY) || '{}'); } catch(e){ return {}; } }
+function addTomb(p){
+  const t = getTombs(); t[pickIdentity(p)] = Date.now();
+  try { localStorage.setItem(TOMB_KEY, JSON.stringify(t)); } catch(e){}
+}
+function syncSchedule(){
+  if(!syncCfg()) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncRun, 1500);
+}
+function syncStamp(p){ const t = Date.parse(p.updatedAt || p.addedAt || ''); return isNaN(t) ? 0 : t; }
+function syncMerge(a, b){
+  b = b || {};
+  const tombs = {...(b.tombs || {})};
+  Object.entries(a.tombs || {}).forEach(([k, v]) => { tombs[k] = Math.max(tombs[k] || 0, v); });
+  const map = new Map();
+  [...(b.picks || []), ...(a.picks || [])].forEach(p => {
+    const k = pickIdentity(p), cur = map.get(k);
+    if(!cur){ map.set(k, p); return; }
+    const win = syncStamp(p) >= syncStamp(cur) ? p : cur, lose = win === p ? cur : p;
+    const out = {...win};
+    if(typeof out.finalActual !== 'number' && typeof lose.finalActual === 'number'){ out.finalActual = lose.finalActual; out.finalStat = lose.finalStat; }
+    map.set(k, out);
+  });
+  const picks = [...map.entries()].filter(([k, p]) => !(tombs[k] && tombs[k] > Date.parse(p.addedAt || 0))).map(([, p]) => p);
+  const meta = {...(b.ticketMeta || {})};
+  Object.entries(a.ticketMeta || {}).forEach(([k, v]) => { if(!meta[k] || (v.updatedAt || 0) >= (meta[k].updatedAt || 0)) meta[k] = v; });
+  const hist = {...(b.bpHistory || {})};
+  Object.entries(a.bpHistory || {}).forEach(([k, v]) => { if(!hist[k] || (typeof hist[k].finalActual !== 'number' && typeof v.finalActual === 'number')) hist[k] = v; });
+  const names = [...new Set([...(b.ticketNames || []), ...(a.ticketNames || [])])];
+  return {picks, tombs, ticketMeta: meta, bpHistory: hist, ticketNames: names};
+}
+function syncLocalState(){
+  return {picks: getMyPicks(), tombs: getTombs(), ticketMeta: getTicketMeta(), bpHistory: bpHistGet(), ticketNames: getKnownTicketNames()};
+}
+function syncApply(m){
+  try {
+    localStorage.setItem(MY_PICKS_KEY, JSON.stringify(m.picks));
+    localStorage.setItem(TOMB_KEY, JSON.stringify(m.tombs));
+    localStorage.setItem(TICKET_META_KEY, JSON.stringify(m.ticketMeta));
+    localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(m.bpHistory));
+    localStorage.setItem(TICKET_NAMES_KEY, JSON.stringify(m.ticketNames));
+  } catch(e){}
+}
+function syncCore(m){
+  const sortKeys = o => Array.isArray(o) ? o.map(sortKeys) : (o && typeof o === 'object') ? Object.keys(o).sort().reduce((r, k) => (r[k] = sortKeys(o[k]), r), {}) : o;
+  const core = {picks: [...(m.picks || [])].sort((x, y) => pickIdentity(x).localeCompare(pickIdentity(y))), tombs: m.tombs || {}, ticketMeta: m.ticketMeta || {}, bpHistory: m.bpHistory || {}, ticketNames: [...(m.ticketNames || [])].sort()};
+  return JSON.stringify(sortKeys(core));
+}
+async function syncRpc(cfg, fn, body){
+  const res = await fetch(cfg.url.replace(/\/+$/, '') + '/rest/v1/rpc/' + fn, {
+    method: 'POST', headers: {apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, 'Content-Type': 'application/json'}, body: JSON.stringify(body),
+  });
+  let json = null;
+  try { json = await res.json(); } catch(e){}
+  if(!res.ok) throw new Error((json && (json.message || json.hint)) || ('HTTP ' + res.status));
+  return json;
+}
+async function syncRun(){
+  const cfg = syncCfg();
+  if(!cfg || _syncBusy) return;
+  _syncBusy = true; SYNC_STATE.running = true;
+  try {
+    const remote = await syncRpc(cfg, 'sync_get', {code: cfg.code});
+    const merged = syncMerge(syncLocalState(), remote);
+    syncApply(merged);
+    if(!remote || syncCore(merged) !== syncCore(remote)) await syncRpc(cfg, 'sync_put', {code: cfg.code, payload: merged});
+    SYNC_STATE.last = new Date(); SYNC_STATE.error = null;
+  } catch(e){
+    SYNC_STATE.error = e.message || String(e);
+  } finally {
+    _syncBusy = false; SYNC_STATE.running = false;
+    try { window.dispatchEvent(new Event('picks-synced')); } catch(e){}
+  }
+}
+window.addEventListener('load', () => { setTimeout(syncRun, 2500); setInterval(() => { if(!document.hidden) syncRun(); }, 90000); });
+
+// ---- Ticket money: book, odds, wager, payout ----
+// Read from the screenshot when the slip shows them (editable on each ticket), so a ticket's result can be
+// shown as dollars won or lost, not just legs hit.
+const TICKET_META_KEY = 'nfl_dashboard_ticket_meta';
+function getTicketMeta(){ try { return JSON.parse(localStorage.getItem(TICKET_META_KEY) || '{}'); } catch(e){ return {}; } }
+function saveTicketMeta(m, quiet){ try { localStorage.setItem(TICKET_META_KEY, JSON.stringify(m)); } catch(e){} if(!quiet && window.syncSchedule) syncSchedule(); }
+function setTicketMeta(ticket, patch){
+  const m = getTicketMeta();
+  m[ticket] = {...(m[ticket] || {}), ...patch, updatedAt: Date.now()};
+  saveTicketMeta(m);
+}
+function americanProfit(stake, odds){
+  const o = parseFloat(odds), st = parseFloat(stake);
+  if(!isFinite(o) || !isFinite(st) || !o || st <= 0) return null;
+  return o > 0 ? st * o / 100 : st * 100 / Math.abs(o);
+}
+// Won / lost / still open, in dollars when the wager is known.
+function ticketOutcome(list, meta){
+  const gs = list.map(gradeMyPick);
+  if(!gs.length || gs.some(g => !g)) return {state:'unknown'};
+  const miss = gs.some(g => g.status === 'MISS');
+  const allHit = gs.every(g => g.status === 'HIT');
+  const final = gs.every(g => g.status === 'HIT' || g.status === 'MISS') && gs.every(g => g.final || g.status === 'MISS' || (g.status === 'HIT' && g.live) );
+  const stake = parseFloat(meta && meta.stake);
+  const haveStake = isFinite(stake) && stake > 0;
+  if(miss) return {state:'lost', net: haveStake ? -stake : null, stake: haveStake ? stake : null};
+  if(allHit && gs.every(g => g.final)){
+    let ret = parseFloat(meta && meta.payout);
+    if(!(isFinite(ret) && ret > 0)){ const pr = americanProfit(stake, meta && meta.odds); ret = pr === null ? null : stake + pr; }
+    return {state:'won', net: haveStake && ret !== null ? ret - stake : null, stake: haveStake ? stake : null, ret};
+  }
+  const pr = haveStake ? americanProfit(stake, meta && meta.odds) : null;
+  return {state:'open', toWin: pr, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length};
 }
 
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
@@ -892,6 +1021,7 @@ const CSV_FILES = {
   defenseRoster:   'data/nfl_2026_defense_roster.csv',
   defenseCoverage: 'data/nfl_2026_defense_coverage.csv',
   passLocation:    'data/nfl_2026_pass_location.csv',
+  backtest:        'data/nfl_2026_backtest.csv',
 };
 
 const TEAM_NAMES = {
@@ -3983,7 +4113,7 @@ function bpPicksForGame(offense, defense, startersOnly, spread){
 // the previous weeks' picks, and their results, after the page moves on to the next slate.
 const BP_HISTORY_KEY = 'nfl_dashboard_bestpicks_history';
 function bpHistGet(){ try { return JSON.parse(localStorage.getItem(BP_HISTORY_KEY) || '{}'); } catch(e){ return {}; } }
-function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} }
+function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} if(window.syncSchedule) syncSchedule(); }
 function bpPickKey(p, week){ return `${week}|${p.team}|${p.player}|${p.stat}|${p.floor}`; }
 function bpGrade(p, week){
   return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:p.floor, finalStat:p.finalStat, finalActual:p.finalActual});
@@ -4714,6 +4844,28 @@ function parseSlipText(text){
 function slipLooksSettled(text){
   return /\bRETURNED\b|TOTAL WAGER|\bFinished\b|\bSettled\b|\bPLACED:|\bFINAL\b|\bPAYOUT\b/i.test(String(text || ''));
 }
+// Book, odds, wager and payout, when the slip shows them.
+function parseSlipMeta(text){
+  const t = String(text || '');
+  const meta = {book:'', odds:'', stake:'', payout:''};
+  if(/fan\s?duel/i.test(t)) meta.book = 'FanDuel';
+  else if(/draft\s?kings|\bDK\b/i.test(t)) meta.book = 'DraftKings';
+  const lines = t.split(/\r?\n/);
+  const oddsRe = /(?:^|[^\w$.])([+-]\d{3,5})(?![\d.])/g;
+  for(const line of lines){
+    if(/parlay|sgp|same game|odds|total/i.test(line)){ const m = [...line.matchAll(oddsRe)]; if(m.length){ meta.odds = m[m.length - 1][1]; break; } }
+  }
+  if(!meta.odds){
+    const parlayAt = lines.findIndex(l => /parlay|same game/i.test(l));
+    if(parlayAt >= 0) for(let i = Math.max(0, parlayAt - 1); i <= Math.min(lines.length - 1, parlayAt + 2); i++){ const m = [...lines[i].matchAll(oddsRe)]; if(m.length){ meta.odds = m[m.length - 1][1]; break; } }
+  }
+  const money = '\\$\\s?(\\d{1,6}(?:\\.\\d{1,2})?)';
+  let m = t.match(new RegExp('(?:total\\s+wager|wager|stake)\\s*[:\\-]?\\s*' + money, 'i')) || t.match(new RegExp(money + '\\s+(?:total\\s+)?wager', 'i'));
+  if(m) meta.stake = m[1];
+  m = t.match(new RegExp('(?:returned|total\\s+payout|payout|paid)\\s*[:\\-]?\\s*' + money, 'i')) || t.match(new RegExp(money + '\\s+(?:returned|payout)', 'i'));
+  if(m) meta.payout = m[1];
+  return meta;
+}
 let SLIP_WEEK_MODE = 'upcoming';
 function slipDefaultWeek(leg){
   const wk2 = SLIP_WEEK_MODE === 'upcoming' ? (DATA.week2 || []).find(r => r.Team === leg.team) : null;
@@ -4785,17 +4937,19 @@ async function ocrSlipImage(file, onProgress){
 function renderMyPicks(){
   return `
   <div class="panel" id="slip-panel">
-    <div class="panel-title">Import a Betslip</div>
+    <div class="panel-title">Add Picks From a Screenshot</div>
     <div class="panel-note">
-      Upload a screenshot of a FanDuel or DraftKings slip (open or settled) and the legs are read into the list below,
-      graded against the same hit-rate check as everything else, and added to a ticket. The photo is read inside your
-      browser and is never uploaded. Reading text from a screenshot is not perfect, so check every row (player, stat,
-      line, week) before adding. Rows with an amber flag were guessed. You can also paste the text of a slip.
-      Unders are supported. Alt lines like "25+" and "Over" lines are graded as at-or-above, "Under" as below.
+      Make your picks on the sportsbook, then screenshot the slip (open or settled) and drop it here: you don't have to pick
+      twice. Choose one or several screenshots, drag them onto this box, or paste one (Ctrl/Cmd+V). The legs are read in your
+      browser (the image is never uploaded), matched to players, and added to a new ticket named after the book and date, with the
+      odds and wager if the slip shows them. If every leg reads cleanly it is added right away, with an Undo; if anything looks
+      off (an amber or red flag) it waits for you to check it first. Unders are supported. Alt lines like "25+" and "Over" lines grade as at-or-above,
+      "Under" as below. Each ticket then grades live as the games are played.
     </div>
     <div class="controls">
-      <input type="file" id="slip-file" accept="image/*">
-      <button class="save-pick-btn" id="slip-read-btn">Read slip</button>
+      <input type="file" id="slip-file" accept="image/*" multiple>
+      <button class="save-pick-btn" id="slip-read-btn">Read screenshot(s)</button>
+      <label class="ctl-label"><input type="checkbox" id="slip-auto" checked> add automatically when every leg reads cleanly</label>
     </div>
     <div class="controls">
       <textarea id="slip-text" rows="3" placeholder="...or paste slip text here, e.g. 'Makai Lemon 20+ Yards' on one line and 'MAKAI LEMON - ALT RECEIVING YDS' under it" style="width:100%;max-width:640px;"></textarea>
@@ -4864,6 +5018,33 @@ function renderMyPicks(){
       <button class="save-pick-btn" id="clear-all-picks-btn">Clear All Picks</button>
     </div>
     <div id="mypicks-table"></div>
+  </div>
+  <div class="panel" id="sync-panel">
+    <div class="panel-title">Cloud Sync (Supabase)</div>
+    <div class="panel-note">
+      Keeps your picks, tickets (with odds and wagers) and the Best Picks record in your own free Supabase project, so your phone
+      and computer show the same thing and a cleared browser doesn't lose anything. Set it up once: (1) create a free project at supabase.com,
+      (2) open its SQL Editor and run the setup script below, (3) copy the Project URL and the <b>anon public</b> key from Project Settings, API,
+      (4) paste them here with a sync code, and use the same three values on every device. The URL, key and code are stored in
+      this browser only, never in the page. The sync code works like a password: the database only answers to it, and the table
+      can't be read directly. Anyone with all three values could read your picks (nothing else is stored), so keep them private.
+    </div>
+    <div class="controls">
+      <label class="ctl-label">Project URL <input type="text" id="sync-url" placeholder="https://abcd1234.supabase.co" style="width:280px;"></label>
+      <label class="ctl-label">Anon key <input type="password" id="sync-key" placeholder="eyJ..." style="width:200px;"></label>
+    </div>
+    <div class="controls">
+      <label class="ctl-label">Sync code (12+ characters) <input type="text" id="sync-code" style="width:240px;"></label>
+      <button class="save-pick-btn" id="sync-gen">Make a random code</button>
+      <button class="save-pick-btn" id="sync-connect">Connect and sync</button>
+      <button class="save-pick-btn" id="sync-now">Sync now</button>
+      <button class="save-pick-btn" id="sync-off">Disconnect</button>
+    </div>
+    <div class="line-note" id="sync-status"></div>
+    <details><summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Setup script to paste into Supabase's SQL Editor</summary>
+      <div class="controls"><button class="save-pick-btn" id="sync-copy-sql">Copy script</button></div>
+      <pre id="sync-sql" style="white-space:pre-wrap;font-size:11px;max-height:260px;overflow:auto;"></pre>
+    </details>
   </div>`;
 }
 
@@ -4964,6 +5145,7 @@ function mountMyPicks(){
 
   $('#clear-all-picks-btn').addEventListener('click', ()=>{
     if(confirm('Clear all saved picks? This cannot be undone.')){
+      getMyPicks().forEach(addTomb);
       saveMyPicksList([]);
       apply();
     }
@@ -4997,6 +5179,35 @@ function mountMyPicks(){
       <div class="table-scroll"><table><thead><tr><th class="num">Week</th><th class="num">Legs hit</th><th class="num">Legs missed</th><th class="num">Open</th><th class="num">Leg hit rate</th><th class="num">Tickets won</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="line-note">A ticket is won only when every leg hit. Open = not played yet or still live.</div></div>`;
   }
+  function ticketPicks(picks, ticket){ return picks.filter(p => (p.ticket || 'Ticket A') === ticket); }
+  function metaRowHtml(ticket, picks){
+    const m = getTicketMeta()[ticket] || {};
+    const o = ticketOutcome(ticketPicks(picks, ticket), m);
+    let res = '';
+    if(o.state === 'won') res = `<b style="color:var(--mint);">WON${o.net !== null && o.net !== undefined ? ' +$' + fmt(o.net, 2) : ''}</b>`;
+    else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : ''}</b>`;
+    else if(o.state === 'open') res = `<span style="color:var(--chalk-dim);">${o.hitSoFar} of ${o.legs} legs hit so far${o.toWin !== null && o.toWin !== undefined ? ' &middot; to win $' + fmt(o.toWin, 2) : ''}</span>`;
+    const inp = (k, label, w, ph) => `<label class="ctl-label">${label} <input type="text" data-k="${k}" value="${(m[k] || '').toString().replace(/"/g, '&quot;')}" placeholder="${ph || ''}" style="width:${w}px;"></label>`;
+    return `<div class="controls ticket-meta" data-ticket="${encodeURIComponent(ticket)}" style="margin-top:6px;">
+      ${inp('book', 'Book', 100)}${inp('odds', 'Odds', 66, '+950')}${inp('stake', 'Wager $', 62)}${inp('payout', 'Returned $', 62)} ${res}</div>`;
+  }
+  function moneyHtml(picks){
+    const meta = getTicketMeta(), tickets = [...new Set(picks.map(p => p.ticket || 'Ticket A'))];
+    let staked = 0, net = 0, won = 0, lost = 0, open = 0, n = 0;
+    tickets.forEach(t => {
+      const m = meta[t]; if(!m) return;
+      const st = parseFloat(m.stake); if(!(st > 0)) return;
+      const o = ticketOutcome(ticketPicks(picks, t), m);
+      n++;
+      if(o.state === 'won'){ won++; staked += st; net += (o.net || 0); }
+      else if(o.state === 'lost'){ lost++; staked += st; net -= st; }
+      else open++;
+    });
+    if(!n) return '';
+    return `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Money -- tickets with a wager entered</div>
+      <div class="player-preview-stats">${won} won &middot; ${lost} lost &middot; ${open} still open. Staked on settled tickets <b>$${fmt(staked, 2)}</b>, net <b style="color:${net >= 0 ? 'var(--mint)' : 'var(--red)'};">${net >= 0 ? '+' : '-'}$${fmt(Math.abs(net), 2)}</b>${staked ? ` (${net >= 0 ? '+' : ''}${fmt(net / staked * 100, 0)}% return)` : ''}.</div>
+      <div class="line-note">Add a wager and odds to any ticket (they are filled in from the screenshot when the slip shows them). A ticket's money result uses the odds, or the returned amount if you enter it.</div></div>`;
+  }
   let mpWeek = null;   // null = latest week with picks, 'all' = everything
   function apply(){
     persistSettledPicks();
@@ -5007,7 +5218,7 @@ function mountMyPicks(){
       container.innerHTML = '<div class="empty">No picks saved yet -- use the "+ Add" button on Best Picks, Predictions, or Team Game Log.</div>';
       return;
     }
-    if(recEl) recEl.innerHTML = recordHtml(picks);
+    if(recEl) recEl.innerHTML = moneyHtml(picks) + recordHtml(picks);
     const weeks = [...new Set(picks.map(weekNum))].sort((a, b) => b - a);
     const activeWeek = mpWeek === 'all' ? 'all' : (mpWeek !== null && weeks.includes(mpWeek) ? mpWeek : weeks[0]);
     if(pillsEl){
@@ -5081,6 +5292,7 @@ function mountMyPicks(){
       return `
       <div class="log-pos-group" style="margin-bottom:16px;">
         <div class="log-pos-label" style="font-size:14px;">${ticket} (${list.length} pick${list.length===1?'':'s'})${summaryLine ? ` -- ${summaryLine}` : ''}</div>
+        ${metaRowHtml(ticket, picks)}
         <div class="table-scroll" id="ticket-table-${safeId}"></div>
         ${oddsHtml}
       </div>`;
@@ -5124,6 +5336,11 @@ function mountMyPicks(){
       });
     }
 
+    $$('.ticket-meta input', container).forEach(inp => inp.addEventListener('change', () => {
+      const t = decodeURIComponent(inp.closest('.ticket-meta').dataset.ticket);
+      setTicketMeta(t, {[inp.dataset.k]: inp.value.trim()});
+      apply();
+    }));
     nonEmptyTickets.forEach(([ticket, list])=>{
       const safeId = ticket.replace(/[^a-zA-Z0-9]/g, '_');
       const tableContainer = document.getElementById(`ticket-table-${safeId}`);
@@ -5174,7 +5391,7 @@ function mountMyPicks(){
     const statusEl = $('#slip-status'), reviewEl = $('#slip-review');
     if(!statusEl) return;
     const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
-    let legs = [];
+    let legs = [], curMeta = {}, curMode = 'upcoming', queue = [], lastBatch = [];
     $('#slip-players').innerHTML = slipPlayerIndex().map(p => `<option value="${p.Player.replace(/"/g, '&quot;')}">`).join('');
 
     function fillDefaults(leg){
@@ -5185,6 +5402,22 @@ function mountMyPicks(){
       if(leg.week === undefined || leg.week === '') leg.week = d.week;
       const row = (DATA.playerGame || []).find(r => r.Player === leg.player && String(r.Week) === String(leg.week));
       leg.opponent = String(leg.week) === String(d.week) ? d.opponent : (row ? row.Opponent : '');
+    }
+    function isClean(l){ return l.matched && !l.statGuessed && l.how !== 'fuzzy' && l.week !== '' && l.week !== undefined && !isNaN(parseFloat(l.threshold)); }
+    function uniqueTicketName(meta){
+      const d = new Date();
+      const base = `${meta.book || 'Slip'} ${d.toLocaleDateString('en-US', {month:'short', day:'numeric'})}${meta.odds ? ' ' + meta.odds : ''}`;
+      const taken = new Set(getAllTicketNames());
+      if(!taken.has(base)) return base;
+      let n = 2; while(taken.has(`${base} (${n})`)) n++;
+      return `${base} (${n})`;
+    }
+    function commit(slipLegs, meta, ticket){
+      const picks = slipLegs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
+      let added = 0; const mine = [];
+      picks.forEach(p => { const pk = {...p, ticket}; if(addToMyPicks(pk)){ added++; mine.push(pk); } });
+      if(meta && (meta.book || meta.odds || meta.stake || meta.payout)) setTicketMeta(ticket, {book:meta.book, odds:meta.odds, stake:meta.stake, payout:meta.payout, source:'screenshot'});
+      return {added, dupes: picks.length - added, picks: mine};
     }
     function draw(){
       if(!legs.length){ reviewEl.innerHTML = ''; return; }
@@ -5220,14 +5453,25 @@ function mountMyPicks(){
           <div class="line-note">A rough read built from each player's own season hit rate (and the opponent's, when known). It ignores game script, injuries, primetime and who covers him, so treat it as a floor check, not a prediction.</div>`;
       }
       const tickets = getAllTicketNames();
-      reviewEl.innerHTML = `<div class="controls"><label class="ctl-label">These legs are for
-          <select id="slip-week-mode"><option value="upcoming" ${SLIP_WEEK_MODE === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${SLIP_WEEK_MODE === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
+      const defName = uniqueTicketName(curMeta);
+      const flagged = legs.filter(l => !isClean(l)).length;
+      reviewEl.innerHTML = `${queue.length ? `<div class="line-note" style="color:var(--gold);">${queue.length} more slip${queue.length === 1 ? '' : 's'} waiting after this one.</div>` : ''}
+        <div class="line-note">${flagged ? `${flagged} row${flagged === 1 ? '' : 's'} need a look (amber or red). Fix them, or untick any row you don't want.` : 'Every row read cleanly.'}</div>
+        <div class="controls"><label class="ctl-label">These legs are for
+          <select id="slip-week-mode"><option value="upcoming" ${curMode === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${curMode === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
         <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th></tr></thead><tbody>${rows}</tbody></table></div>
         ${grade}
-        <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket">${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">New ticket...</option></select></label>
-        <button class="save-pick-btn" id="slip-add-btn">+ Add ${picks.length} leg${picks.length === 1 ? '' : 's'} to My Picks</button></div>`;
+        <div class="controls">
+          <label class="ctl-label">Book <input type="text" id="slip-book" value="${curMeta.book || ''}" style="width:100px;"></label>
+          <label class="ctl-label">Odds <input type="text" id="slip-odds" value="${curMeta.odds || ''}" placeholder="+950" style="width:70px;"></label>
+          <label class="ctl-label">Wager $ <input type="number" id="slip-stake" value="${curMeta.stake || ''}" step="0.01" style="width:70px;"></label>
+          <label class="ctl-label">Returned $ <input type="number" id="slip-payout" value="${curMeta.payout || ''}" step="0.01" style="width:70px;" title="Only on a settled slip"></label>
+        </div>
+        <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket"><option value="__auto">${defName} (new)</option>${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">Name a new ticket...</option></select></label>
+        <button class="save-pick-btn" id="slip-add-btn">+ Add ${picks.length} leg${picks.length === 1 ? '' : 's'} to My Picks</button>
+        ${queue.length ? '<button class="save-pick-btn" id="slip-skip-btn">Skip this slip</button>' : ''}</div>`;
       $('#slip-week-mode').addEventListener('change', e => {
-        SLIP_WEEK_MODE = e.target.value;
+        curMode = e.target.value; SLIP_WEEK_MODE = curMode;
         legs.forEach(l => { l.week = ''; fillDefaults(l); });
         draw();
       });
@@ -5240,42 +5484,183 @@ function mountMyPicks(){
         else { l[f] = el.value; if(f === 'stat') l.statGuessed = false; }
         draw();
       }));
+      ['book', 'odds', 'stake', 'payout'].forEach(k => $('#slip-' + k).addEventListener('change', e => { curMeta[k] = e.target.value.trim(); }));
+      const next = () => { if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; } };
       $('#slip-add-btn').addEventListener('click', () => {
         let ticket = $('#slip-ticket').value;
+        if(ticket === '__auto') ticket = defName;
         if(ticket === '__new'){
           ticket = (prompt('Name for the new ticket:') || '').trim();
           if(!ticket) return;
-          addNewTicketName(ticket);
         }
-        let added = 0, dupes = 0;
-        picks.forEach(p => { if(addToMyPicks({...p, ticket})) added++; else dupes++; });
-        statusEl.textContent = `Added ${added} leg${added === 1 ? '' : 's'} to ${ticket}${dupes ? ` (${dupes} already saved)` : ''}. Scroll down to see the ticket, its grades and weakest leg.`;
-        legs = []; reviewEl.innerHTML = '';
+        addNewTicketName(ticket);
+        const r = commit(legs, curMeta, ticket);
+        lastBatch = r.added ? [{ticket, picks:r.picks, newTicket:true}] : [];
+        statusEl.innerHTML = `Added ${r.added} leg${r.added === 1 ? '' : 's'} to ${ticket}${r.dupes ? ` (${r.dupes} already saved)` : ''}. ${r.added ? '<button class="save-pick-btn" id="slip-undo">Undo</button>' : ''}`;
+        wireUndo();
+        next();
+        apply();
+      });
+      const skip = $('#slip-skip-btn');
+      if(skip) skip.addEventListener('click', () => { next(); });
+    }
+    function load(item){
+      legs = item.legs; curMeta = item.meta; curMode = item.mode; SLIP_WEEK_MODE = curMode;
+      draw();
+    }
+    function wireUndo(){
+      const u = $('#slip-undo');
+      if(!u) return;
+      u.addEventListener('click', () => {
+        lastBatch.forEach(b => {
+          b.picks.forEach(pk => {
+            const idx = getMyPicks().findIndex(x => x.player === pk.player && x.stat === pk.stat && x.source === pk.source && x.week === pk.week && (x.threshold ?? null) === (pk.threshold ?? null) && (x.direction || '') === (pk.direction || '') && x.ticket === pk.ticket);
+            if(idx >= 0) removeFromMyPicks(idx);
+          });
+          const m = getTicketMeta(); if(m[b.ticket]){ delete m[b.ticket]; saveTicketMeta(m); }
+        });
+        statusEl.textContent = 'Undone. Nothing from that import is left in My Picks.';
+        lastBatch = [];
         apply();
       });
     }
-    function setLegs(parsed, rawText){
-      SLIP_WEEK_MODE = slipLooksSettled(rawText) ? 'played' : 'upcoming';
-      legs = parsed;
-      legs.forEach(l => { l.week = ''; fillDefaults(l); });
-      if(!legs.length) statusEl.textContent = "Couldn't find any legs in that. It looks for lines like '25+ Yards' or 'Under 33.5'. Try a sharper screenshot of just the slip, or paste the text.";
-      else statusEl.textContent = `Found ${legs.length} leg${legs.length === 1 ? '' : 's'}${SLIP_WEEK_MODE === 'played' ? ' (this looks like a settled slip, so legs are set to the games already played)' : ''}. Check each row, fix anything amber or red, then add.`;
-      draw();
+    // One image (or pasted text) -> a parsed slip.
+    function parseOne(text){
+      const meta = parseSlipMeta(text);
+      const mode = slipLooksSettled(text) ? 'played' : 'upcoming';
+      SLIP_WEEK_MODE = mode;
+      const parsed = parseSlipText(text);
+      parsed.forEach(l => { l.week = ''; fillDefaults(l); });
+      return {legs: parsed, meta, mode, text};
     }
-    $('#slip-parse-btn').addEventListener('click', () => setLegs(parseSlipText($('#slip-text').value), $('#slip-text').value));
-    $('#slip-read-btn').addEventListener('click', async () => {
-      const file = $('#slip-file').files && $('#slip-file').files[0];
-      if(!file){ statusEl.textContent = 'Choose a screenshot first.'; return; }
-      statusEl.textContent = 'Loading the text reader...';
-      try {
-        const text = await ocrSlipImage(file, p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%`; });
-        $('#slip-text').value = text;
-        setLegs(parseSlipText(text), text);
-      } catch(err){
-        console.error(err);
-        statusEl.textContent = `Couldn't read that image (${err.message}). You can paste the slip text instead.`;
+    function handleParsed(results){
+      lastBatch = []; queue = [];
+      const auto = $('#slip-auto').checked;
+      let addedSlips = 0, addedLegs = 0, empty = 0;
+      const names = [];
+      results.forEach(r => {
+        if(!r.legs.length){ empty++; return; }
+        if(auto && r.legs.every(isClean)){
+          const ticket = uniqueTicketName(r.meta);
+          addNewTicketName(ticket);
+          const c = commit(r.legs, r.meta, ticket);
+          if(c.added){ addedSlips++; addedLegs += c.added; names.push(ticket); lastBatch.push({ticket, picks:c.picks, newTicket:true}); }
+        } else queue.push(r);
+      });
+      const parts = [];
+      if(addedSlips) parts.push(`Added ${addedSlips} slip${addedSlips === 1 ? '' : 's'} (${addedLegs} leg${addedLegs === 1 ? '' : 's'}) to My Picks: ${names.join(', ')}. <button class="save-pick-btn" id="slip-undo">Undo</button>`);
+      if(empty) parts.push(`${empty} image${empty === 1 ? '' : 's'} had no legs I could read: try a sharper screenshot of just the slip, or paste the text.`);
+      if(queue.length) parts.push(`${queue.length} slip${queue.length === 1 ? ' needs' : 's need'} a look first.`);
+      statusEl.innerHTML = parts.join(' ') || 'Nothing to add.';
+      wireUndo();
+      if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; }
+      apply();
+    }
+    async function processFiles(files){
+      files = [...files].filter(f => /^image\//.test(f.type));
+      if(!files.length){ statusEl.textContent = 'Choose a screenshot first.'; return; }
+      const results = [];
+      for(let i = 0; i < files.length; i++){
+        const tag = files.length > 1 ? ` (image ${i + 1} of ${files.length})` : '';
+        statusEl.textContent = 'Loading the text reader...' + tag;
+        try {
+          const text = await ocrSlipImage(files[i], p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%${tag}`; });
+          if(i === 0) $('#slip-text').value = text;
+          results.push(parseOne(text));
+        } catch(err){
+          console.error(err);
+          statusEl.textContent = `Couldn't read image ${i + 1} (${err.message}). You can paste the slip text instead.`;
+          return;
+        }
       }
+      handleParsed(results);
+    }
+    window.__slipProcessFiles = processFiles;
+    $('#slip-parse-btn').addEventListener('click', () => { const t = $('#slip-text').value; handleParsed([parseOne(t)]); });
+    $('#slip-read-btn').addEventListener('click', () => processFiles($('#slip-file').files || []));
+    // Paste an image anywhere on this tab, or drag screenshots onto the box.
+    if(window.__slipPaste) document.removeEventListener('paste', window.__slipPaste);
+    window.__slipPaste = e => {
+      if(!document.getElementById('slip-panel')) return;
+      const items = [...((e.clipboardData && e.clipboardData.items) || [])].filter(it => it.kind === 'file' && /^image\//.test(it.type));
+      if(!items.length) return;
+      e.preventDefault();
+      processFiles(items.map(it => it.getAsFile()).filter(Boolean));
+    };
+    document.addEventListener('paste', window.__slipPaste);
+    const panel = $('#slip-panel');
+    panel.addEventListener('dragover', e => { e.preventDefault(); panel.style.outline = '2px dashed var(--mint)'; });
+    panel.addEventListener('dragleave', () => { panel.style.outline = ''; });
+    panel.addEventListener('drop', e => { e.preventDefault(); panel.style.outline = ''; processFiles((e.dataTransfer && e.dataTransfer.files) || []); });
+  })();
+
+  // ----- Cloud sync panel -----
+  (function(){
+    const st = $('#sync-status');
+    if(!st) return;
+    const SQL = String.raw`-- Run this once in Supabase: SQL Editor -> New query -> paste -> Run.
+-- It creates one private table and two functions. The browser can only call the
+-- functions (with your secret sync code); it cannot read or list the table itself.
+
+create table if not exists dashboard_sync (
+  id text primary key,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table dashboard_sync enable row level security;
+-- No policies on purpose: nobody can touch the table directly with the public key.
+
+create or replace function sync_get(code text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  if code is null or length(code) < 12 then raise exception 'sync code too short'; end if;
+  return (select data from dashboard_sync where id = code);
+end $$;
+
+create or replace function sync_put(code text, payload jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if code is null or length(code) < 12 then raise exception 'sync code too short'; end if;
+  insert into dashboard_sync (id, data, updated_at) values (code, payload, now())
+  on conflict (id) do update set data = excluded.data, updated_at = now();
+end $$;
+
+revoke all on function sync_get(text) from public;
+revoke all on function sync_put(text, jsonb) from public;
+grant execute on function sync_get(text) to anon, authenticated;
+grant execute on function sync_put(text, jsonb) to anon, authenticated;
+`;
+    $('#sync-sql').textContent = SQL;
+    const cfg = syncCfg();
+    if(cfg){ $('#sync-url').value = cfg.url; $('#sync-key').value = cfg.key; $('#sync-code').value = cfg.code; }
+    function show(){
+      const c = syncCfg();
+      st.textContent = !c ? 'Not connected. Your picks are saved in this browser only.'
+        : SYNC_STATE.running ? 'Syncing...'
+        : SYNC_STATE.error ? 'Sync problem: ' + SYNC_STATE.error + '. Check the URL, the anon key, the code (12+ characters) and that the setup script ran.'
+        : SYNC_STATE.last ? 'Connected. Last synced ' + SYNC_STATE.last.toLocaleTimeString() + '.' : 'Connected. Waiting for the first sync...';
+    }
+    show();
+    $('#sync-gen').addEventListener('click', () => {
+      const a = new Uint32Array(5); (window.crypto || {getRandomValues: x => x.forEach((_, i) => { x[i] = Math.random() * 4294967296; })}).getRandomValues(a);
+      $('#sync-code').value = [...a].map(n => n.toString(36)).join('').slice(0, 20);
     });
+    async function connect(){
+      const url = $('#sync-url').value.trim(), key = $('#sync-key').value.trim(), code = $('#sync-code').value.trim();
+      if(!/^https:\/\/.+/.test(url) || !key || code.length < 12){ st.textContent = 'Enter the Project URL (starts with https://), the anon key, and a sync code of at least 12 characters.'; return; }
+      syncSetCfg({url, key, code});
+      st.textContent = 'Syncing...';
+      await syncRun();
+      show();
+    }
+    $('#sync-connect').addEventListener('click', connect);
+    $('#sync-now').addEventListener('click', async () => { if(!syncCfg()){ show(); return; } st.textContent = 'Syncing...'; await syncRun(); show(); });
+    $('#sync-off').addEventListener('click', () => { syncSetCfg(null); SYNC_STATE.last = null; SYNC_STATE.error = null; show(); });
+    $('#sync-copy-sql').addEventListener('click', async () => { try { await navigator.clipboard.writeText(SQL); st.textContent = 'Setup script copied. Paste it into the SQL Editor in Supabase and run it.'; } catch(e){ st.textContent = 'Could not copy automatically. Select the script text and copy it.'; } });
+    if(window.__mpSyncListener) window.removeEventListener('picks-synced', window.__mpSyncListener);
+    window.__mpSyncListener = () => { if(document.getElementById('mypicks-table')){ show(); apply(); } };
+    window.addEventListener('picks-synced', window.__mpSyncListener);
   })();
 
   // Live grading: fetch ESPN now, then every 45 seconds while this tab is showing.
@@ -5971,6 +6356,111 @@ function mountLiveHub(){
   show();
 }
 
+// ---------- TAB: BACKTEST ----------
+// Reads nfl_2026_backtest.csv from 16_backtest.py: the Best Picks method replayed on every past
+// week using only the games that came before it, graded against the real box score.
+function btWilson(h, n){
+  if(!n) return [0, 0];
+  const z = 1.96, p = h / n, d = 1 + z * z / n;
+  const c = (p + z * z / (2 * n)) / d, m = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+  return [Math.max(0, c - m), Math.min(1, c + m)];
+}
+function btSummarize(rows){
+  const n = rows.length, h = rows.reduce((a, r) => a + num(r.Hit), 0);
+  const [lo, hi] = btWilson(h, n);
+  return {n, h, rate: n ? h / n : 0, lo, hi, floor: n ? rows.reduce((a, r) => a + num(r.Floor), 0) / n : 0};
+}
+function btRateCell(s){
+  if(!s.n) return '<td class="num">--</td><td class="num">--</td>';
+  const color = s.rate >= 0.75 ? 'var(--mint)' : s.rate >= 0.6 ? 'var(--gold)' : 'var(--red)';
+  return `<td class="num" style="color:${color};font-weight:700;">${Math.round(s.rate * 100)}%</td><td class="num" style="color:var(--chalk-dim);">${Math.round(s.lo * 100)}-${Math.round(s.hi * 100)}%</td>`;
+}
+function btGroupTable(rows, keyFn, order, label){
+  const groups = {};
+  rows.forEach(r => { const k = keyFn(r); (groups[k] = groups[k] || []).push(r); });
+  const keys = Object.keys(groups).sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : (parseFloat(a) - parseFloat(b) || a.localeCompare(b)));
+  return `<div class="table-scroll"><table><thead><tr><th>${label}</th><th class="num">Picks</th><th class="num">Cleared</th><th class="num">Hit rate</th><th class="num" title="95% range the true hit rate could plausibly be in, given how few picks there are">95% range</th></tr></thead><tbody>${keys.map(k => {
+    const s = btSummarize(groups[k]);
+    return `<tr><td>${k}</td><td class="num">${s.n}</td><td class="num">${s.h}</td>${btRateCell(s)}</tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+
+function renderBacktest(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Backtest</div>
+    <div class="panel-note">
+      Does the Best Picks method actually work? This replays it on every past week as if it were the Tuesday before the games,
+      using only the games played before that week, then grades each pick against what the player really did. Nothing here
+      uses information from the future. Two things to keep in mind: injuries are not available historically (a pick for a
+      player who was ruled out is skipped, not counted as a miss), and there are no historical spreads, so the projection
+      here has no game-script nudge. Hit rates come with a 95% range because a few dozen picks is a small sample: a 78% hit
+      rate on 30 picks could really be anywhere from about 60% to 90%.
+    </div>
+    <div id="bt-body"></div>
+  </div>`;
+}
+
+function mountBacktest(){
+  const el = $('#bt-body');
+  const all = DATA.backtest || [];
+  if(!all.length){
+    el.innerHTML = '<div class="empty">No backtest data yet. Upload <code>16_backtest.py</code> and the updated <code>run_daily.py</code>, run the workflow, and it appears once at least 3 weeks of games are in (the first replayed week is week 3).</div>';
+    return;
+  }
+  const bp = all.filter(r => r.Model === 'best_picks'), ow = all.filter(r => r.Model === 'own_only');
+  const S = btSummarize(bp), O = btSummarize(ow);
+  const weeks = [...new Set(bp.map(r => num(r.Week)))];
+  // Plain-English verdict, careful about sample size.
+  let verdict;
+  if(S.n < 30) verdict = `Only ${S.n} picks so far, which is too few to say anything. Check back as more weeks are played.`;
+  else if(S.lo > 0.70) verdict = `Picks have cleared their floor ${Math.round(S.rate * 100)}% of the time, and even the low end of the range (${Math.round(S.lo * 100)}%) is solid. Floors are low numbers though: clearing them is the easy part, and a parlay multiplies the misses.`;
+  else if(S.rate >= 0.7) verdict = `Picks have cleared their floor ${Math.round(S.rate * 100)}% of the time, but with ${S.n} picks the true rate could be as low as ${Math.round(S.lo * 100)}%. Promising, not proven.`;
+  else verdict = `Picks have cleared their floor only ${Math.round(S.rate * 100)}% of the time (${Math.round(S.lo * 100)}-${Math.round(S.hi * 100)}% plausible). That is below the 75% the floors were built around, so be cautious with them.`;
+
+  // Projection accuracy
+  const mae = (rows, f) => rows.length ? rows.reduce((a, r) => a + Math.abs(num(r.Actual) - f(r)), 0) / rows.length : 0;
+  const statsList = [...new Set(bp.map(r => r.Stat))];
+  const projRows = statsList.map(st => {
+    const rs = bp.filter(r => r.Stat === st);
+    const mM = mae(rs, r => num(r.Projection)), mB = mae(rs, r => num(r.ProjNoMatchup));
+    const bias = rs.reduce((a, r) => a + (num(r.Actual) - num(r.Projection)), 0) / rs.length;
+    const over = rs.filter(r => num(r.Actual) > num(r.Line)).length, under = rs.filter(r => num(r.Actual) < num(r.Line)).length;
+    const cov = rs.filter(r => num(r.Actual) >= num(r.Lo) && num(r.Actual) <= num(r.Hi)).length / rs.length;
+    return `<tr><td>${st}</td><td class="num">${rs.length}</td><td class="num">${fmt(mM)}</td><td class="num">${fmt(mB)}</td>
+      <td class="num" style="color:${mM < mB ? 'var(--mint)' : 'var(--red)'};">${mM < mB ? 'matchup helps' : 'matchup hurts'} (${fmt(Math.abs(mB - mM))})</td>
+      <td class="num">${bias >= 0 ? '+' : ''}${fmt(bias)}</td><td class="num">${over} / ${under}</td><td class="num">${Math.round(cov * 100)}%</td></tr>`;
+  }).join('');
+
+  // Defense check: Best Picks vs the same players with the defense check removed.
+  const cmpRows = statsList.map(st => {
+    const a = btSummarize(bp.filter(r => r.Stat === st)), b = btSummarize(ow.filter(r => r.Stat === st));
+    return `<tr><td>${st}</td><td class="num">${a.n}</td><td class="num">${Math.round(a.rate * 100)}%</td><td class="num">${fmt(a.floor, 0)}</td><td class="num">${b.n}</td><td class="num">${Math.round(b.rate * 100)}%</td><td class="num">${fmt(b.floor, 0)}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="log-pos-group" style="margin-bottom:18px;">
+      <div class="log-pos-label" style="font-size:14px;">Headline</div>
+      <div class="player-preview-stats"><b style="font-size:18px;color:var(--mint);">${S.h} of ${S.n}</b> Best Picks cleared their floor (<b>${Math.round(S.rate * 100)}%</b>, plausible range ${Math.round(S.lo * 100)}-${Math.round(S.hi * 100)}%), across weeks ${Math.min(...weeks)}-${Math.max(...weeks)}.</div>
+      <div class="player-preview-stats">Same players with the defense check removed: ${O.h} of ${O.n} (${Math.round(O.rate * 100)}%).</div>
+      <div class="player-preview-stats" style="margin-top:6px;">${verdict}</div>
+    </div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By stat</div>${btGroupTable(bp, r => r.Stat, ['Pass Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'], 'Stat')}</div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By position</div>${btGroupTable(bp, r => r.Position, ['QB', 'RB', 'WR', 'TE'], 'Position')}</div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By week</div>${btGroupTable(bp, r => String(num(r.Week)), null, 'Week')}</div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By confidence score</div>
+      ${btGroupTable(bp, r => num(r.Score) >= 0.9 ? '90%+' : num(r.Score) >= 0.8 ? '80-89%' : 'under 80%', ['under 80%', '80-89%', '90%+'], 'Score')}
+      <div class="line-note">If the score means anything, the higher rows should hit more often.</div></div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">Does the defense check add anything?</div>
+      <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Best Picks</th><th class="num">Hit rate</th><th class="num">Avg floor</th><th class="num">Own-rate only</th><th class="num">Hit rate</th><th class="num">Avg floor</th></tr></thead><tbody>${cmpRows}</tbody></table></div>
+      <div class="line-note">The defense check helps if Best Picks hit more often at a similar floor. The floors differ a little because Best Picks takes the highest floor BOTH sides agree on.</div></div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">Projection accuracy</div>
+      <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num" title="Average distance between the projection and the actual number">Model miss</th><th class="num" title="Average miss if the matchup factor is left out (just his own season/last-3 blend)">No-matchup miss</th><th class="num">Matchup factor</th><th class="num" title="Actual minus projection, on average. Positive means the projection runs low.">Bias</th><th class="num" title="Actual over / under the book-style line. Near even is healthy.">Over / under line</th><th class="num" title="How often the actual landed inside the likely range. About 50% is expected.">In range</th></tr></thead><tbody>${projRows}</tbody></table></div>
+      <div class="line-note">Only picks that cleared the floor test are in this table, so it describes projections for players the page likes, not all players.</div></div>
+    <details><summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Every replayed pick (${bp.length})</summary>
+      <div class="table-scroll"><table><thead><tr><th>Wk</th><th>Player</th><th>Opp</th><th>Pick</th><th class="num">Proj</th><th class="num">Actual</th><th>Result</th></tr></thead><tbody>${[...bp].sort((a, b) => num(b.Week) - num(a.Week) || num(b.Score) - num(a.Score)).map(r => `<tr><td class="num">${num(r.Week)}</td><td><span class="player-preview-pos">${r.Slot}</span> ${r.Player}</td><td>${teamChip(r.Opponent)}</td><td>${r.Floor}+ ${r.Stat}</td><td class="num">${fmt(num(r.Projection))}</td><td class="num">${fmt(num(r.Actual), 0)}</td><td style="color:${num(r.Hit) ? 'var(--mint)' : 'var(--red)'};font-weight:700;">${num(r.Hit) ? 'HIT' : 'MISS'}</td></tr>`).join('')}</tbody></table></div></details>`;
+}
+
 // ---------- TAB: FILM ROOM ----------
 // Watching film, in numbers. For every team the latest game (tonight's too, while it is
 // being played, straight from ESPN) is turned into notes on what the defense gave up and
@@ -6664,6 +7154,7 @@ const renderers = {
   lines: {render: renderLines, mount: mountLines},
   field: {render: renderField, mount: mountField},
   film: {render: renderFilm, mount: mountFilm},
+  backtest: {render: renderBacktest, mount: mountBacktest},
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
@@ -6689,7 +7180,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation', 'backtest'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
