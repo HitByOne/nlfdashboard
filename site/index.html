@@ -1062,7 +1062,7 @@ function acctSharedPayload(ticket, picks, meta){
   const mine = picks.filter(p => (p.ticket || 'Ticket A') === ticket && p.threshold !== undefined && p.threshold !== null && p.threshold !== '');
   if(!mine.length) return null;
   return {
-    ticket, book: meta.book || '', odds: meta.odds || '', stake: meta.shareStake ? (meta.stake || '') : '', payout: meta.shareStake ? (meta.payout || '') : '',
+    ticket, book: meta.book || '', odds: meta.odds || '', bonus: !!meta.bonus, stake: meta.shareStake ? (meta.stake || '') : '', payout: meta.shareStake ? (meta.payout || '') : '',
     picks: mine.slice(0, 40).map(p => ({player:p.player, position:p.position, team:p.team, opponent:p.opponent || '', stat:p.stat, week:String(p.week || ''),
       threshold:p.threshold, direction:p.direction || ''})),
   };
@@ -1112,7 +1112,7 @@ function friendPick(leg){
 }
 function friendTicketOutcome(t){
   const list = t.data.picks.map(friendPick);
-  return ticketOutcome(list, {stake: t.data.stake, odds: t.data.odds, payout: t.data.payout});
+  return ticketOutcome(list, {stake: t.data.stake, odds: t.data.odds, payout: t.data.payout, bonus: !!t.data.bonus});
 }
 
 // ---- Ticket money: book, odds, wager, payout ----
@@ -1140,14 +1140,16 @@ function ticketOutcome(list, meta){
   const final = gs.every(g => g.status === 'HIT' || g.status === 'MISS') && gs.every(g => g.final || g.status === 'MISS' || (g.status === 'HIT' && g.live) );
   const stake = parseFloat(meta && meta.stake);
   const haveStake = isFinite(stake) && stake > 0;
-  if(miss) return {state:'lost', net: haveStake ? -stake : null, stake: haveStake ? stake : null};
+  const bonus = !!(meta && meta.bonus);
+  // A bonus bet costs nothing when it loses, and on a win pays only the winnings (the stake is not returned).
+  if(miss) return {state:'lost', net: haveStake ? (bonus ? 0 : -stake) : null, stake: haveStake ? (bonus ? 0 : stake) : null, bonus};
   if(allHit && gs.every(g => g.final)){
     let ret = parseFloat(meta && meta.payout);
-    if(!(isFinite(ret) && ret > 0)){ const pr = americanProfit(stake, meta && meta.odds); ret = pr === null ? null : stake + pr; }
-    return {state:'won', net: haveStake && ret !== null ? ret - stake : null, stake: haveStake ? stake : null, ret};
+    if(!(isFinite(ret) && ret > 0)){ const pr = americanProfit(stake, meta && meta.odds); ret = pr === null ? null : (bonus ? pr : stake + pr); }
+    return {state:'won', net: haveStake && ret !== null ? (bonus ? ret : ret - stake) : null, stake: haveStake ? (bonus ? 0 : stake) : null, ret, bonus};
   }
   const pr = haveStake ? americanProfit(stake, meta && meta.odds) : null;
-  return {state:'open', toWin: pr, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length};
+  return {state:'open', toWin: pr, bonus, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length};
 }
 
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
@@ -4977,50 +4979,88 @@ function slipIsSubtitle(line){
   const upper = letters.replace(/[^A-Z]/g, '').length;
   return upper / letters.length >= 0.7;
 }
+const SLIP_TD_PHRASE = String.raw`an[yv]\s?time\s+(?:touchdown|td)(?:\s+scorer)?`;
+function slipLegQuality(l){ return (l.statGuessed ? 0 : 2) + (l.how === 'exact' ? 1 : 0) + (l.matched ? 4 : 0); }
 function parseSlipText(text){
   const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const titleRe = /^(.{3,60}?)\s+(?:(\d+(?:\.\d+)?)\s?\+|(Over|Under)\s+(\d+(?:\.\d+)?))(?=\s|$)(.*)$/i;
-  const tdRe = /^(.{3,60}?)\s+(?:to score a touchdown|anytime (?:touchdown|td)(?: scorer)?)\b/i;
-  const legs = [], seen = new Set();
+  const tdRe = new RegExp('^(.{3,60}?)\\s+(?:to score a touchdown|' + SLIP_TD_PHRASE + ')', 'i');
+  const tdSubRe = new RegExp('^\\W*' + SLIP_TD_PHRASE, 'i');
+  const legs = [], seen = new Map();
+  function add(leg){
+    const key = (leg.matched ? leg.player : slipNorm(leg.rawName)) + '|' + leg.stat + '|' + leg.threshold + '|' + leg.direction;
+    const old = seen.get(key);
+    // The collapsed header repeats every leg (often garbled): keep the cleanest read of each one.
+    if(old){ if(slipLegQuality(leg) > slipLegQuality(old.leg)) legs[old.i] = leg, old.leg = leg; return; }
+    seen.set(key, {i: legs.length, leg}); legs.push(leg);
+  }
+  function build(rawName, threshold, direction, stat, guessedStat, match){
+    return {rawName: rawName.trim(), player: match ? match.Player : rawName.trim(), matched: !!match, how: match ? match.how : null,
+      team: match ? match.Team : '', position: match ? match.Position : '', stat, statGuessed: guessedStat, threshold, direction, include: true};
+  }
+  // A name taken from a run-on header ("Receptions Kyren Wiliams - Ak Receptions, Matthew Stafford"): keep only the last name-like tail.
+  function tidyName(n){
+    n = String(n || '');
+    const cut = Math.max(n.lastIndexOf(','), n.lastIndexOf('.'), n.lastIndexOf(' - '));
+    if(cut >= 0) n = n.slice(cut + (n.slice(cut, cut + 3) === ' - ' ? 3 : 1));
+    return n.trim();
+  }
   lines.forEach((line, i) => {
-    let m = line.match(titleRe), threshold, direction, rest, rawName, isTd = false;
+    // Any Time TD legs come first so "Davante Adams Any Time Touchdown Scorer, Kyren Williams 4+" is not read as one odd name.
+    const t = line.match(tdRe);
+    if(t){ const nm = tidyName(t[1]); const match = slipMatchPlayer(nm); add(build(nm, 1, '', 'Any TD', false, match)); return; }
+    const m = line.match(titleRe);
     if(m){
-      rawName = m[1]; rest = m[5] || '';
+      const rawName = tidyName(m[1]), rest = m[5] || '';
+      if(!rawName || /touchdown|scorer/i.test(rawName)) return;
+      let threshold, direction;
       if(m[2]){ threshold = parseFloat(m[2]); direction = ''; }
       else { threshold = parseFloat(m[4]); direction = m[3].toLowerCase(); }
-    } else {
-      const t = line.match(tdRe);
-      if(!t) return;
-      rawName = t[1]; rest = ''; threshold = 1; direction = ''; isTd = true;
-    }
-    const match = slipMatchPlayer(rawName);
-    // Market text: the rest of the title line plus the all-caps line right under it, if there is one.
-    let market = rest;
-    const next = lines[i + 1];
-    if(next && slipIsSubtitle(next) && !titleRe.test(next)) market += ' ' + next;
-    let stat, guessed = false;
-    if(isTd) stat = 'Any TD';
-    else {
+      const match = slipMatchPlayer(rawName);
+      let market = rest;
+      const next = lines[i + 1];
+      if(next && slipIsSubtitle(next) && !titleRe.test(next)) market += ' ' + next;
       const r = slipStatFromText(market, match && match.Position);
-      stat = r.stat; guessed = r.guessed;
+      let stat = r.stat, guessed = r.guessed;
       if(/\bReceptions?\b/i.test(rest) && !/RECEIVING/i.test(market)) { stat = 'Receptions'; guessed = false; }
+      add(build(rawName, threshold, direction, stat, guessed, match));
+      return;
     }
-    const key = (match ? match.Player : slipNorm(rawName)) + '|' + stat + '|' + threshold + '|' + direction;
-    if(seen.has(key)) return;               // collapsed header repeats every leg
-    seen.add(key);
-    legs.push({rawName: rawName.trim(), player: match ? match.Player : rawName.trim(), matched: !!match, how: match ? match.how : null,
-      team: match ? match.Team : '', position: match ? match.Position : '', stat, statGuessed: guessed, threshold, direction, include: true});
+    // A bare player-name line with "ANY TIME TOUCHDOWN SCORER" in capitals right under it.
+    const next = lines[i + 1];
+    if(next && tdSubRe.test(next) && /^[^\d$+]{3,32}$/.test(line) && line.split(/\s+/).length <= 5){
+      const match = slipMatchPlayer(line); add(build(line, 1, '', 'Any TD', false, match));
+    }
   });
+  // Collapsed summaries ("Kyren Williams Any Time Touchdown Scorer, Puka Nacua Any Time Touchdown Scorer") that wrap across lines.
+  const flat = lines.join(' ');
+  const flatRe = new RegExp("([A-Z][A-Za-z.'\\-]+(?:\\s+[A-Z][A-Za-z.'\\-]+){1,2})\\s+" + SLIP_TD_PHRASE.replace('\\s+(?:touchdown|td)', '(?:\\s+\\S{1,2})?\\s+(?:touchdown|td)'), 'gi');
+  for(const f of flat.matchAll(flatRe)){
+    const nm = tidyName(f[1]); const match = slipMatchPlayer(nm);
+    if(match || nm.split(/\s+/).length >= 2) add(build(nm, 1, '', 'Any TD', false, match));
+  }
   return legs;
+}
+// A screenshot can hold more than one slip (the next bet in the list peeks in below the first).
+function splitSlipText(text){
+  const lines = String(text || '').split(/\r?\n/);
+  const hdr = lines.map((l, i) => /(same game parlay|\bparlay\b|\bSGP\b)\W*\s+[+-]\d{3,5}\s*$/i.test(l.trim()) ? i : -1).filter(i => i >= 0);
+  if(hdr.length < 2) return [String(text || '')];
+  const out = [];
+  hdr.forEach((h, k) => { const from = k === 0 ? 0 : h, to = k + 1 < hdr.length ? hdr[k + 1] : lines.length; out.push(lines.slice(from, to).join('\n')); });
+  return out;
 }
 // A settled slip (DraftKings/FanDuel "My Bets" view) mentions things an open slip never does.
 function slipLooksSettled(text){
-  return /\bRETURNED\b|TOTAL WAGER|\bFinished\b|\bSettled\b|\bPLACED:|\bFINAL\b|\bPAYOUT\b/i.test(String(text || ''));
+  const t = String(text || '');
+  // A game that is still on (LIVE badge, "4th - 0:46", "OT - 02:45") is this week's slate even if the bet itself already settled.
+  if(/\bLIVE\b|\b(?:1st|2nd|3rd|4th|OT)\s*[-\u2013]\s*\d{1,2}:\d\d/i.test(t)) return false;
+  return /\bRETURNED\b|TOTAL WAGER|\bFinished\b|\bSettled\b|\bPLACED:|\bFINAL\b|\bPAYOUT\b/i.test(t);
 }
 // Book, odds, wager and payout, when the slip shows them.
 function parseSlipMeta(text){
   const t = String(text || '');
-  const meta = {book:'', odds:'', stake:'', payout:''};
+  const meta = {book:'', odds:'', stake:'', payout:'', bonus:false};
   if(/fan\s?duel/i.test(t)) meta.book = 'FanDuel';
   else if(/draft\s?kings|\bDK\b/i.test(t)) meta.book = 'DraftKings';
   const lines = t.split(/\r?\n/);
@@ -5037,6 +5077,32 @@ function parseSlipMeta(text){
   if(m) meta.stake = m[1];
   m = t.match(new RegExp('(?:returned|total\\s+payout|payout|paid)\\s*[:\\-]?\\s*' + money, 'i')) || t.match(new RegExp(money + '\\s+(?:returned|payout)', 'i'));
   if(m) meta.payout = m[1];
+  // Low-resolution shots: "$5.00 $6476" on one line with "TOTAL WAGER ... TOTAL PAYOUT" under it.
+  if(!meta.stake || !meta.payout){
+    for(let i = 0; i < lines.length - 1; i++){
+      const two = [...lines[i].matchAll(/\$\s?(\d{1,6}(?:\.\d{1,2})?)/g)];
+      if(two.length >= 2 && /WAG|STAKE/i.test(lines[i + 1]) && /PAY|RETURN/i.test(lines[i + 1])){
+        if(!meta.stake) meta.stake = two[0][1];
+        if(!meta.payout){
+          let p = two[1][1];
+          if(!/\./.test(p) && p.length >= 4){
+            const st = parseFloat(meta.stake), o = parseFloat(meta.odds), prof = isFinite(st) && isFinite(o) && o ? (o > 0 ? st * o / 100 : st * 100 / Math.abs(o)) : null;
+            const cand = parseFloat(p) / 100;
+            if(prof === null || Math.abs(cand - prof) < Math.abs(cand - (st + prof)) * 4 || Math.abs(cand - (st + prof)) < 1) p = String(cand);
+          }
+          meta.payout = p;
+        }
+        break;
+      }
+    }
+  }
+  // Bonus bet: FanDuel shows a yellow "BONUS BET $x" badge under the odds. OCR often garbles the words, so a short
+  // stray "$x.xx" line right under the header counts too. The stake is not returned on a win and costs nothing on a loss.
+  if(/BONUS\s*BET|FREE\s*BET|\bSITE\s*CREDIT/i.test(t)) meta.bonus = true;
+  else {
+    const h = lines.findIndex(l => /(parlay|sgp|same game)/i.test(l) && /[+-]\d{3,5}\s*$/.test(l.trim()));
+    if(h >= 0){ const nx = (lines[h + 1] || '').trim(); if(nx.length <= 16 && /\$\s?\d+(?:\.\d\d)?\s*$/.test(nx) && !/WAG|STAKE|PAY/i.test(nx)){ meta.bonus = true; if(!meta.stake){ const mm = nx.match(/\$\s?(\d+(?:\.\d\d)?)/); if(mm) meta.stake = mm[1]; } } }
+  }
   return meta;
 }
 let SLIP_WEEK_MODE = 'upcoming';
@@ -5171,7 +5237,7 @@ function mountSlipImport(opts){
       const picks = slipLegs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
       let added = 0; const mine = [];
       picks.forEach(p => { const pk = {...p, ticket}; if(addToMyPicks(pk)){ added++; mine.push(pk); } });
-      if(meta && (meta.book || meta.odds || meta.stake || meta.payout)) setTicketMeta(ticket, {book:meta.book, odds:meta.odds, stake:meta.stake, payout:meta.payout, source:'screenshot'});
+      if(meta && (meta.book || meta.odds || meta.stake || meta.payout)) setTicketMeta(ticket, {book:meta.book, odds:meta.odds, stake:meta.stake, payout:meta.payout, bonus:!!meta.bonus, source:'screenshot'});
       if(SHARE && added){ const ss = $('#slip-sharestake'); setTicketMeta(ticket, {share:true, shareStake: !!(ss && ss.checked)}); }
       return {added, dupes: picks.length - added, picks: mine};
     }
@@ -5222,6 +5288,7 @@ function mountSlipImport(opts){
           <label class="ctl-label">Odds <input type="text" id="slip-odds" value="${curMeta.odds || ''}" placeholder="+950" style="width:70px;"></label>
           <label class="ctl-label">Wager $ <input type="number" id="slip-stake" value="${curMeta.stake || ''}" step="0.01" style="width:70px;"></label>
           <label class="ctl-label">Returned $ <input type="number" id="slip-payout" value="${curMeta.payout || ''}" step="0.01" style="width:70px;" title="Only on a settled slip"></label>
+          <label class="ctl-label"><input type="checkbox" id="slip-bonus" ${curMeta.bonus ? 'checked' : ''}> bonus bet (stake not returned)</label>
         </div>
         <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket"><option value="__auto">${defName} (new)</option>${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">Name a new ticket...</option></select></label>
         <button class="save-pick-btn" id="slip-add-btn">${SHARE ? '+ Add and share' : '+ Add'} ${picks.length} leg${picks.length === 1 ? '' : 's'}${SHARE ? '' : ' to My Picks'}</button>
@@ -5241,6 +5308,7 @@ function mountSlipImport(opts){
         draw();
       }));
       ['book', 'odds', 'stake', 'payout'].forEach(k => $('#slip-' + k).addEventListener('change', e => { curMeta[k] = e.target.value.trim(); }));
+      $('#slip-bonus').addEventListener('change', e => { curMeta.bonus = e.target.checked; });
       const next = () => { if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; } };
       $('#slip-add-btn').addEventListener('click', () => {
         let ticket = $('#slip-ticket').value;
@@ -5281,6 +5349,14 @@ function mountSlipImport(opts){
       });
     }
     // One image (or pasted text) -> a parsed slip.
+    function parseMany(text){
+      const whole = parseSlipMeta(text);
+      return splitSlipText(text).map(seg => {
+        const r = parseOne(seg);
+        if(!r.meta.book && whole.book) r.meta.book = whole.book;
+        return r;
+      }).filter(r => r.legs.length);
+    }
     function parseOne(text){
       const meta = parseSlipMeta(text);
       const mode = slipLooksSettled(text) ? 'played' : 'upcoming';
@@ -5322,7 +5398,7 @@ function mountSlipImport(opts){
         try {
           const text = await ocrSlipImage(files[i], p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%${tag}`; });
           if(i === 0) $('#slip-text').value = text;
-          results.push(parseOne(text));
+          results.push(...parseMany(text));
         } catch(err){
           console.error(err);
           statusEl.textContent = `Couldn't read image ${i + 1} (${err.message}). You can paste the slip text instead.`;
@@ -5332,7 +5408,7 @@ function mountSlipImport(opts){
       handleParsed(results);
     }
     window.__slipProcessFiles = processFiles;
-    $('#slip-parse-btn').addEventListener('click', () => { const t = $('#slip-text').value; handleParsed([parseOne(t)]); });
+    $('#slip-parse-btn').addEventListener('click', () => { const t = $('#slip-text').value; const rs = parseMany(t); handleParsed(rs.length ? rs : [parseOne(t)]); });
     $('#slip-read-btn').addEventListener('click', () => processFiles($('#slip-file').files || []));
     // Paste an image anywhere on this tab, or drag screenshots onto the box.
     if(window.__slipPaste) document.removeEventListener('paste', window.__slipPaste);
@@ -5582,11 +5658,12 @@ function mountMyPicks(){
     const o = ticketOutcome(ticketPicks(picks, ticket), m);
     let res = '';
     if(o.state === 'won') res = `<b style="color:var(--mint);">WON${o.net !== null && o.net !== undefined ? ' +$' + fmt(o.net, 2) : ''}</b>`;
-    else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : ''}</b>`;
+    else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.bonus ? ' (bonus bet, no cost)' : (o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : '')}</b>`;
     else if(o.state === 'open') res = `<span style="color:var(--chalk-dim);">${o.hitSoFar} of ${o.legs} legs hit so far${o.toWin !== null && o.toWin !== undefined ? ' &middot; to win $' + fmt(o.toWin, 2) : ''}</span>`;
     const inp = (k, label, w, ph) => `<label class="ctl-label">${label} <input type="text" data-k="${k}" value="${(m[k] || '').toString().replace(/"/g, '&quot;')}" placeholder="${ph || ''}" style="width:${w}px;"></label>`;
     return `<div class="controls ticket-meta" data-ticket="${encodeURIComponent(ticket)}" style="margin-top:6px;">
       ${inp('book', 'Book', 100)}${inp('odds', 'Odds', 66, '+950')}${inp('stake', 'Wager $', 62)}${inp('payout', 'Returned $', 62)} ${res}
+      <label class="ctl-label"><input type="checkbox" data-k="bonus" ${m.bonus ? 'checked' : ''}> bonus bet</label>
       <label class="ctl-label"><input type="checkbox" data-k="share" ${m.share ? 'checked' : ''}> Share with friends</label>
       <label class="ctl-label"><input type="checkbox" data-k="shareStake" ${m.shareStake ? 'checked' : ''}> show my wager</label>
       ${m.share && !acctSignedIn() ? '<span style="color:var(--gold);font-size:12px;">Sign in on the Friends tab to share.</span>' : ''}</div>`;
@@ -5599,8 +5676,8 @@ function mountMyPicks(){
       const st = parseFloat(m.stake); if(!(st > 0)) return;
       const o = ticketOutcome(ticketPicks(picks, t), m);
       n++;
-      if(o.state === 'won'){ won++; staked += st; net += (o.net || 0); }
-      else if(o.state === 'lost'){ lost++; staked += st; net -= st; }
+      if(o.state === 'won'){ won++; staked += o.bonus ? 0 : st; net += (o.net || 0); }
+      else if(o.state === 'lost'){ lost++; staked += o.bonus ? 0 : st; net += (o.net || 0); }
       else open++;
     });
     if(!n) return '';
@@ -6789,7 +6866,7 @@ function mountFriends(){
       t.data.picks.map(friendPick).forEach(p => { const g = gradeMyPick(p); if(!g) return; if(g.status === 'HIT') u.legsHit++; else if(g.status === 'MISS') u.legsMiss++; else u.open++; });
       const o = friendTicketOutcome(t);
       if(o.state === 'won') u.won++; else if(o.state === 'lost') u.lost++;
-      if((o.state === 'won' || o.state === 'lost') && o.stake){ u.money = true; u.staked += o.stake; u.net += (o.net || 0); }
+      if((o.state === 'won' || o.state === 'lost') && (o.stake || o.bonus)){ u.money = true; u.staked += o.stake; u.net += (o.net || 0); }
     });
     const rows = Object.entries(byUser).map(([uid, u]) => ({uid, ...u, dec: u.legsHit + u.legsMiss, rate: (u.legsHit + u.legsMiss) ? u.legsHit / (u.legsHit + u.legsMiss) : -1}))
       .sort((x, y) => y.rate - x.rate || y.won - x.won);
@@ -6826,7 +6903,7 @@ function mountFriends(){
       const name = FRIENDS.names[t.user_id] || 'Friend';
       let res = '';
       if(o.state === 'won') res = `<b style="color:var(--mint);">WON${o.net !== null && o.net !== undefined ? ' +$' + fmt(o.net, 2) : ''}</b>`;
-      else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : ''}</b>`;
+      else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.bonus ? ' (bonus bet, no cost)' : (o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : '')}</b>`;
       else if(o.state === 'open') res = `<span style="color:var(--chalk-dim);">${o.hitSoFar} of ${o.legs} hit so far</span>`;
       const legs = t.data.picks.map((l, li) => {
         const pk = friendPick(l), g = gradeMyPick(pk);
