@@ -861,11 +861,18 @@ function addNewTicketName(name){
 // Supabase table so every device sees the same thing. The browser only calls two functions (sync_get /
 // sync_put) with a secret sync code; the project URL and key are typed in once per device and kept in this
 // browser only, never in the page's code. Local data always works without it.
+// ---- YOUR SUPABASE PROJECT (optional) ----
+// Paste your Project URL and anon (public) key between the quotes and nobody has to type them in the app.
+// The anon key is designed to be public (the database rules protect the data), so it is safe in GitHub.
+// NEVER paste the service_role / secret key here.
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+const SUPABASE_BUILT_IN = /^https:\/\/.+/.test(SUPABASE_URL) && !!SUPABASE_ANON_KEY;
 const SYNC_CFG_KEY = 'nfl_dashboard_sync_cfg';
 const TOMB_KEY = 'nfl_dashboard_pick_tombstones';
 let _syncTimer = null, _syncBusy = false;
 const SYNC_STATE = {last:null, error:null, running:false};
-function syncCfg(){ try { const c = JSON.parse(localStorage.getItem(SYNC_CFG_KEY) || 'null'); return c && c.url && c.key && c.code ? c : null; } catch(e){ return null; } }
+function syncCfg(){ try { const c = JSON.parse(localStorage.getItem(SYNC_CFG_KEY) || 'null'); if(c && SUPABASE_BUILT_IN){ c.url = SUPABASE_URL; c.key = SUPABASE_ANON_KEY; } return c && c.url && c.key && c.code ? c : null; } catch(e){ return null; } }
 function syncSetCfg(c){ try { if(c) localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(c)); else localStorage.removeItem(SYNC_CFG_KEY); } catch(e){} }
 function pickIdentity(p){ return [p.source, p.player, p.stat, p.week, (p.threshold ?? ''), (p.direction || '')].join('|'); }
 function getTombs(){ try { return JSON.parse(localStorage.getItem(TOMB_KEY) || '{}'); } catch(e){ return {}; } }
@@ -980,7 +987,7 @@ const ACCT_KEY = 'nfl_dashboard_acct';
 const PENDING_JOIN_KEY = 'nfl_dashboard_pending_join';
 const FRIENDS = {groups:[], tickets:[], names:{}, updated:null, error:null, loading:false};
 function frEsc(x){ return String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c])); }
-function acctGet(){ try { return JSON.parse(localStorage.getItem(ACCT_KEY) || 'null'); } catch(e){ return null; } }
+function acctGet(){ let a = null; try { a = JSON.parse(localStorage.getItem(ACCT_KEY) || 'null'); } catch(e){} if(SUPABASE_BUILT_IN){ a = {...(a || {}), url: SUPABASE_URL, key: SUPABASE_ANON_KEY}; } return a; }
 function acctSet(a){ try { if(a) localStorage.setItem(ACCT_KEY, JSON.stringify(a)); else localStorage.removeItem(ACCT_KEY); } catch(e){} }
 function acctSignedIn(){ const a = acctGet(); return !!(a && a.url && a.key && a.session && a.session.user); }
 function acctUserId(){ const a = acctGet(); return a && a.session && a.session.user ? a.session.user.id : null; }
@@ -1030,7 +1037,7 @@ function acctSignOut(){ const a = acctGet(); if(a){ a.session = null; acctSet(a)
 function acctInviteLink(code){
   const a = acctGet();
   if(!a) return '';
-  const payload = btoa(unescape(encodeURIComponent(JSON.stringify({u:a.url, k:a.key, g:code}))));
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(SUPABASE_BUILT_IN ? {u:SUPABASE_URL, k:SUPABASE_ANON_KEY, g:code} : {u:a.url, k:a.key, g:code}))));
   return location.origin + location.pathname + '#join=' + payload;
 }
 // Open an invite link: remember the project and the group code, then send the person to the Friends tab.
@@ -5799,6 +5806,7 @@ grant execute on function sync_put(text, jsonb) to anon, authenticated;
 `;
     $('#sync-sql').textContent = SQL;
     const cfg = syncCfg();
+    if(SUPABASE_BUILT_IN){ $('#sync-url').value = SUPABASE_URL; $('#sync-key').value = SUPABASE_ANON_KEY; }
     if(cfg){ $('#sync-url').value = cfg.url; $('#sync-key').value = cfg.key; $('#sync-code').value = cfg.code; }
     function show(){
       const c = syncCfg();
@@ -6663,10 +6671,10 @@ function mountFriends(){
         password) on the same free Supabase project. ${pending ? `<b style="color:var(--gold);">You were invited to a group (code ${frEsc(pending)}): sign in or create an account and you will be added automatically.</b>` : 'If a friend sent you an invite link, open it and the project is filled in for you.'}
         You choose which tickets to share, and whether to show the wager. Passwords are handled by Supabase, never stored here.
       </div>
-      <div class="controls">
+      ${SUPABASE_BUILT_IN ? `<input type="hidden" id="fr-url" value="${frEsc(a.url || '')}"><input type="hidden" id="fr-key" value="${frEsc(a.key || '')}">` : `<div class="controls">
         <label class="ctl-label">Project URL <input type="text" id="fr-url" value="${frEsc(a.url || '')}" placeholder="https://abcd1234.supabase.co" style="width:260px;"></label>
         <label class="ctl-label">Anon key <input type="password" id="fr-key" value="${frEsc(a.key || '')}" placeholder="eyJ..." style="width:180px;"></label>
-      </div>
+      </div>`}
       <div class="controls">
         <label class="ctl-label">Email <input type="text" id="fr-email" style="width:200px;"></label>
         <label class="ctl-label">Password <input type="password" id="fr-pass" style="width:140px;" placeholder="6+ characters"></label>
