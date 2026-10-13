@@ -91,6 +91,10 @@ def main(force_week: int | None = None):
     # play-by-play source, same non-critical treatment.
     run("15_pass_location.py", critical=False)
 
+    # Backtest of the Best Picks method on every past week -- reads only the
+    # player stats file, non-critical.
+    run("16_backtest.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
