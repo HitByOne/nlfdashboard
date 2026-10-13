@@ -3815,18 +3815,62 @@ const BP_PLAYER_MIN_RATE = 0.75, BP_DEF_MIN_RATE = 0.60, BP_MIN_PLAYER_GAMES = 2
 const BP_STARTERS_KEY = 'nfl_dashboard_bestpicks_starters';
 function bpStartersOn(){ try { return localStorage.getItem(BP_STARTERS_KEY) !== '0'; } catch(e){ return true; } }
 function bpSetStarters(on){ try { localStorage.setItem(BP_STARTERS_KEY, on ? '1' : '0'); } catch(e){} }
+// Which players count, for both the offense being picked and the defense's samples:
+//   starters = QB1, RB1, WR1-3, TE1 per team;  top5 = each team's five most-used players at every position;
+//   all = everyone. (Older code passes true/false: true = starters, false = all.)
+const BP_MODE_KEY = 'nfl_dashboard_bestpicks_mode';
+function bpNorm(m){ return m === true ? 'starters' : (m === false || m === undefined || m === null) ? 'all' : m; }
+function bpMode(){
+  try {
+    const m = localStorage.getItem(BP_MODE_KEY);
+    if(m === 'starters' || m === 'top5' || m === 'all') return m;
+    return localStorage.getItem(BP_STARTERS_KEY) === '0' ? 'all' : 'starters';
+  } catch(e){ return 'starters'; }
+}
+function bpSetMode(m){ try { localStorage.setItem(BP_MODE_KEY, m); } catch(e){} }
+const BP_MODE_LABEL = {starters:'starters', top5:'the league top 5 at each position', all:'every player'};
+// League-wide: the five busiest players in the whole league at each position, by usage per game
+// (pass attempts / rush attempts + targets / targets), at least 2 games played.
+let _top5Cache = {src:null, set:null, rank:null};
+function getTop5Rank(){
+  if(_top5Cache.src === DATA.playerGame) return _top5Cache.rank;
+  const agg = {};
+  (DATA.playerGame || []).forEach(r => {
+    if(!STARTER_SLOTS[r.Position]) return;
+    const k = r.Team + '|' + r.Position + '|' + r.Player;
+    const o = agg[k] = agg[k] || {team:r.Team, pos:r.Position, player:r.Player, u:0, g:0};
+    o.u += r.Position === 'QB' ? num(r['Pass Attempts']) : r.Position === 'RB' ? num(r['Rush Attempts']) + num(r.Targets) : num(r.Targets);
+    o.g++;
+  });
+  const byPos = {};
+  Object.values(agg).filter(o => o.g >= 2).forEach(o => (byPos[o.pos] = byPos[o.pos] || []).push(o));
+  const set = new Set(), rank = new Map();
+  Object.entries(byPos).forEach(([pos, list]) => {
+    list.sort((a, b) => b.u / b.g - a.u / a.g).slice(0, 5).forEach((o, i) => { set.add(o.team + '|' + o.player); rank.set(o.team + '|' + o.player, i + 1); });
+  });
+  _top5Cache = {src: DATA.playerGame, set, rank};
+  return rank;
+}
+function getTop5Set(){ getTop5Rank(); return _top5Cache.set; }
+// The defense side of "Top 5" is what the defense gives up to starters: a defense rarely faces more than
+// one or two of the league's five busiest players at a position, which is too few games to judge.
+function bpDefMode(m){ m = bpNorm(m); return m === 'top5' ? 'starters' : m; }
+function bpInMode(r, mode){
+  return mode === 'all' || (mode === 'top5' ? getTop5Set().has(r.Team + '|' + r.Player) : isStarter(r));
+}
 
 // Rows of players who faced `defense` at `position`: starters only, or everyone.
 // The offense's own team is left out: a past game between these two teams is already in the player's own log.
 function bpDefenseSamples(defense, position, startersOnly, offense){
-  return (DATA.playerGame || []).filter(r => r.Opponent === defense && r.Position === position && r.Team !== offense && (!startersOnly || isStarter(r)));
+  return (DATA.playerGame || []).filter(r => r.Opponent === defense && r.Position === position && r.Team !== offense && bpInMode(r, bpDefMode(startersOnly)));
 }
 let _bpLeague = {src:null, startersOnly:null, val:null};
 function bpLeagueAvg(position, stat, startersOnly){
-  if(_bpLeague.src !== DATA.playerGame || _bpLeague.startersOnly !== startersOnly) _bpLeague = {src: DATA.playerGame, startersOnly, val:{}};
+  const mode = bpDefMode(startersOnly);
+  if(_bpLeague.src !== DATA.playerGame || _bpLeague.startersOnly !== mode) _bpLeague = {src: DATA.playerGame, startersOnly: mode, val:{}};
   const key = position + '|' + stat;
   if(!(key in _bpLeague.val)){
-    const rows = (DATA.playerGame || []).filter(r => r.Position === position && (!startersOnly || isStarter(r)));
+    const rows = (DATA.playerGame || []).filter(r => r.Position === position && bpInMode(r, mode));
     _bpLeague.val[key] = rows.length ? rows.reduce((a, r) => a + getStatValue(r, stat), 0) / rows.length : 0;
   }
   return _bpLeague.val[key];
@@ -3839,12 +3883,18 @@ function bpTeamPlayers(team, startersOnly){
     (byPlayer[r.Player] = byPlayer[r.Player] || {Player:r.Player, Position:r.Position, games:[]}).games.push(r);
   });
   const list = Object.values(byPlayer);
-  if(!startersOnly) return list.filter(p => !isPlayerOut(p.Player)).map(p => ({...p, slot:p.Position}));
+  const mode = bpNorm(startersOnly);
+  if(mode === 'all') return list.filter(p => !isPlayerOut(p.Player)).map(p => ({...p, slot:p.Position}));
+  if(mode === 'top5'){
+    const rank = getTop5Rank();
+    return list.filter(p => rank.has(team + '|' + p.Player) && !isPlayerOut(p.Player)).map(p => ({...p, slot: p.Position + ' #' + rank.get(team + '|' + p.Player)}));
+  }
   const usage = p => p.games.reduce((a, r) => a + (p.Position === 'QB' ? num(r['Pass Attempts']) : p.Position === 'RB' ? num(r['Rush Attempts']) + num(r.Targets) : num(r.Targets)), 0);
   const out = [];
   Object.keys(STARTER_SLOTS).forEach(pos => {
     const healthy = list.filter(p => p.Position === pos && !isPlayerOut(p.Player)).sort((a, b) => usage(b) - usage(a));
-    healthy.slice(0, STARTER_SLOTS[pos]).forEach((p, i) => out.push({...p, slot: STARTER_SLOTS[pos] > 1 ? pos + (i + 1) : pos + '1'}));
+    const n = STARTER_SLOTS[pos];
+    healthy.slice(0, n).forEach((p, i) => out.push({...p, slot: n > 1 ? pos + (i + 1) : pos + '1'}));
   });
   return out;
 }
@@ -3975,10 +4025,12 @@ function renderPicks(){
       book-style line is the projection rounded to a half. Hover a projection to see the factors. It is an estimate
       built from this season's box scores, not a real sportsbook line. Touchdowns are on the Anytime TD tab. Out / Doubtful
       players are skipped, and the next starter moves up. Starters are ranked by usage this season, so
-      treat early weeks with care. Click a row for the player's game log.
+      treat early weeks with care. The buttons switch who is checked: <b>Starters</b>, the <b>Top 5 at position</b> (only the five busiest players in the whole league at QB, RB, WR and TE, ranked by usage per game; they are compared with what the defense gave up to starters, since a defense faces too few of the league's top five to judge), or <b>Everyone</b>. Click a row for the player's game log.
     </div>
     <div class="controls">
-      <span class="pill ${bpStartersOn() ? 'active' : ''}" id="bp-starters" title="${STARTER_TIP}">Starters only</span>
+      <div class="pill-group" id="bp-mode-pills" title="${STARTER_TIP} Top 5 = the five busiest players in the whole league at each position (shown as WR #1 to WR #5), checked against what the defense gives up to starters.">
+        <span class="pill ${bpMode() === 'starters' ? 'active' : ''}" data-mode="starters">Starters</span><span class="pill ${bpMode() === 'top5' ? 'active' : ''}" data-mode="top5">Top 5 at position</span><span class="pill ${bpMode() === 'all' ? 'active' : ''}" data-mode="all">Everyone</span>
+      </div>
       <div class="pill-group" id="bp-pos-pills">
         <span class="pill active" data-pos="">ALL</span><span class="pill" data-pos="QB">QB</span><span class="pill" data-pos="RB">RB</span><span class="pill" data-pos="WR">WR</span><span class="pill" data-pos="TE">TE</span>
       </div>
@@ -3995,7 +4047,7 @@ function renderPicks(){
     <div class="panel-note">
       Every pick this page shows is saved the first time it appears, then graded: live from ESPN's box scores while games are on
       (an at-least line that has already cleared shows HIT), and from the final box score after. Past weeks stay here with their
-      results. Saved in this browser only. Picks are saved only while Starters only is on, so the record is one consistent
+      results. Saved in this browser only. Picks are saved only while Starters is selected, so the record is one consistent
       definition.
     </div>
     <div id="bp-record"></div>
@@ -4073,7 +4125,7 @@ function mountPicks(){
     const recEl = $('#bp-record');
     if(!recEl) return;
     // Snapshot from the unfiltered starters-only slate, not whatever position filter is showing.
-    if(bpStartersOn()){
+    if(bpMode() === 'starters'){
       const full = [];
       gameList.forEach(g => {
         const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
@@ -4085,7 +4137,7 @@ function mountPicks(){
     }
     const h = bpHistGet();
     const rows = Object.values(h).map(e => ({e, g: bpGrade(e, e.week)}));
-    if(!rows.length){ recEl.innerHTML = '<div class="empty">No picks saved yet. They are saved the first time they show above (with Starters only on).</div>'; return; }
+    if(!rows.length){ recEl.innerHTML = '<div class="empty">No picks saved yet. They are saved the first time they show above (with Starters selected).</div>'; return; }
     const weeks = [...new Set(rows.map(r => parseInt(r.e.week, 10) || 0))].sort((a, b) => b - a);
     const stat = {};
     rows.forEach(({e, g}) => {
@@ -4133,7 +4185,7 @@ function mountPicks(){
   }
 
   function apply(){
-    const startersOnly = bpStartersOn();
+    const startersOnly = bpMode();
     const all = [];
     const sections = gameList.map(g => {
       const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
@@ -4155,7 +4207,7 @@ function mountPicks(){
     topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across the slate</div>
         <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
     container.innerHTML = sections.join('') || '<div class="empty">No picks yet.</div>';
-    if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or lower the bar by turning Starters only off.</div>';
+    if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or widen the group with Everyone.</div>';
 
     $$('.save-pick-btn', $('#content')).forEach(btn => {
       if(btn.dataset.floor === undefined) return;
@@ -4173,12 +4225,11 @@ function mountPicks(){
     }));
   }
 
-  $('#bp-starters').addEventListener('click', () => {
-    const on = !bpStartersOn();
-    bpSetStarters(on);
-    $('#bp-starters').classList.toggle('active', on);
+  $$('#bp-mode-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    bpSetMode(pl.dataset.mode);
+    $$('#bp-mode-pills .pill').forEach(x => x.classList.toggle('active', x === pl));
     apply();
-  });
+  }));
   $$('#bp-pos-pills .pill').forEach(pl => pl.addEventListener('click', () => {
     $$('#bp-pos-pills .pill').forEach(x => x.classList.remove('active'));
     pl.classList.add('active'); posFilter = pl.dataset.pos; apply();
