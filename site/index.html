@@ -548,6 +548,7 @@
       <button data-tab="coaching">Coaching Tendencies</button>
       <button data-tab="lines">Line Play</button>
       <button data-tab="field">Defense Field</button>
+      <button data-tab="film">Film Room</button>
       <button data-tab="sos">Strength of Schedule</button>
       <button data-tab="defense">Defense vs Position</button>
 
@@ -623,7 +624,7 @@ function pickLegLabel(pick){
 // current week the picks are graded straight from ESPN's live box scores instead
 // (the same feed the Live Now tab uses). Once the pipeline has the week, its numbers
 // win. A final result is also saved on the pick itself, so past weeks stay graded.
-const LIVE_PICKS = {week:null, players:new Map(), teams:new Map(), updated:null, error:null};
+const LIVE_PICKS = {week:null, players:new Map(), teams:new Map(), games:new Map(), updated:null, error:null};
 function livePickNorm(n){
   return String(n || '').toLowerCase().replace(/[.'`,-]/g, '').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -639,11 +640,11 @@ function liveParseSummary(summary, state, detail){
         const name = (a.athlete || {}).displayName;
         if(!name) return;
         const key = livePickNorm(name) + '|' + team;
-        const rec = LIVE_PICKS.players.get(key) || {name, team, v:{passYds:0, passTD:0, ints:0, rushYds:0, rushTD:0, rec:0, recYds:0, recTD:0}};
+        const rec = LIVE_PICKS.players.get(key) || {name, team, v:{passYds:0, passTD:0, ints:0, passAtt:0, rushYds:0, rushTD:0, rushAtt:0, rec:0, recYds:0, recTD:0, tgts:0}};
         const get = l => { const i = labels.indexOf(l); return i < 0 ? 0 : (parseFloat(String((a.stats || [])[i]).split('/')[0]) || 0); };
-        if(nm === 'passing'){ rec.v.passYds = get('YDS'); rec.v.passTD = get('TD'); rec.v.ints = get('INT'); }
-        else if(nm === 'rushing'){ rec.v.rushYds = get('YDS'); rec.v.rushTD = get('TD'); }
-        else if(nm === 'receiving'){ rec.v.rec = get('REC'); rec.v.recYds = get('YDS'); rec.v.recTD = get('TD'); }
+        if(nm === 'passing'){ rec.v.passYds = get('YDS'); rec.v.passTD = get('TD'); rec.v.ints = get('INT'); const ca = String((a.stats || [])[labels.indexOf('C/ATT')] || '').split('/'); rec.v.passAtt = parseFloat(ca[1]) || 0; }
+        else if(nm === 'rushing'){ rec.v.rushYds = get('YDS'); rec.v.rushTD = get('TD'); rec.v.rushAtt = get('CAR'); }
+        else if(nm === 'receiving'){ rec.v.rec = get('REC'); rec.v.recYds = get('YDS'); rec.v.recTD = get('TD'); rec.v.tgts = get('TGTS'); }
         LIVE_PICKS.players.set(key, rec);
       });
     });
@@ -664,7 +665,7 @@ async function refreshLivePicks(){
     const get = async url => { const r = await fetch(url); if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
     const sb = await get(ESPN_SCOREBOARD_URL);
     const events = sb.events || [];
-    const players = new Map(), teams = new Map();
+    const players = new Map(), teams = new Map(), games = new Map();
     LIVE_PICKS.players = players;
     const week = (sb.week || {}).number || ((events[0] || {}).week || {}).number || null;
     await Promise.all(events.map(async ev => {
@@ -673,6 +674,14 @@ async function refreshLivePicks(){
       ((ev.competitions || [])[0] || {}).competitors && ev.competitions[0].competitors.forEach(c => {
         teams.set(livePickTeam((c.team || {}).abbreviation), {state, detail: st.shortDetail || '', id: ev.id});
       });
+      const cs = (((ev.competitions || [])[0]) || {}).competitors || [];
+      const hc = cs.find(c => c.homeAway === 'home'), ac = cs.find(c => c.homeAway === 'away');
+      if(hc && ac){
+        const H = livePickTeam((hc.team || {}).abbreviation), A = livePickTeam((ac.team || {}).abbreviation);
+        const base = {state, detail: st.shortDetail || '', id: ev.id, date: ev.date};
+        games.set(H, {...base, opp:A, home:true, score:hc.score, oppScore:ac.score});
+        games.set(A, {...base, opp:H, home:false, score:ac.score, oppScore:hc.score});
+      }
       if(state === 'pre') return;
       let summary = state === 'post' ? liveNowFinalCache[ev.id] : null;
       if(!summary){
@@ -681,7 +690,7 @@ async function refreshLivePicks(){
       }
       liveParseSummary(summary, state, st.shortDetail || '');
     }));
-    LIVE_PICKS.teams = teams; LIVE_PICKS.week = week; LIVE_PICKS.updated = new Date(); LIVE_PICKS.error = null;
+    LIVE_PICKS.teams = teams; LIVE_PICKS.games = games; LIVE_PICKS.week = week; LIVE_PICKS.updated = new Date(); LIVE_PICKS.error = null;
   } catch(err){
     LIVE_PICKS.error = err.message || String(err);
   }
@@ -5962,6 +5971,346 @@ function mountLiveHub(){
   show();
 }
 
+// ---------- TAB: FILM ROOM ----------
+// Watching film, in numbers. For every team the latest game (tonight's too, while it is
+// being played, straight from ESPN) is turned into notes on what the defense gave up and
+// to whom, who is out, and who is back. Defenses change little week to week unless a
+// starter is missing, so those notes are carried into that team's NEXT game: each starter
+// on the next opponent gets a projection with the film folded in.
+// The film counts for 35% (one game is noisy), and only once the game is final. All
+// numbers come from box scores; there is no coverage or alignment data, so "film" here
+// means results, not what a coach would see on tape.
+const FILM_WEIGHT = 0.35;
+const FILM_STAT = {QB:'Pass Yards', RB:'Rush Yards', WR:'Receiving Yards', TE:'Receiving Yards'};
+const FILM_POS_LABEL = {QB:'Quarterback', RB:'Running backs', WR:'Wide receivers', TE:'Tight ends'};
+const filmScheduleCache = {};
+let filmSelected = null;
+
+async function filmFetchSchedule(week){
+  if(filmScheduleCache[week]) return filmScheduleCache[week];
+  try {
+    const r = await fetch(`${ESPN_SCOREBOARD_URL}?week=${week}&seasontype=2`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const sb = await r.json();
+    const map = {};
+    (sb.events || []).forEach(ev => {
+      const cs = (((ev.competitions || [])[0]) || {}).competitors || [];
+      const h = cs.find(c => c.homeAway === 'home'), a = cs.find(c => c.homeAway === 'away');
+      if(!h || !a) return;
+      const H = livePickTeam((h.team || {}).abbreviation), A = livePickTeam((a.team || {}).abbreviation);
+      map[H] = {opp:A, home:true, date:ev.date, week};
+      map[A] = {opp:H, home:false, date:ev.date, week};
+    });
+    if(Object.keys(map).length) filmScheduleCache[week] = map;
+    return map;
+  } catch(e){ return {}; }
+}
+
+function filmCsvMaxWeek(){ return (DATA.playerGame || []).reduce((m, r) => Math.max(m, num(r.Week)), 0); }
+function filmPosMap(){
+  const m = {};
+  (DATA.playerGame || []).forEach(r => { m[livePickNorm(r.Player)] = r.Position; });
+  return m;
+}
+// Which week is the "latest film", and which games make it up.
+function filmWeekInfo(){
+  const csvMax = filmCsvMaxWeek();
+  const liveGames = LIVE_PICKS.games || new Map();
+  const started = [...liveGames.values()].some(g => g.state !== 'pre');
+  const useLive = !!(LIVE_PICKS.week && started && LIVE_PICKS.week > csvMax);
+  const week = useLive ? LIVE_PICKS.week : csvMax;
+  const games = [], seen = new Set();
+  if(useLive){
+    liveGames.forEach((g, team) => {
+      if(g.state === 'pre') return;
+      const key = [team, g.opp].sort().join('|');
+      if(seen.has(key)) return; seen.add(key);
+      const home = g.home ? team : g.opp, away = g.home ? g.opp : team;
+      const hs = g.home ? g.score : g.oppScore, as = g.home ? g.oppScore : g.score;
+      games.push({away, home, state:g.state, detail:g.detail, awayScore:as, homeScore:hs, source:'live'});
+    });
+  } else {
+    const gts = (DATA.gameTeamStats || []).filter(r => num(r.Week) === week);
+    (DATA.playerGame || []).filter(r => num(r.Week) === week).forEach(r => {
+      const key = [r.Team, r.Opponent].sort().join('|');
+      if(seen.has(key)) return; seen.add(key);
+      const mine = gts.find(x => x.Team === r.Team && x.Opponent === r.Opponent) || gts.find(x => x.Team === r.Team);
+      const theirs = gts.find(x => x.Team === r.Opponent);
+      let away = r.Team, home = r.Opponent, as = '', hs = '';
+      if(mine && mine['Home/Away']) { if(mine['Home/Away'] === 'Home'){ home = r.Team; away = r.Opponent; hs = mine['Final Score']; as = mine['Opponent Score']; } else { away = r.Team; home = r.Opponent; as = mine['Final Score']; hs = mine['Opponent Score']; } }
+      games.push({away, home, state:'post', detail:'Final', awayScore:as, homeScore:hs, source:'csv'});
+    });
+  }
+  const order = {in:0, post:1};
+  games.sort((a, b) => (order[a.state] ?? 2) - (order[b.state] ?? 2) || a.away.localeCompare(b.away));
+  return {week, useLive, games};
+}
+
+// Rows in player-game shape for the offense that faced `defense` in the film game.
+function filmRows(defense, info, game){
+  const opp = game.away === defense ? game.home : game.away;
+  if(game.source === 'csv') return (DATA.playerGame || []).filter(r => r.Opponent === defense && num(r.Week) === info.week && FILM_STAT[r.Position]);
+  const pos = filmPosMap();
+  const rows = [];
+  LIVE_PICKS.players.forEach(rec => {
+    if(rec.team !== opp) return;
+    const v = rec.v;
+    let p = pos[livePickNorm(rec.name)];
+    if(!p) p = v.passYds > 0 || v.passAtt > 0 ? 'QB' : (v.recYds >= v.rushYds && v.rec > 0) ? 'WR' : 'RB';
+    if(!FILM_STAT[p]) return;
+    rows.push({Player:rec.name, Team:opp, Opponent:defense, Week:info.week, Position:p,
+      'Pass Yards':v.passYds, 'Pass TD':v.passTD, Interceptions:v.ints, 'Pass Attempts':v.passAtt || 0,
+      'Rush Attempts':v.rushAtt || 0, 'Rush Yards':v.rushYds, 'Rush TD':v.rushTD,
+      Receptions:v.rec, 'Receiving Yards':v.recYds, 'Receiving TD':v.recTD, Targets:v.tgts || 0});
+  });
+  return rows;
+}
+
+function filmGroupTotals(rows){
+  const t = {QB:{yds:0, td:0}, RB:{yds:0, td:0}, WR:{yds:0, td:0}, TE:{yds:0, td:0}};
+  rows.forEach(r => {
+    const g = t[r.Position]; if(!g) return;
+    g.yds += num(r[FILM_STAT[r.Position]]);
+    g.td += r.Position === 'QB' ? num(r['Pass TD']) : num(r['Rush TD']) + num(r['Receiving TD']);
+  });
+  return t;
+}
+// What a defense normally allows per game to each position group (games before the film week),
+// falling back to the league average when it has fewer than two earlier games.
+let _filmLeague = {src:null, val:null};
+function filmLeagueGroupAvg(){
+  if(_filmLeague.src === DATA.playerGame) return _filmLeague.val;
+  const per = {};
+  (DATA.playerGame || []).forEach(r => { if(FILM_STAT[r.Position]) (per[r.Opponent + '|' + r.Week] = per[r.Opponent + '|' + r.Week] || []).push(r); });
+  const sums = {QB:0, RB:0, WR:0, TE:0}; let n = 0;
+  Object.values(per).forEach(rows => { const t = filmGroupTotals(rows); Object.keys(sums).forEach(k => { sums[k] += t[k].yds; }); n++; });
+  const val = {}; Object.keys(sums).forEach(k => { val[k] = n ? sums[k] / n : 0; });
+  _filmLeague = {src: DATA.playerGame, val};
+  return val;
+}
+function filmBaseline(defense, week){
+  const byWeek = {};
+  (DATA.playerGame || []).forEach(r => { if(r.Opponent === defense && num(r.Week) < week && FILM_STAT[r.Position]) (byWeek[r.Week] = byWeek[r.Week] || []).push(r); });
+  const weeks = Object.values(byWeek);
+  if(weeks.length < 2) return {avg: filmLeagueGroupAvg(), n: weeks.length, league: true};
+  const sums = {QB:0, RB:0, WR:0, TE:0};
+  weeks.forEach(rows => { const t = filmGroupTotals(rows); Object.keys(sums).forEach(k => { sums[k] += t[k].yds; }); });
+  Object.keys(sums).forEach(k => { sums[k] /= weeks.length; });
+  return {avg: sums, n: weeks.length, league: false};
+}
+function filmPlayerAvg(player, position, week){
+  const g = (DATA.playerGame || []).filter(r => r.Player === player && r.Position === position && num(r.Week) < week);
+  if(g.length < 2) return null;
+  const stat = FILM_STAT[position];
+  return {avg: g.reduce((a, r) => a + num(r[stat]), 0) / g.length, n: g.length};
+}
+function filmLine(r){
+  const f = x => Math.round(num(x));
+  if(r.Position === 'QB') return `${f(r['Pass Yards'])} pass yds, ${f(r['Pass TD'])} TD, ${f(r.Interceptions)} INT`;
+  if(r.Position === 'RB') return `${f(r['Rush Attempts'])} car, ${f(r['Rush Yards'])} yds${num(r.Receptions) ? `, ${f(r.Receptions)}-${f(r['Receiving Yards'])} rec` : ''}${num(r['Rush TD']) + num(r['Receiving TD']) ? `, ${f(num(r['Rush TD']) + num(r['Receiving TD']))} TD` : ''}`;
+  return `${f(r.Receptions)} rec, ${f(r['Receiving Yards'])} yds${num(r['Receiving TD']) ? `, ${f(r['Receiving TD'])} TD` : ''}${num(r.Targets) ? ` (${f(r.Targets)} tgt)` : ''}`;
+}
+
+// Defender availability for the next game, from the Defense Field data.
+function filmAvailability(team){
+  const all = (DATA.defenseRoster || []).filter(r => r.Team === team);
+  if(!all.length) return null;
+  const teamLast = all.reduce((m, r) => Math.max(m, num(r['Last Game Week'])), 0);
+  const core = r => r.Role === 'Starter' || r.Role === 'Nickel';
+  const label = r => `${r.Player} (${r.Group}${r.Injury ? ', ' + r.Injury : ''}${num(r['Last Game Snap Pct']) ? `, ${Math.round(num(r['Last Game Snap Pct']) * 100)}% last game` : ''})`;
+  return {
+    out: all.filter(r => core(r) && /out|doubtful|reserve|ir\b/i.test(r.Availability || '') ),
+    questionable: all.filter(r => core(r) && /question/i.test(r.Availability || '')),
+    returning: all.filter(r => !core(r) && num(r['Last Game Snaps']) === 0 && num(r['Last Game Week']) < teamLast && num(r.Games) >= 3 && num(r.Snaps) / Math.max(1, num(r.Games)) >= 30 && !/out|doubtful|question/i.test(r.Availability || '')),
+    label,
+  };
+}
+
+function filmDefenseAnalysis(defense, info, game){
+  const rows = filmRows(defense, info, game);
+  const final = game.state === 'post';
+  const t = filmGroupTotals(rows);
+  const base = filmBaseline(defense, info.week);
+  const groups = Object.keys(FILM_STAT).map(pos => {
+    const b = base.avg[pos] || 0;
+    return {pos, film:t[pos].yds, td:t[pos].td, base:b, ratio: b > 0 ? t[pos].yds / b : null};
+  });
+  const bullets = [];
+  const stat = r => num(r[FILM_STAT[r.Position]]);
+  const ranked = [...rows].sort((a, b) => (r => r.Position === 'QB' ? stat(r) * 0.4 : stat(r))(b) - (r => r.Position === 'QB' ? stat(r) * 0.4 : stat(r))(a));
+  ranked.slice(0, 3).forEach(r => {
+    if(stat(r) <= 0) return;
+    const pa = filmPlayerAvg(r.Player, r.Position, info.week);
+    const tail = pa && pa.avg > 0 ? ` vs his ${fmt(pa.avg, 0)} average (${fmt(stat(r) / pa.avg, 1)}x)` : '';
+    bullets.push(`<b>${r.Player}</b> (${r.Position}): ${filmLine(r)}${tail}.`);
+  });
+  if(final){
+    bullets.push(...rows.filter(r => {
+      const pa = filmPlayerAvg(r.Player, r.Position, info.week);
+      return pa && pa.n >= 3 && pa.avg >= 30 && stat(r) < pa.avg * 0.5 && isStarter(r);
+    }).slice(0, 3).map(r => {
+      const pa = filmPlayerAvg(r.Player, r.Position, info.week);
+      return `Held <b>${r.Player}</b> (${r.Position}) to ${fmt(stat(r), 0)} ${FILM_STAT[r.Position].toLowerCase().replace(' yards', ' yds')} against a ${fmt(pa.avg, 0)} average.`;
+    }));
+  }
+  if(!rows.length) bullets.push("No box score lines for the opposing offense in this game yet, so there are no notes.");
+  groups.forEach(g => {
+    if(g.ratio === null || !final || !rows.length) return;
+    if(g.ratio >= 1.25 && g.film >= 40) bullets.push(`Leaked to the ${FILM_POS_LABEL[g.pos].toLowerCase()}: ${fmt(g.film, 0)} yards, ${fmt(g.ratio, 1)}x what they normally allow.`);
+    else if(g.ratio <= 0.75) bullets.push(`Clamped the ${FILM_POS_LABEL[g.pos].toLowerCase()}: ${fmt(g.film, 0)} yards, ${fmt(g.ratio, 1)}x what they normally allow.`);
+    if(g.td >= 2) bullets.push(`Gave up ${g.td} touchdowns to the ${FILM_POS_LABEL[g.pos].toLowerCase()}.`);
+  });
+  return {rows, groups, bullets, base, final};
+}
+
+// Next opponent for a team: the loaded upcoming week if it is after the film week, else ESPN's.
+function filmNextGame(team, info, nextSched){
+  const wk = (DATA.week2 || []).find(r => r.Team === team && num(r.Week) > info.week);
+  if(wk) return {opp:wk.Opponent, home:wk['Home/Away'] === 'Home', week:num(wk.Week), date:wk.Date, spread:wk.Spread || '', source:'loaded'};
+  const s = nextSched && nextSched[team];
+  if(s) return {opp:s.opp, home:s.home, week:s.week, date:s.date, spread:'', source:'ESPN'};
+  return null;
+}
+
+function filmNextRead(defense, analysis, next){
+  const N = next.opp;
+  const spread = next.spread ? bpSpreadFor(N, next.spread) : 0;
+  const defGames = new Set((DATA.playerGame || []).filter(r => r.Opponent === defense).map(r => r.Week)).size;
+  const avail = filmAvailability(defense);
+  const outGroups = new Set(avail ? avail.out.map(r => r.Group) : []);
+  const out = [];
+  bpTeamPlayers(N, true).forEach(p => {
+    if(p.games.length < 2) return;
+    const stat = FILM_STAT[p.Position];
+    const vals = p.games.map(g => getStatValue(g, stat));
+    const avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+    if(avg <= 0) return;
+    const l3 = p.games.slice().sort((a, b) => num(a.Week) - num(b.Week)).slice(-3).map(g => getStatValue(g, stat));
+    const l3avg = l3.reduce((a, v) => a + v, 0) / l3.length;
+    const defRows = bpDefenseSamples(defense, p.Position, true, N);
+    const league = bpLeagueAvg(p.Position, stat, true);
+    const allowed = defRows.length ? defRows.reduce((a, r) => a + getStatValue(r, stat), 0) / defRows.length : league;
+    const pj = bpProject(vals, l3avg, allowed, league, defGames, stat, spread);
+    const grp = analysis.groups.find(g => g.pos === p.Position);
+    let filmFactor = 1;
+    if(analysis.final && grp && grp.ratio !== null) filmFactor = 1 + (Math.max(0.6, Math.min(1.6, grp.ratio)) - 1) * FILM_WEIGHT;
+    const proj = pj.proj * filmFactor;
+    const lean = proj >= avg * 1.08 ? 'over' : proj <= avg * 0.92 ? 'under' : 'neutral';
+    const warn = [];
+    if(p.Position === 'WR' || p.Position === 'TE'){ if(outGroups.has('CB')) warn.push('CB out'); if(outGroups.has('S')) warn.push('S out'); }
+    if(p.Position === 'RB' || p.Position === 'QB'){ if(outGroups.has('DL')) warn.push('DL out'); if(outGroups.has('LB')) warn.push('LB out'); }
+    out.push({slot:p.slot, player:p.Player, pos:p.Position, stat, avg, l3avg, season:pj.proj, filmFactor, proj, lean, warn, line:Math.round(proj * 2) / 2});
+  });
+  const order = {QB:0, RB:1, WR:2, TE:3};
+  return out.sort((a, b) => order[a.pos] - order[b.pos] || a.slot.localeCompare(b.slot));
+}
+
+function filmTeamHtml(team, info, game, nextSched){
+  const an = filmDefenseAnalysis(team, info, game);
+  const opp = game.away === team ? game.home : game.away;
+  const myScore = game.away === team ? game.awayScore : game.homeScore, oppScore = game.away === team ? game.homeScore : game.awayScore;
+  const scoreTxt = (myScore !== '' && myScore !== undefined) ? `${myScore}-${oppScore}` : '';
+  const status = game.state === 'in' ? `<span class="live-chip live-in">LIVE</span> ${game.detail || ''}` : 'Final';
+  const avail = filmAvailability(team);
+  const next = filmNextGame(team, info, nextSched);
+  const pct = r => r.ratio === null ? '--' : fmt(r.ratio, 2) + 'x';
+  const groupRows = an.groups.map(g => `<tr><td>${FILM_POS_LABEL[g.pos]}</td><td class="num"><b>${fmt(g.film, 0)}</b></td><td class="num">${g.td}</td><td class="num">${fmt(g.base, 0)}</td><td class="num" style="color:${g.ratio === null ? 'var(--chalk-dim)' : g.ratio >= 1.25 ? 'var(--red)' : g.ratio <= 0.75 ? 'var(--mint)' : 'var(--chalk)'};">${pct(g)}</td></tr>`).join('');
+  let availHtml = '';
+  if(avail){
+    const parts = [];
+    if(avail.out.length) parts.push(`<span style="color:var(--red);">Out / doubtful:</span> ${avail.out.map(avail.label).join('; ')}`);
+    if(avail.questionable.length) parts.push(`<span style="color:var(--gold);">Questionable:</span> ${avail.questionable.map(avail.label).join('; ')}`);
+    if(avail.returning.length) parts.push(`<span style="color:var(--mint);">Back (missed the last game):</span> ${avail.returning.map(r => `${r.Player} (${r.Group})`).join('; ')}`);
+    availHtml = parts.length
+      ? parts.map(p => `<div class="player-preview-stats">${p}</div>`).join('') + (avail.out.length ? '<div class="line-note">A starter who is out means this film may overstate the defense: the group he plays in is the one to be careful with.</div>' : '')
+      : '<div class="player-preview-stats" style="color:var(--chalk-dim);">No starters listed out or questionable. The defense should look much like it did on this film.</div>';
+  } else availHtml = '<div class="player-preview-stats" style="color:var(--chalk-dim);">Defender availability needs the Defense Field data (14_defense_roster.py).</div>';
+
+  let nextHtml;
+  if(!next){
+    nextHtml = `<div class="empty" style="padding:8px 0;">${info.useLive ? "Next week's schedule couldn't be loaded from ESPN yet, or this team is on a bye." : 'No next game loaded (bye week, or the schedule is not out yet).'}</div>`;
+  } else {
+    const rd = filmNextRead(team, an, next);
+    const note = !an.final ? `<div class="line-note">This game is still being played, so the film is not in the projections yet. The notes above update as it goes; once it is final the film is blended in (35% weight).</div>` : '';
+    nextHtml = `<div class="log-pos-label" style="font-size:13px;margin-top:12px;">Carry it to Week ${next.week}: ${next.home ? 'hosting' : 'at'} ${teamChip(next.opp)}${next.spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${next.spread}</span>` : ''}</div>
+      <div class="line-note" style="margin-bottom:6px;">Starters on ${teamName(next.opp)} against the ${teamName(team)} defense. "Season-only" is the Best Picks style projection; "With film" folds in how this defense just played.</div>
+      ${rd.length ? `<div class="table-scroll"><table><thead><tr><th>Player</th><th>Stat</th><th>Own avg</th><th>Last 3</th><th>Season-only</th><th>Film factor</th><th>With film</th><th>Book-style line</th><th>Read</th></tr></thead><tbody>${rd.map(x => `<tr>
+        <td><span class="player-preview-pos">${x.slot}</span> ${x.player}</td><td>${x.stat}</td><td class="num">${fmt(x.avg)}</td><td class="num">${fmt(x.l3avg)}</td><td class="num">${fmt(x.season)}</td>
+        <td class="num" style="color:${x.filmFactor > 1.02 ? 'var(--mint)' : x.filmFactor < 0.98 ? 'var(--red)' : 'var(--chalk-dim)'};">${an.final ? fmt(x.filmFactor, 2) + 'x' : '--'}</td>
+        <td class="num"><b>${fmt(x.proj)}</b></td><td class="num">${x.line.toFixed(1)}</td>
+        <td style="white-space:nowrap;"><b style="color:${x.lean === 'over' ? 'var(--mint)' : x.lean === 'under' ? 'var(--red)' : 'var(--chalk-dim)'};">${x.lean === 'over' ? 'Lean over' : x.lean === 'under' ? 'Lean under' : 'Neutral'}</b>${x.warn.length ? ` <span style="color:var(--gold);">&#9888; ${x.warn.join(', ')}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>${note}`
+        : '<div class="empty" style="padding:8px 0;">Not enough games logged for that offense yet.</div>'}`;
+  }
+  return `<div class="log-pos-group" style="margin-bottom:22px;">
+    <div class="log-pos-label" style="font-size:14px;">${teamName(team)} defense &middot; Week ${info.week} vs ${teamName(opp)} ${scoreTxt ? `&middot; ${scoreTxt}` : ''} &middot; ${status}</div>
+    ${an.bullets.length ? `<ul style="margin:8px 0 8px 18px;line-height:1.55;">${an.bullets.map(b => `<li>${b}</li>`).join('')}</ul>` : '<div class="player-preview-stats" style="color:var(--chalk-dim);">Nothing stands out yet.</div>'}
+    <div class="table-scroll"><table><thead><tr><th>Allowed to</th><th class="num">Yards</th><th class="num">TD</th><th class="num" title="${an.base.league ? 'League average per game (fewer than 2 earlier games for this defense)' : "This defense's average per game before this one"}">${an.base.league ? 'League avg' : 'Usual'}</th><th class="num">vs usual</th></tr></thead><tbody>${groupRows}</tbody></table></div>
+    ${availHtml}
+    ${nextHtml}
+  </div>`;
+}
+
+function renderFilm(){
+  return `
+  <div class="panel">
+    <div class="panel-title">Film Room</div>
+    <div class="panel-note">
+      The latest game for every team, turned into notes you can carry into the next one. Pick a game below; for each
+      defense you get what it gave up and to whom, how that compares with what it usually allows, who is out or back,
+      and then next week's opponent: every starter with a projection that blends in what the defense just showed.
+      Defenses change little week to week unless a starter is missing, which is why the availability list sits next to
+      the notes. Tonight's game updates live from ESPN; a finished week comes from the daily data. One game is a small
+      sample, so the film counts for ${Math.round(FILM_WEIGHT * 100)}% and only once the game is final. These are box score results, not coverage
+      or alignment (that data is not published), so read them as tendencies.
+    </div>
+    <div class="controls">
+      <button class="save-pick-btn" id="film-refresh">Refresh</button>
+      <span id="film-status" style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);"></span>
+    </div>
+    <div class="controls"><div class="pill-group" id="film-games" style="flex-wrap:wrap;"></div></div>
+    <div id="film-detail"><div class="empty">Loading film...</div></div>
+  </div>`;
+}
+
+function mountFilm(){
+  let info = null, nextSched = {};
+  function draw(){
+    const gamesEl = $('#film-games'), detailEl = $('#film-detail');
+    if(!gamesEl || !detailEl) return;
+    if(!info || !info.games.length){
+      gamesEl.innerHTML = '';
+      detailEl.innerHTML = '<div class="empty">No games to review yet. Once a week of games has been played (or one is live), it shows here.</div>';
+      return;
+    }
+    const key = g => g.away + '@' + g.home;
+    if(!filmSelected || !info.games.some(g => key(g) === filmSelected)) filmSelected = key(info.games[0]);
+    gamesEl.innerHTML = info.games.map(g => `<span class="pill ${key(g) === filmSelected ? 'active' : ''}" data-k="${key(g)}">${g.away} @ ${g.home}${g.state === 'in' ? ' &middot; LIVE' : ''}</span>`).join('');
+    $$('#film-games .pill').forEach(pl => pl.addEventListener('click', () => { filmSelected = pl.dataset.k; draw(); }));
+    const g = info.games.find(x => key(x) === filmSelected);
+    detailEl.innerHTML = `<div class="line-note" style="margin-bottom:10px;">Week ${info.week}${info.useLive ? ' (from ESPN, not yet in the daily data)' : ''}. Each side below is that team's DEFENSE: what it gave up, then the next opponent.</div>` +
+      [g.away, g.home].map(t => filmTeamHtml(t, info, g, nextSched)).join('');
+  }
+  async function load(){
+    const st = $('#film-status');
+    if(st) st.textContent = 'Checking ESPN...';
+    await refreshLivePicks();
+    if(!$('#film-status')) return;
+    info = filmWeekInfo();
+    nextSched = await filmFetchSchedule(info.week + 1);
+    const s2 = $('#film-status');
+    if(!s2) return;
+    s2.textContent = LIVE_PICKS.error ? `ESPN unavailable (${LIVE_PICKS.error}); using saved data only.` : `Updated ${new Date().toLocaleTimeString()}`;
+    draw();
+  }
+  $('#film-refresh').addEventListener('click', load);
+  if(window.__filmTimer) clearInterval(window.__filmTimer);
+  window.__filmTimer = setInterval(() => {
+    if(!$('#film-status')){ clearInterval(window.__filmTimer); window.__filmTimer = null; return; }
+    if(!document.hidden && info && info.games.some(g => g.state === 'in')) load();
+  }, 45000);
+  load();
+}
+
 // ---------- TAB: LINE PLAY (OL / DL) ----------
 // Offensive/defensive line information from 13_line_play.py (nflverse play-by-play,
 // snap counts, and the official injury report). Team rates are credited to the whole
@@ -6314,6 +6663,7 @@ const renderers = {
   coaching: {render: renderCoaching, mount: mountCoaching},
   lines: {render: renderLines, mount: mountLines},
   field: {render: renderField, mount: mountField},
+  film: {render: renderFilm, mount: mountFilm},
   predictions: {render: renderPredictions, mount: mountPredictions},
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
