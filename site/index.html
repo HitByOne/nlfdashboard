@@ -3918,6 +3918,47 @@ function bpPicksForGame(offense, defense, startersOnly, spread){
   return {picks, noLine};
 }
 
+// ---- Best Picks live grading + history ----
+// Every pick the page shows is also saved (once, before kickoff) so it can be graded later:
+// live from ESPN while the games are on, then from the final box score. That is what keeps
+// the previous weeks' picks, and their results, after the page moves on to the next slate.
+const BP_HISTORY_KEY = 'nfl_dashboard_bestpicks_history';
+function bpHistGet(){ try { return JSON.parse(localStorage.getItem(BP_HISTORY_KEY) || '{}'); } catch(e){ return {}; } }
+function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} }
+function bpPickKey(p, week){ return `${week}|${p.team}|${p.player}|${p.stat}|${p.floor}`; }
+function bpGrade(p, week){
+  return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:p.floor, finalStat:p.finalStat, finalActual:p.finalActual});
+}
+// Save this week's picks the first time they are seen; graded results are written back too.
+function bpSnapshot(allPicks){
+  const h = bpHistGet();
+  let changed = false;
+  allPicks.forEach(p => {
+    const k = bpPickKey(p, p.week);
+    if(h[k]) return;
+    h[k] = {week:String(p.week), player:p.player, position:p.position, slot:p.slot, team:p.team, opponent:p.opponent,
+      stat:p.stat, floor:p.floor, proj:Math.round(p.pj.proj * 10) / 10, line:p.pj.line, lo:Math.round(p.pj.lo), hi:Math.round(p.pj.hi),
+      ph:p.ph, pt:p.pt, dh:p.dh, dt:p.dt};
+    changed = true;
+  });
+  Object.keys(h).forEach(k => {
+    const e = h[k];
+    if(typeof e.finalActual === 'number') return;
+    const g = bpGrade(e, e.week);
+    if(g && g.final && g.persist && typeof g.actual === 'number'){ e.finalActual = g.actual; e.finalStat = e.stat; changed = true; }
+  });
+  if(changed) bpHistSave(h);
+  return h;
+}
+function bpResultHtml(g, floor, proj){
+  if(!g || g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Not started</span>';
+  const proj_ = proj !== undefined ? ` <span style="color:var(--chalk-dim);">(proj ${fmt(proj)})</span>` : '';
+  if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${floor}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
+  const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
+  const tag = g.live ? ' <span style="color:var(--chalk-dim);">live</span>' : (g.fromLive && !g.persist ? ' <span style="color:var(--chalk-dim);" title="ESPN lists only players who recorded a stat, so this is counted as 0 until the daily data confirms it">not in box</span>' : '');
+  return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b>${tag}${proj_}`;
+}
+
 function renderPicks(){
   return `
   <div class="panel">
@@ -3942,8 +3983,22 @@ function renderPicks(){
         <span class="pill active" data-pos="">ALL</span><span class="pill" data-pos="QB">QB</span><span class="pill" data-pos="RB">RB</span><span class="pill" data-pos="WR">WR</span><span class="pill" data-pos="TE">TE</span>
       </div>
     </div>
+    <div class="controls">
+      <button class="save-pick-btn" id="bp-live-refresh">Refresh live grading</button>
+      <span id="bp-live-status" style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);"></span>
+    </div>
     <div id="picks-top"></div>
     <div id="picks-list"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Best Picks Record</div>
+    <div class="panel-note">
+      Every pick this page shows is saved the first time it appears, then graded: live from ESPN's box scores while games are on
+      (an at-least line that has already cleared shows HIT), and from the final box score after. Past weeks stay here with their
+      results. Saved in this browser only. Picks are saved only while Starters only is on, so the record is one consistent
+      definition.
+    </div>
+    <div id="bp-record"></div>
   </div>`;
 }
 
@@ -3998,6 +4053,7 @@ function mountPicks(){
         <td style="font-weight:700;color:var(--gold);">${p.floor}+ ${p.stat}</td>
         <td class="num" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
         <td class="num">${p.pj.line.toFixed(1)}</td>
+        <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), p.floor, p.pj.proj)}</td>
         <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
         <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
         <td class="num">${fmt(p.avg)} <span style="color:var(--chalk-dim);">L3 ${fmt(p.l3avg)}</span></td>
@@ -4005,12 +4061,58 @@ function mountPicks(){
         <td class="num" style="font-weight:700;color:${scoreColor};">${pct(p.score)}</td>
         <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.stat}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${p.stat} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.proj)}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
       </tr>`;
-    const detail = open ? `<tr class="def-detail-row"><td colspan="13" style="background:var(--field-deep);padding:10px 16px;">
+    const detail = open ? `<tr class="def-detail-row"><td colspan="14" style="background:var(--field-deep);padding:10px 16px;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
         ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
     return row + detail;
   }
-  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
+  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th>Live / result</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
+
+  let histWeek = null;
+  function renderRecord(allShown){
+    const recEl = $('#bp-record');
+    if(!recEl) return;
+    // Snapshot from the unfiltered starters-only slate, not whatever position filter is showing.
+    if(bpStartersOn()){
+      const full = [];
+      gameList.forEach(g => {
+        const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
+        const sp = g.sides.away.Spread || g.sides.home.Spread || '';
+        [...bpPicksForGame(away, home, true, bpSpreadFor(away, sp)).picks, ...bpPicksForGame(home, away, true, bpSpreadFor(home, sp)).picks]
+          .forEach(p => full.push({...p, week}));
+      });
+      bpSnapshot(full);
+    }
+    const h = bpHistGet();
+    const rows = Object.values(h).map(e => ({e, g: bpGrade(e, e.week)}));
+    if(!rows.length){ recEl.innerHTML = '<div class="empty">No picks saved yet. They are saved the first time they show above (with Starters only on).</div>'; return; }
+    const weeks = [...new Set(rows.map(r => parseInt(r.e.week, 10) || 0))].sort((a, b) => b - a);
+    const stat = {};
+    rows.forEach(({e, g}) => {
+      const w = parseInt(e.week, 10) || 0;
+      const o = stat[w] = stat[w] || {hit:0, miss:0, open:0, err:0, errN:0};
+      if(g && g.status === 'HIT') o.hit++; else if(g && g.status === 'MISS') o.miss++; else o.open++;
+      if(g && g.final && typeof g.actual === 'number'){ o.err += Math.abs(g.actual - e.proj); o.errN++; }
+    });
+    let H = 0, M = 0;
+    const sumRows = weeks.map(w => {
+      const o = stat[w]; H += o.hit; M += o.miss;
+      return `<tr><td class="num">${w || '--'}</td><td class="num" style="color:var(--mint);">${o.hit}</td><td class="num" style="color:var(--red);">${o.miss}</td><td class="num">${o.open}</td><td class="num">${o.hit + o.miss ? Math.round(o.hit / (o.hit + o.miss) * 100) + '%' : '--'}</td><td class="num">${o.errN ? fmt(o.err / o.errN) : '--'}</td></tr>`;
+    }).join('');
+    const sel = (histWeek !== null && weeks.includes(histWeek)) ? histWeek : weeks[0];
+    const detail = rows.filter(r => (parseInt(r.e.week, 10) || 0) === sel)
+      .sort((a, b) => (a.g && a.g.status === 'HIT' ? 0 : 1) - (b.g && b.g.status === 'HIT' ? 0 : 1) || a.e.player.localeCompare(b.e.player));
+    recEl.innerHTML = `
+      <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks cleared their floor (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
+        <div class="table-scroll"><table><thead><tr><th class="num">Week</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>
+      <div class="controls"><div class="pill-group" id="bp-hist-pills">${weeks.map(w => `<span class="pill ${w === sel ? 'active' : ''}" data-w="${w}">Week ${w || '--'}</span>`).join('')}</div></div>
+      <div class="table-scroll"><table><thead><tr><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (range)</th><th>Result</th></tr></thead><tbody>${detail.map(({e, g}) => `<tr>
+        <td><span class="player-preview-pos">${e.slot}</span> ${e.player}</td><td>${teamChip(e.team)}</td><td>${teamChip(e.opponent)}</td>
+        <td style="font-weight:700;color:var(--gold);">${e.floor}+ ${e.stat}</td>
+        <td class="num"><b>${fmt(e.proj)}</b> <span style="color:var(--chalk-dim);">(${e.lo}-${e.hi})</span></td>
+        <td style="white-space:nowrap;">${bpResultHtml(g, e.floor)}</td></tr>`).join('')}</tbody></table></div>`;
+    $$('#bp-hist-pills .pill').forEach(pl => pl.addEventListener('click', () => { histWeek = parseInt(pl.dataset.w, 10); renderRecord(allShown); }));
+  }
 
   function apply(){
     const startersOnly = bpStartersOn();
@@ -4031,6 +4133,7 @@ function mountPicks(){
       </div>`;
     });
     all.sort((x, y) => y.score - x.score || y.edge - x.edge);
+    renderRecord(all);
     topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across the slate</div>
         <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
     container.innerHTML = sections.join('') || '<div class="empty">No picks yet.</div>';
@@ -4062,7 +4165,25 @@ function mountPicks(){
     $$('#bp-pos-pills .pill').forEach(x => x.classList.remove('active'));
     pl.classList.add('active'); posFilter = pl.dataset.pos; apply();
   }));
+
+  // Live grading: ESPN now, then every 45 seconds while this tab is showing.
+  async function liveTick(){
+    const st = $('#bp-live-status');
+    if(!st || !document.getElementById('picks-list')){ if(window.__bpTimer){ clearInterval(window.__bpTimer); window.__bpTimer = null; } return; }
+    st.textContent = 'Checking ESPN...';
+    await refreshLivePicks();
+    const st2 = $('#bp-live-status');
+    if(!st2) return;
+    st2.textContent = LIVE_PICKS.error
+      ? `Live feed unavailable (${LIVE_PICKS.error}). Showing saved results only.`
+      : `Live grading updated ${LIVE_PICKS.updated.toLocaleTimeString()}${LIVE_PICKS.week ? ' (ESPN week ' + LIVE_PICKS.week + ')' : ''}`;
+    apply();
+  }
+  $('#bp-live-refresh').addEventListener('click', liveTick);
+  if(window.__bpTimer) clearInterval(window.__bpTimer);
+  window.__bpTimer = setInterval(() => { if(!document.hidden) liveTick(); }, 45000);
   apply();
+  liveTick();
 }
 
 // ---------- TAB: POWER RANKINGS ----------
