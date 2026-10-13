@@ -5103,22 +5103,27 @@ async function ocrSlipImage(file, onProgress){
   } finally { try { await worker.terminate(); } catch(e){} }
 }
 
-function renderMyPicks(){
+function slipPanelHtml(opts){
+  opts = opts || {};
+  const share = !!opts.share;
   return `
   <div class="panel" id="slip-panel">
-    <div class="panel-title">Add Picks From a Screenshot</div>
+    <div class="panel-title">${share ? 'Upload Your Picks' : 'Add Picks From a Screenshot'}</div>
     <div class="panel-note">
-      Make your picks on the sportsbook, then screenshot the slip (open or settled) and drop it here: you don't have to pick
+      ${share ? `Screenshot your slip from the sportsbook and drop it here. The legs are read in your browser (the image is never uploaded), matched to players,
+      saved to your account and shared with your groups, then graded live as the games are played. If every leg reads cleanly it is added right away, with an Undo;
+      anything amber or red waits for you to check it first. Your wager stays hidden unless you tick the box below.` : `Make your picks on the sportsbook, then screenshot the slip (open or settled) and drop it here: you don't have to pick
       twice. Choose one or several screenshots, drag them onto this box, or paste one (Ctrl/Cmd+V). The legs are read in your
       browser (the image is never uploaded), matched to players, and added to a new ticket named after the book and date, with the
       odds and wager if the slip shows them. If every leg reads cleanly it is added right away, with an Undo; if anything looks
       off (an amber or red flag) it waits for you to check it first. Unders are supported. Alt lines like "25+" and "Over" lines grade as at-or-above,
-      "Under" as below. Each ticket then grades live as the games are played.
+      "Under" as below. Each ticket then grades live as the games are played.`}
     </div>
     <div class="controls">
       <input type="file" id="slip-file" accept="image/*" multiple>
       <button class="save-pick-btn" id="slip-read-btn">Read screenshot(s)</button>
       <label class="ctl-label"><input type="checkbox" id="slip-auto" checked> add automatically when every leg reads cleanly</label>
+      ${share ? '<label class="ctl-label"><input type="checkbox" id="slip-sharestake"> show my wager to friends</label>' : ''}
     </div>
     <div class="controls">
       <textarea id="slip-text" rows="3" placeholder="...or paste slip text here, e.g. 'Makai Lemon 20+ Yards' on one line and 'MAKAI LEMON - ALT RECEIVING YDS' under it" style="width:100%;max-width:640px;"></textarea>
@@ -5127,7 +5132,224 @@ function renderMyPicks(){
     <div class="line-note" id="slip-status"></div>
     <div id="slip-review"></div>
   </div>
-  <datalist id="slip-players"></datalist>
+  <datalist id="slip-players"></datalist>`;
+}
+
+function mountSlipImport(opts){
+  opts = opts || {};
+  const SHARE = !!opts.share, onChange = opts.onChange || (() => {});
+  {
+    const statusEl = $('#slip-status'), reviewEl = $('#slip-review');
+    if(!statusEl) return;
+    const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
+    let legs = [], curMeta = {}, curMode = 'upcoming', queue = [], lastBatch = [];
+    $('#slip-players').innerHTML = slipPlayerIndex().map(p => `<option value="${p.Player.replace(/"/g, '&quot;')}">`).join('');
+
+    function fillDefaults(leg){
+      const m = slipMatchPlayer(leg.player);
+      if(m){ leg.player = m.Player; leg.team = m.Team; leg.position = m.Position; leg.matched = true; }
+      else { leg.matched = false; leg.team = ''; leg.position = ''; leg.opponent = ''; return; }
+      const d = slipDefaultWeek(leg);
+      if(leg.week === undefined || leg.week === '') leg.week = d.week;
+      const row = (DATA.playerGame || []).find(r => r.Player === leg.player && String(r.Week) === String(leg.week));
+      leg.opponent = String(leg.week) === String(d.week) ? d.opponent : (row ? row.Opponent : '');
+    }
+    function isClean(l){ return l.matched && !l.statGuessed && l.how !== 'fuzzy' && l.week !== '' && l.week !== undefined && !isNaN(parseFloat(l.threshold)); }
+    function uniqueTicketName(meta){
+      const d = new Date();
+      const base = `${meta.book || 'Slip'} ${d.toLocaleDateString('en-US', {month:'short', day:'numeric'})}${meta.odds ? ' ' + meta.odds : ''}`;
+      const taken = new Set(getAllTicketNames());
+      if(!taken.has(base)) return base;
+      let n = 2; while(taken.has(`${base} (${n})`)) n++;
+      return `${base} (${n})`;
+    }
+    function commit(slipLegs, meta, ticket){
+      const picks = slipLegs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
+      let added = 0; const mine = [];
+      picks.forEach(p => { const pk = {...p, ticket}; if(addToMyPicks(pk)){ added++; mine.push(pk); } });
+      if(meta && (meta.book || meta.odds || meta.stake || meta.payout)) setTicketMeta(ticket, {book:meta.book, odds:meta.odds, stake:meta.stake, payout:meta.payout, source:'screenshot'});
+      if(SHARE && added){ const ss = $('#slip-sharestake'); setTicketMeta(ticket, {share:true, shareStake: !!(ss && ss.checked)}); }
+      return {added, dupes: picks.length - added, picks: mine};
+    }
+    function draw(){
+      if(!legs.length){ reviewEl.innerHTML = ''; return; }
+      const picks = legs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
+      const rows = legs.map((l, i) => {
+        const pk = (l.include && l.matched && l.week !== '') ? slipLegToPick(l) : null;
+        const est = pk ? estimatePickProbability(pk) : null;
+        const g = pk ? gradeMyPick(pk) : null;
+        const chip = g && g.status === 'LIVE' ? `<b>LIVE</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)} so far</span>` : g && g.status !== 'PENDING'
+          ? `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual)</span>`
+          : (est ? `<b>${fmt(est.probability * 100, 0)}%</b> <span style="color:var(--chalk-dim);">${est.playerRate.hits}/${est.playerRate.total}${est.defenseRate ? ` &middot; opp ${est.defenseRate.hits}/${est.defenseRate.total}` : ''}</span>` : '<span style="color:var(--chalk-dim);">--</span>');
+        const flag = !l.matched ? '<span style="color:var(--red);">player not found</span>'
+          : (l.statGuessed ? '<span style="color:var(--gold);">stat guessed, check it</span>' : (l.how === 'fuzzy' ? '<span style="color:var(--gold);">name matched loosely</span>' : '<span style="color:var(--mint);">&#10003;</span>'));
+        return `<tr>
+          <td><input type="checkbox" data-i="${i}" data-f="include" ${l.include ? 'checked' : ''}></td>
+          <td><input type="text" list="slip-players" data-i="${i}" data-f="player" value="${String(l.player).replace(/"/g, '&quot;')}" style="width:170px;"></td>
+          <td>${l.position || '--'} ${l.team ? teamChip(l.team) : ''}</td>
+          <td><select data-i="${i}" data-f="stat">${STATS.map(s => `<option ${s === l.stat ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td><select data-i="${i}" data-f="direction"><option value="" ${!l.direction ? 'selected' : ''}>at least</option><option value="over" ${l.direction === 'over' ? 'selected' : ''}>over</option><option value="under" ${l.direction === 'under' ? 'selected' : ''}>under</option></select></td>
+          <td><input type="number" step="0.5" data-i="${i}" data-f="threshold" value="${l.threshold}" style="width:64px;"></td>
+          <td><input type="number" data-i="${i}" data-f="week" value="${l.week ?? ''}" style="width:52px;"></td>
+          <td>${l.opponent ? teamChip(l.opponent) : '--'}</td>
+          <td>${flag}</td><td>${chip}</td></tr>`;
+      }).join('');
+      const odds = picks.length ? analyzeTicketOdds(picks) : null;
+      let grade = '';
+      if(odds && odds.estimable.length){
+        const parlay = fmt(odds.parlayProbability * 100, 1);
+        const weakLabel = odds.weakest ? `${odds.weakest.player} ${pickLegLabel(odds.weakest)} (${fmt(odds.weakest.est.probability * 100, 0)}%)` : '';
+        grade = `<div class="player-preview-stats"><b>Slip grade:</b> all ${odds.estimable.length} gradeable legs hitting together is about <b style="color:var(--mint);">${parlay}%</b> by this dashboard's hit rates
+          ${odds.estimable.length > 1 && odds.weakest ? `&middot; weakest leg: ${weakLabel}; without it about <b style="color:var(--mint);">${fmt(odds.withoutWeakest * 100, 1)}%</b>` : ''}
+          ${odds.skipped.length ? `&middot; ${odds.skipped.length} leg(s) had no history to grade` : ''}</div>
+          <div class="line-note">A rough read built from each player's own season hit rate (and the opponent's, when known). It ignores game script, injuries, primetime and who covers him, so treat it as a floor check, not a prediction.</div>`;
+      }
+      const tickets = getAllTicketNames();
+      const defName = uniqueTicketName(curMeta);
+      const flagged = legs.filter(l => !isClean(l)).length;
+      reviewEl.innerHTML = `${queue.length ? `<div class="line-note" style="color:var(--gold);">${queue.length} more slip${queue.length === 1 ? '' : 's'} waiting after this one.</div>` : ''}
+        <div class="line-note">${flagged ? `${flagged} row${flagged === 1 ? '' : 's'} need a look (amber or red). Fix them, or untick any row you don't want.` : 'Every row read cleanly.'}</div>
+        <div class="controls"><label class="ctl-label">These legs are for
+          <select id="slip-week-mode"><option value="upcoming" ${curMode === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${curMode === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
+        <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th></tr></thead><tbody>${rows}</tbody></table></div>
+        ${grade}
+        <div class="controls">
+          <label class="ctl-label">Book <input type="text" id="slip-book" value="${curMeta.book || ''}" style="width:100px;"></label>
+          <label class="ctl-label">Odds <input type="text" id="slip-odds" value="${curMeta.odds || ''}" placeholder="+950" style="width:70px;"></label>
+          <label class="ctl-label">Wager $ <input type="number" id="slip-stake" value="${curMeta.stake || ''}" step="0.01" style="width:70px;"></label>
+          <label class="ctl-label">Returned $ <input type="number" id="slip-payout" value="${curMeta.payout || ''}" step="0.01" style="width:70px;" title="Only on a settled slip"></label>
+        </div>
+        <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket"><option value="__auto">${defName} (new)</option>${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">Name a new ticket...</option></select></label>
+        <button class="save-pick-btn" id="slip-add-btn">${SHARE ? '+ Add and share' : '+ Add'} ${picks.length} leg${picks.length === 1 ? '' : 's'}${SHARE ? '' : ' to My Picks'}</button>
+        ${queue.length ? '<button class="save-pick-btn" id="slip-skip-btn">Skip this slip</button>' : ''}</div>`;
+      $('#slip-week-mode').addEventListener('change', e => {
+        curMode = e.target.value; SLIP_WEEK_MODE = curMode;
+        legs.forEach(l => { l.week = ''; fillDefaults(l); });
+        draw();
+      });
+      $$('input[data-f], select[data-f]', reviewEl).forEach(el => el.addEventListener('change', () => {
+        const l = legs[parseInt(el.dataset.i, 10)], f = el.dataset.f;
+        if(f === 'include') l.include = el.checked;
+        else if(f === 'threshold') l.threshold = parseFloat(el.value);
+        else if(f === 'week'){ l.week = el.value; fillDefaults(l); }
+        else if(f === 'player'){ l.player = el.value; l.matched = false; l.week = ''; fillDefaults(l); }
+        else { l[f] = el.value; if(f === 'stat') l.statGuessed = false; }
+        draw();
+      }));
+      ['book', 'odds', 'stake', 'payout'].forEach(k => $('#slip-' + k).addEventListener('change', e => { curMeta[k] = e.target.value.trim(); }));
+      const next = () => { if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; } };
+      $('#slip-add-btn').addEventListener('click', () => {
+        let ticket = $('#slip-ticket').value;
+        if(ticket === '__auto') ticket = defName;
+        if(ticket === '__new'){
+          ticket = (prompt('Name for the new ticket:') || '').trim();
+          if(!ticket) return;
+        }
+        addNewTicketName(ticket);
+        const r = commit(legs, curMeta, ticket);
+        lastBatch = r.added ? [{ticket, picks:r.picks, newTicket:true}] : [];
+        statusEl.innerHTML = `Added ${r.added} leg${r.added === 1 ? '' : 's'} to ${ticket}${r.dupes ? ` (${r.dupes} already saved)` : ''}. ${r.added ? '<button class="save-pick-btn" id="slip-undo">Undo</button>' : ''}`;
+        wireUndo();
+        next();
+        onChange();
+      });
+      const skip = $('#slip-skip-btn');
+      if(skip) skip.addEventListener('click', () => { next(); });
+    }
+    function load(item){
+      legs = item.legs; curMeta = item.meta; curMode = item.mode; SLIP_WEEK_MODE = curMode;
+      draw();
+    }
+    function wireUndo(){
+      const u = $('#slip-undo');
+      if(!u) return;
+      u.addEventListener('click', () => {
+        lastBatch.forEach(b => {
+          b.picks.forEach(pk => {
+            const idx = getMyPicks().findIndex(x => x.player === pk.player && x.stat === pk.stat && x.source === pk.source && x.week === pk.week && (x.threshold ?? null) === (pk.threshold ?? null) && (x.direction || '') === (pk.direction || '') && x.ticket === pk.ticket);
+            if(idx >= 0) removeFromMyPicks(idx);
+          });
+          const m = getTicketMeta(); if(m[b.ticket]){ delete m[b.ticket]; saveTicketMeta(m); }
+        });
+        statusEl.textContent = 'Undone. Nothing from that import is left.';
+        lastBatch = [];
+        onChange();
+      });
+    }
+    // One image (or pasted text) -> a parsed slip.
+    function parseOne(text){
+      const meta = parseSlipMeta(text);
+      const mode = slipLooksSettled(text) ? 'played' : 'upcoming';
+      SLIP_WEEK_MODE = mode;
+      const parsed = parseSlipText(text);
+      parsed.forEach(l => { l.week = ''; fillDefaults(l); });
+      return {legs: parsed, meta, mode, text};
+    }
+    function handleParsed(results){
+      lastBatch = []; queue = [];
+      const auto = $('#slip-auto').checked;
+      let addedSlips = 0, addedLegs = 0, empty = 0;
+      const names = [];
+      results.forEach(r => {
+        if(!r.legs.length){ empty++; return; }
+        if(auto && r.legs.every(isClean)){
+          const ticket = uniqueTicketName(r.meta);
+          addNewTicketName(ticket);
+          const c = commit(r.legs, r.meta, ticket);
+          if(c.added){ addedSlips++; addedLegs += c.added; names.push(ticket); lastBatch.push({ticket, picks:c.picks, newTicket:true}); }
+        } else queue.push(r);
+      });
+      const parts = [];
+      if(addedSlips) parts.push(`Added ${addedSlips} slip${addedSlips === 1 ? '' : 's'} (${addedLegs} leg${addedLegs === 1 ? '' : 's'}) to ${SHARE ? 'your shared tickets' : 'My Picks'}: ${names.join(', ')}. <button class="save-pick-btn" id="slip-undo">Undo</button>`);
+      if(empty) parts.push(`${empty} image${empty === 1 ? '' : 's'} had no legs I could read: try a sharper screenshot of just the slip, or paste the text.`);
+      if(queue.length) parts.push(`${queue.length} slip${queue.length === 1 ? ' needs' : 's need'} a look first.`);
+      statusEl.innerHTML = parts.join(' ') || 'Nothing to add.';
+      wireUndo();
+      if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; }
+      onChange();
+    }
+    async function processFiles(files){
+      files = [...files].filter(f => /^image\//.test(f.type));
+      if(!files.length){ statusEl.textContent = 'Choose a screenshot first.'; return; }
+      const results = [];
+      for(let i = 0; i < files.length; i++){
+        const tag = files.length > 1 ? ` (image ${i + 1} of ${files.length})` : '';
+        statusEl.textContent = 'Loading the text reader...' + tag;
+        try {
+          const text = await ocrSlipImage(files[i], p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%${tag}`; });
+          if(i === 0) $('#slip-text').value = text;
+          results.push(parseOne(text));
+        } catch(err){
+          console.error(err);
+          statusEl.textContent = `Couldn't read image ${i + 1} (${err.message}). You can paste the slip text instead.`;
+          return;
+        }
+      }
+      handleParsed(results);
+    }
+    window.__slipProcessFiles = processFiles;
+    $('#slip-parse-btn').addEventListener('click', () => { const t = $('#slip-text').value; handleParsed([parseOne(t)]); });
+    $('#slip-read-btn').addEventListener('click', () => processFiles($('#slip-file').files || []));
+    // Paste an image anywhere on this tab, or drag screenshots onto the box.
+    if(window.__slipPaste) document.removeEventListener('paste', window.__slipPaste);
+    window.__slipPaste = e => {
+      if(!document.getElementById('slip-panel')) return;
+      const items = [...((e.clipboardData && e.clipboardData.items) || [])].filter(it => it.kind === 'file' && /^image\//.test(it.type));
+      if(!items.length) return;
+      e.preventDefault();
+      processFiles(items.map(it => it.getAsFile()).filter(Boolean));
+    };
+    document.addEventListener('paste', window.__slipPaste);
+    const panel = $('#slip-panel');
+    panel.addEventListener('dragover', e => { e.preventDefault(); panel.style.outline = '2px dashed var(--mint)'; });
+    panel.addEventListener('dragleave', () => { panel.style.outline = ''; });
+    panel.addEventListener('drop', e => { e.preventDefault(); panel.style.outline = ''; processFiles((e.dataTransfer && e.dataTransfer.files) || []); });
+  }
+}
+
+function renderMyPicks(){
+  return `
+  ${slipPanelHtml()}
   <div class="panel">
     <div class="panel-title">Custom Matchup Checker</div>
     <div class="panel-note">
@@ -5188,7 +5410,7 @@ function renderMyPicks(){
     </div>
     <div id="mypicks-table"></div>
   </div>
-  <div class="panel" id="sync-panel">
+  ${acctSignedIn() ? '' : `<div class="panel" id="sync-panel">
     <div class="panel-title">Sync With a Code (no account)</div>
     <div class="panel-note">
       The simple option, just for you: no account and no friends, only your own devices. (If you sign in on the Friends tab, your account is used instead and this is not needed.)
@@ -5215,7 +5437,7 @@ function renderMyPicks(){
       <div class="controls"><button class="save-pick-btn" id="sync-copy-sql">Copy script</button></div>
       <pre id="sync-sql" style="white-space:pre-wrap;font-size:11px;max-height:260px;overflow:auto;"></pre>
     </details>
-  </div>`;
+  </div>`}`;
 }
 
 function mountMyPicks(){
@@ -5559,213 +5781,7 @@ function mountMyPicks(){
     });
   }
 
-  // ----- Betslip import UI -----
-  (function(){
-    const statusEl = $('#slip-status'), reviewEl = $('#slip-review');
-    if(!statusEl) return;
-    const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
-    let legs = [], curMeta = {}, curMode = 'upcoming', queue = [], lastBatch = [];
-    $('#slip-players').innerHTML = slipPlayerIndex().map(p => `<option value="${p.Player.replace(/"/g, '&quot;')}">`).join('');
-
-    function fillDefaults(leg){
-      const m = slipMatchPlayer(leg.player);
-      if(m){ leg.player = m.Player; leg.team = m.Team; leg.position = m.Position; leg.matched = true; }
-      else { leg.matched = false; leg.team = ''; leg.position = ''; leg.opponent = ''; return; }
-      const d = slipDefaultWeek(leg);
-      if(leg.week === undefined || leg.week === '') leg.week = d.week;
-      const row = (DATA.playerGame || []).find(r => r.Player === leg.player && String(r.Week) === String(leg.week));
-      leg.opponent = String(leg.week) === String(d.week) ? d.opponent : (row ? row.Opponent : '');
-    }
-    function isClean(l){ return l.matched && !l.statGuessed && l.how !== 'fuzzy' && l.week !== '' && l.week !== undefined && !isNaN(parseFloat(l.threshold)); }
-    function uniqueTicketName(meta){
-      const d = new Date();
-      const base = `${meta.book || 'Slip'} ${d.toLocaleDateString('en-US', {month:'short', day:'numeric'})}${meta.odds ? ' ' + meta.odds : ''}`;
-      const taken = new Set(getAllTicketNames());
-      if(!taken.has(base)) return base;
-      let n = 2; while(taken.has(`${base} (${n})`)) n++;
-      return `${base} (${n})`;
-    }
-    function commit(slipLegs, meta, ticket){
-      const picks = slipLegs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
-      let added = 0; const mine = [];
-      picks.forEach(p => { const pk = {...p, ticket}; if(addToMyPicks(pk)){ added++; mine.push(pk); } });
-      if(meta && (meta.book || meta.odds || meta.stake || meta.payout)) setTicketMeta(ticket, {book:meta.book, odds:meta.odds, stake:meta.stake, payout:meta.payout, source:'screenshot'});
-      return {added, dupes: picks.length - added, picks: mine};
-    }
-    function draw(){
-      if(!legs.length){ reviewEl.innerHTML = ''; return; }
-      const picks = legs.filter(l => l.include && l.matched && l.week !== '' && !isNaN(parseFloat(l.threshold))).map(slipLegToPick);
-      const rows = legs.map((l, i) => {
-        const pk = (l.include && l.matched && l.week !== '') ? slipLegToPick(l) : null;
-        const est = pk ? estimatePickProbability(pk) : null;
-        const g = pk ? gradeMyPick(pk) : null;
-        const chip = g && g.status === 'LIVE' ? `<b>LIVE</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)} so far</span>` : g && g.status !== 'PENDING'
-          ? `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual)</span>`
-          : (est ? `<b>${fmt(est.probability * 100, 0)}%</b> <span style="color:var(--chalk-dim);">${est.playerRate.hits}/${est.playerRate.total}${est.defenseRate ? ` &middot; opp ${est.defenseRate.hits}/${est.defenseRate.total}` : ''}</span>` : '<span style="color:var(--chalk-dim);">--</span>');
-        const flag = !l.matched ? '<span style="color:var(--red);">player not found</span>'
-          : (l.statGuessed ? '<span style="color:var(--gold);">stat guessed, check it</span>' : (l.how === 'fuzzy' ? '<span style="color:var(--gold);">name matched loosely</span>' : '<span style="color:var(--mint);">&#10003;</span>'));
-        return `<tr>
-          <td><input type="checkbox" data-i="${i}" data-f="include" ${l.include ? 'checked' : ''}></td>
-          <td><input type="text" list="slip-players" data-i="${i}" data-f="player" value="${String(l.player).replace(/"/g, '&quot;')}" style="width:170px;"></td>
-          <td>${l.position || '--'} ${l.team ? teamChip(l.team) : ''}</td>
-          <td><select data-i="${i}" data-f="stat">${STATS.map(s => `<option ${s === l.stat ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-          <td><select data-i="${i}" data-f="direction"><option value="" ${!l.direction ? 'selected' : ''}>at least</option><option value="over" ${l.direction === 'over' ? 'selected' : ''}>over</option><option value="under" ${l.direction === 'under' ? 'selected' : ''}>under</option></select></td>
-          <td><input type="number" step="0.5" data-i="${i}" data-f="threshold" value="${l.threshold}" style="width:64px;"></td>
-          <td><input type="number" data-i="${i}" data-f="week" value="${l.week ?? ''}" style="width:52px;"></td>
-          <td>${l.opponent ? teamChip(l.opponent) : '--'}</td>
-          <td>${flag}</td><td>${chip}</td></tr>`;
-      }).join('');
-      const odds = picks.length ? analyzeTicketOdds(picks) : null;
-      let grade = '';
-      if(odds && odds.estimable.length){
-        const parlay = fmt(odds.parlayProbability * 100, 1);
-        const weakLabel = odds.weakest ? `${odds.weakest.player} ${pickLegLabel(odds.weakest)} (${fmt(odds.weakest.est.probability * 100, 0)}%)` : '';
-        grade = `<div class="player-preview-stats"><b>Slip grade:</b> all ${odds.estimable.length} gradeable legs hitting together is about <b style="color:var(--mint);">${parlay}%</b> by this dashboard's hit rates
-          ${odds.estimable.length > 1 && odds.weakest ? `&middot; weakest leg: ${weakLabel}; without it about <b style="color:var(--mint);">${fmt(odds.withoutWeakest * 100, 1)}%</b>` : ''}
-          ${odds.skipped.length ? `&middot; ${odds.skipped.length} leg(s) had no history to grade` : ''}</div>
-          <div class="line-note">A rough read built from each player's own season hit rate (and the opponent's, when known). It ignores game script, injuries, primetime and who covers him, so treat it as a floor check, not a prediction.</div>`;
-      }
-      const tickets = getAllTicketNames();
-      const defName = uniqueTicketName(curMeta);
-      const flagged = legs.filter(l => !isClean(l)).length;
-      reviewEl.innerHTML = `${queue.length ? `<div class="line-note" style="color:var(--gold);">${queue.length} more slip${queue.length === 1 ? '' : 's'} waiting after this one.</div>` : ''}
-        <div class="line-note">${flagged ? `${flagged} row${flagged === 1 ? '' : 's'} need a look (amber or red). Fix them, or untick any row you don't want.` : 'Every row read cleanly.'}</div>
-        <div class="controls"><label class="ctl-label">These legs are for
-          <select id="slip-week-mode"><option value="upcoming" ${curMode === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${curMode === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
-        <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th></tr></thead><tbody>${rows}</tbody></table></div>
-        ${grade}
-        <div class="controls">
-          <label class="ctl-label">Book <input type="text" id="slip-book" value="${curMeta.book || ''}" style="width:100px;"></label>
-          <label class="ctl-label">Odds <input type="text" id="slip-odds" value="${curMeta.odds || ''}" placeholder="+950" style="width:70px;"></label>
-          <label class="ctl-label">Wager $ <input type="number" id="slip-stake" value="${curMeta.stake || ''}" step="0.01" style="width:70px;"></label>
-          <label class="ctl-label">Returned $ <input type="number" id="slip-payout" value="${curMeta.payout || ''}" step="0.01" style="width:70px;" title="Only on a settled slip"></label>
-        </div>
-        <div class="controls"><label class="ctl-label">Add to <select id="slip-ticket"><option value="__auto">${defName} (new)</option>${tickets.map(t => `<option>${t}</option>`).join('')}<option value="__new">Name a new ticket...</option></select></label>
-        <button class="save-pick-btn" id="slip-add-btn">+ Add ${picks.length} leg${picks.length === 1 ? '' : 's'} to My Picks</button>
-        ${queue.length ? '<button class="save-pick-btn" id="slip-skip-btn">Skip this slip</button>' : ''}</div>`;
-      $('#slip-week-mode').addEventListener('change', e => {
-        curMode = e.target.value; SLIP_WEEK_MODE = curMode;
-        legs.forEach(l => { l.week = ''; fillDefaults(l); });
-        draw();
-      });
-      $$('input[data-f], select[data-f]', reviewEl).forEach(el => el.addEventListener('change', () => {
-        const l = legs[parseInt(el.dataset.i, 10)], f = el.dataset.f;
-        if(f === 'include') l.include = el.checked;
-        else if(f === 'threshold') l.threshold = parseFloat(el.value);
-        else if(f === 'week'){ l.week = el.value; fillDefaults(l); }
-        else if(f === 'player'){ l.player = el.value; l.matched = false; l.week = ''; fillDefaults(l); }
-        else { l[f] = el.value; if(f === 'stat') l.statGuessed = false; }
-        draw();
-      }));
-      ['book', 'odds', 'stake', 'payout'].forEach(k => $('#slip-' + k).addEventListener('change', e => { curMeta[k] = e.target.value.trim(); }));
-      const next = () => { if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; } };
-      $('#slip-add-btn').addEventListener('click', () => {
-        let ticket = $('#slip-ticket').value;
-        if(ticket === '__auto') ticket = defName;
-        if(ticket === '__new'){
-          ticket = (prompt('Name for the new ticket:') || '').trim();
-          if(!ticket) return;
-        }
-        addNewTicketName(ticket);
-        const r = commit(legs, curMeta, ticket);
-        lastBatch = r.added ? [{ticket, picks:r.picks, newTicket:true}] : [];
-        statusEl.innerHTML = `Added ${r.added} leg${r.added === 1 ? '' : 's'} to ${ticket}${r.dupes ? ` (${r.dupes} already saved)` : ''}. ${r.added ? '<button class="save-pick-btn" id="slip-undo">Undo</button>' : ''}`;
-        wireUndo();
-        next();
-        apply();
-      });
-      const skip = $('#slip-skip-btn');
-      if(skip) skip.addEventListener('click', () => { next(); });
-    }
-    function load(item){
-      legs = item.legs; curMeta = item.meta; curMode = item.mode; SLIP_WEEK_MODE = curMode;
-      draw();
-    }
-    function wireUndo(){
-      const u = $('#slip-undo');
-      if(!u) return;
-      u.addEventListener('click', () => {
-        lastBatch.forEach(b => {
-          b.picks.forEach(pk => {
-            const idx = getMyPicks().findIndex(x => x.player === pk.player && x.stat === pk.stat && x.source === pk.source && x.week === pk.week && (x.threshold ?? null) === (pk.threshold ?? null) && (x.direction || '') === (pk.direction || '') && x.ticket === pk.ticket);
-            if(idx >= 0) removeFromMyPicks(idx);
-          });
-          const m = getTicketMeta(); if(m[b.ticket]){ delete m[b.ticket]; saveTicketMeta(m); }
-        });
-        statusEl.textContent = 'Undone. Nothing from that import is left in My Picks.';
-        lastBatch = [];
-        apply();
-      });
-    }
-    // One image (or pasted text) -> a parsed slip.
-    function parseOne(text){
-      const meta = parseSlipMeta(text);
-      const mode = slipLooksSettled(text) ? 'played' : 'upcoming';
-      SLIP_WEEK_MODE = mode;
-      const parsed = parseSlipText(text);
-      parsed.forEach(l => { l.week = ''; fillDefaults(l); });
-      return {legs: parsed, meta, mode, text};
-    }
-    function handleParsed(results){
-      lastBatch = []; queue = [];
-      const auto = $('#slip-auto').checked;
-      let addedSlips = 0, addedLegs = 0, empty = 0;
-      const names = [];
-      results.forEach(r => {
-        if(!r.legs.length){ empty++; return; }
-        if(auto && r.legs.every(isClean)){
-          const ticket = uniqueTicketName(r.meta);
-          addNewTicketName(ticket);
-          const c = commit(r.legs, r.meta, ticket);
-          if(c.added){ addedSlips++; addedLegs += c.added; names.push(ticket); lastBatch.push({ticket, picks:c.picks, newTicket:true}); }
-        } else queue.push(r);
-      });
-      const parts = [];
-      if(addedSlips) parts.push(`Added ${addedSlips} slip${addedSlips === 1 ? '' : 's'} (${addedLegs} leg${addedLegs === 1 ? '' : 's'}) to My Picks: ${names.join(', ')}. <button class="save-pick-btn" id="slip-undo">Undo</button>`);
-      if(empty) parts.push(`${empty} image${empty === 1 ? '' : 's'} had no legs I could read: try a sharper screenshot of just the slip, or paste the text.`);
-      if(queue.length) parts.push(`${queue.length} slip${queue.length === 1 ? ' needs' : 's need'} a look first.`);
-      statusEl.innerHTML = parts.join(' ') || 'Nothing to add.';
-      wireUndo();
-      if(queue.length) load(queue.shift()); else { legs = []; reviewEl.innerHTML = ''; }
-      apply();
-    }
-    async function processFiles(files){
-      files = [...files].filter(f => /^image\//.test(f.type));
-      if(!files.length){ statusEl.textContent = 'Choose a screenshot first.'; return; }
-      const results = [];
-      for(let i = 0; i < files.length; i++){
-        const tag = files.length > 1 ? ` (image ${i + 1} of ${files.length})` : '';
-        statusEl.textContent = 'Loading the text reader...' + tag;
-        try {
-          const text = await ocrSlipImage(files[i], p => { statusEl.textContent = `Reading the slip... ${Math.round(p * 100)}%${tag}`; });
-          if(i === 0) $('#slip-text').value = text;
-          results.push(parseOne(text));
-        } catch(err){
-          console.error(err);
-          statusEl.textContent = `Couldn't read image ${i + 1} (${err.message}). You can paste the slip text instead.`;
-          return;
-        }
-      }
-      handleParsed(results);
-    }
-    window.__slipProcessFiles = processFiles;
-    $('#slip-parse-btn').addEventListener('click', () => { const t = $('#slip-text').value; handleParsed([parseOne(t)]); });
-    $('#slip-read-btn').addEventListener('click', () => processFiles($('#slip-file').files || []));
-    // Paste an image anywhere on this tab, or drag screenshots onto the box.
-    if(window.__slipPaste) document.removeEventListener('paste', window.__slipPaste);
-    window.__slipPaste = e => {
-      if(!document.getElementById('slip-panel')) return;
-      const items = [...((e.clipboardData && e.clipboardData.items) || [])].filter(it => it.kind === 'file' && /^image\//.test(it.type));
-      if(!items.length) return;
-      e.preventDefault();
-      processFiles(items.map(it => it.getAsFile()).filter(Boolean));
-    };
-    document.addEventListener('paste', window.__slipPaste);
-    const panel = $('#slip-panel');
-    panel.addEventListener('dragover', e => { e.preventDefault(); panel.style.outline = '2px dashed var(--mint)'; });
-    panel.addEventListener('dragleave', () => { panel.style.outline = ''; });
-    panel.addEventListener('drop', e => { e.preventDefault(); panel.style.outline = ''; processFiles((e.dataTransfer && e.dataTransfer.files) || []); });
-  })();
+  mountSlipImport({onChange: apply});
 
   // ----- Cloud sync panel -----
   (function(){
@@ -6641,6 +6657,8 @@ function renderFriends(){
   return `
   <div class="panel" id="fr-account"></div>
   <div class="panel" id="fr-groups"></div>
+  <div id="fr-upload"></div>
+  <div class="panel" id="fr-mine"></div>
   <div class="panel" id="fr-board"></div>
   <div class="panel" id="fr-feed"></div>`;
 }
@@ -6843,7 +6861,39 @@ function mountFriends(){
     }));
   }
 
-  function drawAll(){ if(!$('#fr-account')) return; drawAccount(); drawGroups(); drawBoard(); drawFeed(); }
+  // My own shared tickets: graded live, with the same grading as everything else.
+  function drawMine(){
+    const mineEl = $('#fr-mine');
+    if(!mineEl) return;
+    if(!acctSignedIn()){ mineEl.style.display = 'none'; mineEl.innerHTML = ''; return; }
+    mineEl.style.display = '';
+    const meta = getTicketMeta(), picks = getMyPicks();
+    const names = Object.keys(meta).filter(t => meta[t] && meta[t].share);
+    if(!names.length){ mineEl.innerHTML = '<div class="panel-title">Your Shared Tickets</div><div class="empty">Nothing shared yet. Upload a slip above and it shows up here, graded live, and in your friends\' feed.</div>'; return; }
+    mineEl.innerHTML = '<div class="panel-title">Your Shared Tickets</div><div class="panel-note">Graded live from the game data. Friends in your groups see these too' + '. Stop sharing removes it from their feed but keeps it in My Picks.</div>' + names.map(t => {
+      const list = picks.filter(p => (p.ticket || 'Ticket A') === t);
+      const m = meta[t], o = ticketOutcome(list, m);
+      const state = o.state === 'won' ? '<b style="color:var(--mint);">WON</b>' : o.state === 'lost' ? '<b style="color:var(--red);">LOST</b>' : o.state === 'open' ? `${o.hitSoFar} of ${o.legs} hit so far` : '';
+      const rows = list.map(p => { const g = gradeMyPick(p); const st = !g ? '--' : g.status === 'HIT' ? '<b style="color:var(--mint);">HIT</b>' : g.status === 'MISS' ? '<b style="color:var(--red);">MISS</b>' : g.status === 'LIVE' ? '<b>LIVE</b> ' + fmt(g.actual) : 'Not started';
+        return `<tr><td>${frEsc(p.player)}</td><td>${frEsc(pickLegLabel(p))}</td><td>${frEsc(p.opponent ? teamName(p.opponent) : '')}</td><td>${p.week || '--'}</td><td>${st}</td></tr>`; }).join('');
+      return `<div class="player-preview-stats"><b>${frEsc(t)}</b> ${m.book ? '&middot; ' + frEsc(m.book) : ''} ${m.odds ? frEsc(m.odds) : ''} ${m.stake ? '&middot; $' + frEsc(m.stake) + (m.shareStake ? '' : ' (hidden from friends)') : ''} &middot; ${state}
+        <button class="save-pick-btn" data-unshare="${frEsc(t)}">Stop sharing</button></div>
+        <div class="table-scroll"><table><thead><tr><th>Player</th><th>Pick</th><th>Opp</th><th>Wk</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join('');
+    $$('[data-unshare]', mineEl).forEach(b => b.addEventListener('click', () => { setTicketMeta(b.dataset.unshare, {share:false}); syncRun().then(() => friendsRefresh()).then(drawAll); drawMine(); }));
+  }
+  let _uploadOn = false;
+  function drawUpload(){
+    const up = $('#fr-upload');
+    if(!up) return;
+    const on = acctSignedIn();
+    if(on === _uploadOn && (on ? up.innerHTML : !up.innerHTML)) return;
+    _uploadOn = on;
+    if(!on){ up.innerHTML = ''; return; }
+    up.innerHTML = slipPanelHtml({share:true});
+    mountSlipImport({share:true, onChange: async () => { drawMine(); try { await syncRun(); await friendsRefresh(); } catch(e){} drawAll(); }});
+  }
+  function drawAll(){ if(!$('#fr-account')) return; drawAccount(); drawGroups(); drawUpload(); drawMine(); drawBoard(); drawFeed(); }
   drawAll();
   async function load(){
     if(!acctSignedIn()) return;
@@ -7627,3 +7677,4 @@ init();
 </script>
 </body>
 </html>
+
