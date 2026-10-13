@@ -4094,6 +4094,24 @@ function mountPicks(){
       if(g && g.status === 'HIT') o.hit++; else if(g && g.status === 'MISS') o.miss++; else o.open++;
       if(g && g.final && typeof g.actual === 'number'){ o.err += Math.abs(g.actual - e.proj); o.errN++; }
     });
+    // Totals, overall and by stat (all weeks).
+    const byStat = {}, tot = {hit:0, miss:0, open:0, err:0, errN:0};
+    rows.forEach(({e, g}) => {
+      const o = byStat[e.stat] = byStat[e.stat] || {hit:0, miss:0, open:0, err:0, errN:0};
+      [o, tot].forEach(t => {
+        if(g && g.status === 'HIT') t.hit++; else if(g && g.status === 'MISS') t.miss++; else t.open++;
+        if(g && g.final && typeof g.actual === 'number'){ t.err += Math.abs(g.actual - e.proj); t.errN++; }
+      });
+    });
+    const recRow = (label, o, bold) => {
+      const dec = o.hit + o.miss;
+      return `<tr${bold ? ' style="font-weight:700;"' : ''}><td>${label}</td><td class="num">${o.hit + o.miss + o.open}</td><td class="num" style="color:var(--mint);">${o.hit}</td><td class="num" style="color:var(--red);">${o.miss}</td><td class="num">${o.open}</td><td class="num">${dec ? Math.round(o.hit / dec * 100) + '%' : '--'}</td><td class="num">${o.errN ? fmt(o.err / o.errN) : '--'}</td></tr>`;
+    };
+    const statOrder = ['Pass Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
+    const statRows = Object.keys(byStat).sort((a, b) => (statOrder.indexOf(a) + 99) % 99 - (statOrder.indexOf(b) + 99) % 99).map(k => recRow(k, byStat[k], false)).join('');
+    const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks cleared their floor (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
+      <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${recRow('All stats', tot, true)}${statRows}</tbody></table></div>
+      <div class="line-note">Hit rate counts graded picks only (open = not played yet). A projection miss is in the stat's own unit (yards or catches).</div></div>`;
     let H = 0, M = 0;
     const sumRows = weeks.map(w => {
       const o = stat[w]; H += o.hit; M += o.miss;
@@ -4102,7 +4120,7 @@ function mountPicks(){
     const sel = (histWeek !== null && weeks.includes(histWeek)) ? histWeek : weeks[0];
     const detail = rows.filter(r => (parseInt(r.e.week, 10) || 0) === sel)
       .sort((a, b) => (a.g && a.g.status === 'HIT' ? 0 : 1) - (b.g && b.g.status === 'HIT' ? 0 : 1) || a.e.player.localeCompare(b.e.player));
-    recEl.innerHTML = `
+    recEl.innerHTML = totalHtml + `
       <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks cleared their floor (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
         <div class="table-scroll"><table><thead><tr><th class="num">Week</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>
       <div class="controls"><div class="pill-group" id="bp-hist-pills">${weeks.map(w => `<span class="pill ${w === sel ? 'active' : ''}" data-w="${w}">Week ${w || '--'}</span>`).join('')}</div></div>
