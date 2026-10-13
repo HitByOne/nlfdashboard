@@ -43,11 +43,12 @@ OUT_FILE = PROCESSED_DIR / f"nfl_{SEASON}_backtest.csv"
 
 FLOORS = {
     "Pass Yards": [150, 175, 200, 225, 250, 275, 300],
+    "Pass + Rush Yards": [200, 225, 250, 275, 300, 325, 350, 375, 400],
     "Rush Yards": [20, 30, 40, 50, 60, 70, 80, 90, 100],
     "Receiving Yards": [15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100],
     "Receptions": [2, 3, 4, 5, 6, 7, 8],
 }
-STATS = {"QB": ["Pass Yards"], "RB": ["Rush Yards", "Receiving Yards", "Receptions"],
+STATS = {"QB": ["Pass Yards", "Pass + Rush Yards"], "RB": ["Rush Yards", "Receiving Yards", "Receptions"],
          "WR": ["Receiving Yards", "Receptions"], "TE": ["Receiving Yards", "Receptions"]}
 SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1}
 PLAYER_MIN_RATE, DEF_MIN_RATE, MIN_PLAYER_GAMES, MIN_DEF_SAMPLES = 0.75, 0.60, 2, 3
@@ -99,6 +100,7 @@ def main():
     df = df[df["Position"].isin(SLOTS)].copy()
     for c in ["Pass Attempts", "Pass Yards", "Rush Attempts", "Rush Yards", "Receptions", "Receiving Yards", "Targets"]:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    df["Pass + Rush Yards"] = df["Pass Yards"] + df["Rush Yards"]
     df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
     weeks = sorted(int(w) for w in df["Week"].dropna().unique())
     rows, skipped = [], 0
@@ -164,7 +166,7 @@ def main():
                                  "DefRate": round(found["dr"], 3), "Score": round((found["pr"] + found["dr"]) / 2, 3),
                                  "Projection": round(pj["proj"], 1), "ProjNoMatchup": round(pj["base"], 1),
                                  "Lo": round(pj["lo"]), "Hi": round(pj["hi"]), "Line": pj["line"], "Actual": result}
-                        if not best_bp or entry["Score"] > best_bp["Score"] or (entry["Score"] == best_bp["Score"] and entry["Floor"] > best_bp["Floor"]):
+                        if not best_bp or entry["Score"] > best_bp["Score"] or (entry["Score"] == best_bp["Score"] and entry["Floor"] > best_bp["Floor"] and entry["Stat"] != "Pass + Rush Yards"):
                             best_bp = entry
                     if own_found:
                         entry = {"Model": "own_only", "Week": W, "Player": player, "Slot": slot, "Position": pos, "Team": team,
@@ -172,7 +174,7 @@ def main():
                                  "DefRate": "", "Score": round(own_found["pr"], 3), "Projection": round(pj["proj"], 1),
                                  "ProjNoMatchup": round(pj["base"], 1), "Lo": round(pj["lo"]), "Hi": round(pj["hi"]),
                                  "Line": pj["line"], "Actual": result}
-                        if not best_own or entry["Score"] > best_own["Score"] or (entry["Score"] == best_own["Score"] and entry["Floor"] > best_own["Floor"]):
+                        if not best_own or entry["Score"] > best_own["Score"] or (entry["Score"] == best_own["Score"] and entry["Floor"] > best_own["Floor"] and entry["Stat"] != "Pass + Rush Yards"):
                             best_own = entry
                 for e in (best_bp, best_own):
                     if e:
