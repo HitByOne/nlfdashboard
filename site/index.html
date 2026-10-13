@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="config.js"></script>
 <style>
   :root{
     --field:#0B0F19;
@@ -659,6 +660,7 @@ function liveValue(v, stat){
     case 'Rush Yards': return v.rushYds; case 'Rush TD': return v.rushTD;
     case 'Receiving Yards': return v.recYds; case 'Receptions': return v.rec; case 'Receiving TD': return v.recTD;
     case 'Rush + Rec Yards': return v.rushYds + v.recYds;
+    case 'Pass + Rush Yards': return v.passYds + v.rushYds;
     case 'Any TD': return v.rushTD + v.recTD;
   }
   return null;
@@ -862,11 +864,11 @@ function addNewTicketName(name){
 // sync_put) with a secret sync code; the project URL and key are typed in once per device and kept in this
 // browser only, never in the page's code. Local data always works without it.
 // ---- YOUR SUPABASE PROJECT (optional) ----
-// Paste your Project URL and anon (public) key between the quotes and nobody has to type them in the app.
+// Set in config.js (a separate file you upload once; index.html updates never touch it), so nobody has to type them in the app.
 // The anon key is designed to be public (the database rules protect the data), so it is safe in GitHub.
 // NEVER paste the service_role / secret key here.
-const SUPABASE_URL = 'https://ilezzrmtueylnqlltdps.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_z5YYB2Jw00gtQgoZT6m4dw_sjOz14m7';
+const SUPABASE_URL = String((window.NFL_CONFIG || {}).supabaseUrl || '').trim();
+const SUPABASE_ANON_KEY = String((window.NFL_CONFIG || {}).supabaseAnonKey || '').trim();
 const SUPABASE_BUILT_IN = /^https:\/\/.+/.test(SUPABASE_URL) && !!SUPABASE_ANON_KEY;
 const SYNC_CFG_KEY = 'nfl_dashboard_sync_cfg';
 const TOMB_KEY = 'nfl_dashboard_pick_tombstones';
@@ -2745,7 +2747,7 @@ function matchupAugmentRows(rows, pos){
   const metrics = MATCHUP_RANK_METRICS[pos] || [];
   const info = getPlayerRanks()[pos] || {};
   return rows.map(r => {
-    const out = {...r, 'Rush + Rec Yards': num(r['Rush Yards']) + num(r['Receiving Yards'])};
+    const out = {...r, 'Rush + Rec Yards': num(r['Rush Yards']) + num(r['Receiving Yards']), 'Pass + Rush Yards': num(r['Pass Yards']) + num(r['Rush Yards'])};
     metrics.forEach((m, idx) => {
       const mi = info[m.id];
       const ranked = mi && mi.ranks[r.Player];
@@ -4111,12 +4113,13 @@ function isPlayerOut(player){
 // receptions. Switch "Starters only" off to compare against every player.
 const BP_FLOORS = {
   'Pass Yards': [150,175,200,225,250,275,300],
+  'Pass + Rush Yards': [200,225,250,275,300,325,350,375,400],
   'Rush Yards': [20,30,40,50,60,70,80,90,100],
   'Receiving Yards': [15,20,25,30,40,50,60,70,80,90,100],
   'Receptions': [2,3,4,5,6,7,8],
 };
 const BP_STATS = {
-  QB: ['Pass Yards'], RB: ['Rush Yards','Receiving Yards','Receptions'],
+  QB: ['Pass Yards','Pass + Rush Yards'], RB: ['Rush Yards','Receiving Yards','Receptions'],
   WR: ['Receiving Yards','Receptions'], TE: ['Receiving Yards','Receptions'],
 };
 const BP_PLAYER_MIN_RATE = 0.75, BP_DEF_MIN_RATE = 0.60, BP_MIN_PLAYER_GAMES = 2, BP_MIN_DEF_SAMPLES = 3;
@@ -4268,7 +4271,7 @@ function bpPicksForGame(offense, defense, startersOnly, spread){
       const entry = {player:p.Player, position:p.Position, slot:p.slot, team:offense, opponent:defense, stat, ...found, pj,
         score:(found.pr + found.dr) / 2, avg, l3avg:l3.reduce((a, v) => a + v, 0) / l3.length, allowed, league,
         edge: league > 0 ? allowed / league - 1 : 0};
-      if(!best || entry.score > best.score || (entry.score === best.score && entry.floor > best.floor)) best = entry;
+      if(!best || entry.score > best.score || (entry.score === best.score && entry.floor > best.floor && entry.stat !== 'Pass + Rush Yards')) best = entry;
     });
     if(best) picks.push(best); else noLine++;
   });
@@ -4467,7 +4470,7 @@ function mountPicks(){
       const dec = o.hit + o.miss;
       return `<tr${bold ? ' style="font-weight:700;"' : ''}><td>${label}</td><td class="num">${o.hit + o.miss + o.open}</td><td class="num" style="color:var(--mint);">${o.hit}</td><td class="num" style="color:var(--red);">${o.miss}</td><td class="num">${o.open}</td><td class="num">${dec ? Math.round(o.hit / dec * 100) + '%' : '--'}</td><td class="num">${o.errN ? fmt(o.err / o.errN) : '--'}</td></tr>`;
     };
-    const statOrder = ['Pass Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
+    const statOrder = ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
     const statRows = Object.keys(byStat).sort((a, b) => (statOrder.indexOf(a) + 99) % 99 - (statOrder.indexOf(b) + 99) % 99).map(k => recRow(k, byStat[k], false)).join('');
     const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks cleared their floor (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
       <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${recRow('All stats', tot, true)}${statRows}</tbody></table></div>
@@ -4958,6 +4961,7 @@ function slipMatchPlayer(raw){
 }
 function slipStatFromText(text, position){
   const U = String(text || '').toUpperCase();
+  if(/PASS/.test(U) && /RUSH/.test(U) && !/RECEIV|RECEP/.test(U) && !/\bTDS?\b|TOUCHDOWN/.test(U)) return {stat:'Pass + Rush Yards', guessed:false};
   if(/RUSH/.test(U) && /RECEIV|RECEP/.test(U)) return {stat:'Rush + Rec Yards', guessed:false};
   if(/RECEPTION/.test(U) && !/RECEIVING/.test(U)) return {stat:'Receptions', guessed:false};
   if(/RECEIV/.test(U)) return {stat:'Receiving Yards', guessed:false};
@@ -5141,7 +5145,7 @@ function mountSlipImport(opts){
   {
     const statusEl = $('#slip-status'), reviewEl = $('#slip-review');
     if(!statusEl) return;
-    const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
+    const STATS = ['Receiving Yards','Rush Yards','Rush + Rec Yards','Pass Yards','Pass + Rush Yards','Receptions','Pass TD','Rush TD','Receiving TD','Interceptions','Any TD'];
     let legs = [], curMeta = {}, curMode = 'upcoming', queue = [], lastBatch = [];
     $('#slip-players').innerHTML = slipPlayerIndex().map(p => `<option value="${p.Player.replace(/"/g, '&quot;')}">`).join('');
 
@@ -5378,6 +5382,7 @@ function renderMyPicks(){
         <option value="Receiving TD">Receiving TD</option>
         <option value="Receptions">Receptions</option>
         <option value="Rush + Rec Yards">Rush + Rec Yards</option>
+        <option value="Pass + Rush Yards">Pass + Rush Yards</option>
       </select>
       <input type="number" id="checker-threshold" placeholder="Threshold (e.g. 65)" style="width:120px;">
       <button class="save-pick-btn" id="checker-btn">Check</button>
@@ -5954,6 +5959,7 @@ function getTeamTopVolumePlayer(team, position){
 // instead of indexing playerGame rows directly.
 function getStatValue(row, statKey){
   if(statKey === 'Rush + Rec Yards') return num(row['Rush Yards']) + num(row['Receiving Yards']);
+  if(statKey === 'Pass + Rush Yards') return num(row['Pass Yards']) + num(row['Rush Yards']);
   return statKey === 'Any TD' ? num(row['Rush TD']) + num(row['Receiving TD']) : num(row[statKey]);
 }
 
@@ -6635,7 +6641,7 @@ function mountBacktest(){
       <div class="player-preview-stats">Same players with the defense check removed: ${O.h} of ${O.n} (${Math.round(O.rate * 100)}%).</div>
       <div class="player-preview-stats" style="margin-top:6px;">${verdict}</div>
     </div>
-    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By stat</div>${btGroupTable(bp, r => r.Stat, ['Pass Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'], 'Stat')}</div>
+    <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By stat</div>${btGroupTable(bp, r => r.Stat, ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'], 'Stat')}</div>
     <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By position</div>${btGroupTable(bp, r => r.Position, ['QB', 'RB', 'WR', 'TE'], 'Position')}</div>
     <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By week</div>${btGroupTable(bp, r => String(num(r.Week)), null, 'Week')}</div>
     <div class="log-pos-group" style="margin-bottom:18px;"><div class="log-pos-label" style="font-size:14px;">By confidence score</div>
@@ -7043,7 +7049,7 @@ function filmPlayerAvg(player, position, week){
 }
 function filmLine(r){
   const f = x => Math.round(num(x));
-  if(r.Position === 'QB') return `${f(r['Pass Yards'])} pass yds, ${f(r['Pass TD'])} TD, ${f(r.Interceptions)} INT`;
+  if(r.Position === 'QB') return `${f(r['Pass Yards'])} pass yds${num(r['Rush Yards']) ? ', ' + f(r['Rush Yards']) + ' rush yds' : ''}, ${f(r['Pass TD'])} TD, ${f(r.Interceptions)} INT`;
   if(r.Position === 'RB') return `${f(r['Rush Attempts'])} car, ${f(r['Rush Yards'])} yds${num(r.Receptions) ? `, ${f(r.Receptions)}-${f(r['Receiving Yards'])} rec` : ''}${num(r['Rush TD']) + num(r['Receiving TD']) ? `, ${f(num(r['Rush TD']) + num(r['Receiving TD']))} TD` : ''}`;
   return `${f(r.Receptions)} rec, ${f(r['Receiving Yards'])} yds${num(r['Receiving TD']) ? `, ${f(r['Receiving TD'])} TD` : ''}${num(r.Targets) ? ` (${f(r.Targets)} tgt)` : ''}`;
 }
@@ -7677,4 +7683,3 @@ init();
 </script>
 </body>
 </html>
-
