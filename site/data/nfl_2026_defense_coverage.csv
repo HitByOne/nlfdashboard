@@ -515,6 +515,10 @@ BAL,T.Robinson,ATL,Bi.Robinson,5,Pass breakup,0,Bi.Robinson,Tavius Robinson
 ATL,K.Daniels,BAL,D.Henry,5,Pass breakup,0,Derrick Henry,Kendal Daniels
 ATL,X.Watts,BAL,M.Andrews,5,Pass breakup,0,Mark Andrews,Xavier Watts
 BAL,K.Hamilton,ATL,D.London,5,Pass breakup,0,Drake London,Kyle Hamilton
+BUF,K.Elarms-Orr,LAR,P.Nacua,5,Pass breakup,0,Puka Nacua,Kaleb Elarms-Orr
+LAR,J.Watson,BUF,K.Coleman,5,Pass breakup,0,Keon Coleman,Jaylen Watson
+LAR,J.Watson,BUF,S.Bell,5,Pass breakup,0,Skyler Bell,Jaylen Watson
+BUF,D.Igbinosun,LAR,P.Nacua,5,Pass breakup,0,Puka Nacua,Davison Igbinosun
 GB,J.Bullard,CHI,L.Burden,5,Pass breakup,0,Luther Burden III,Javon Bullard
 CHI,D.Odeyingbo,GB,C.Watson,5,Pass breakup,0,Christian Watson,Dayo Odeyingbo
 GB,K.Nixon,CHI,R.Odunze,5,Pass breakup,0,Rome Odunze,Keisean Nixon
@@ -558,7 +562,7 @@ DET,R.McCreary,ARI,J.Brooks,5,Pass breakup,0,Jalen Brooks,Roger McCreary
 DET,D.Reed,ARI,Mi.Wilson,5,Pass breakup,0,Mi.Wilson,D.J. Reed
 ARI,W.Williams,DET,A.St. Brown,5,Pass breakup,0,A.St. Brown,Wydett Williams
 DET,R.McCreary,ARI,J.Brooks,5,Pass breakup,0,Jalen Brooks,Roger McCreary
-DET,R.McCreary,ARI,R.Virgil,5,Pass breakup,0,R.Virgil,Roger McCreary
+DET,R.McCreary,ARI,R.Virgil,5,Pass breakup,0,Reggie Virgil,Roger McCreary
 ARI,M.Melton,DET,J.Williams,5,Pass breakup,0,Jameson Williams,Max Melton
 DET,R.McCreary,ARI,K.Bourne,5,Pass breakup,0,Kendrick Bourne,Roger McCreary
 DET,K.Abney,ARI,Mi.Wilson,5,Pass breakup,0,Mi.Wilson,Keith Abney
@@ -609,7 +613,7 @@ WSH,A.Robertson,NYG,D.Mooney,5,Pass breakup,0,Darnell Mooney,Amik Robertson
 JAX,M.Brown,PHI,D.Cooper,5,Pass breakup,0,Darius Cooper,Montaric Brown
 PHI,J.Hunt,JAX,P.Washington,5,Pass breakup,0,Parker Washington,Jalyx Hunt
 PHI,Q.Mitchell,JAX,Bri.Thomas,5,Pass breakup,0,Bri.Thomas,Quinyon Mitchell
-JAX,J.Hines-Allen,PHI,D.Pierce,5,Pass breakup,0,D.Pierce,Josh Hines-Allen
+JAX,J.Hines-Allen,PHI,D.Pierce,5,Pass breakup,0,Dameon Pierce,Josh Hines-Allen
 JAX,A.Johnson,PHI,J.Mundt,5,Pass breakup,0,Johnny Mundt,Antonio Johnson
 PHI,Q.Mitchell,JAX,Bri.Thomas,5,Pass breakup,0,Bri.Thomas,Quinyon Mitchell
 PHI,A.Epenesa,JAX,J.Cameron,5,Pass breakup,0,Josh Cameron,A.J. Epenesa
@@ -754,6 +758,7 @@ PIT,R.Spears-Jennings,CLE,D.Boston,4,Interception,0,Denzel Boston,Robert Spears-
 CLE,G.Delpit,PIT,R.Wilson,4,Interception,0,Roman Wilson,Grant Delpit
 BAL,T.Simpson,TEN,T.Pollard,4,Interception,0,Tony Pollard,Trenton Simpson
 BAL,K.Hamilton,ATL,D.London,5,Interception,0,Drake London,Kyle Hamilton
+LAR,J.Watson,BUF,K.Coleman,5,Interception,0,Keon Coleman,Jaylen Watson
 GB,X.McKinney,CHI,L.Burden,5,Interception,0,Luther Burden III,Xavier McKinney
 GB,X.McKinney,CHI,C.Loveland,5,Interception,0,Colston Loveland,Xavier McKinney
 GB,T.Hopper,CHI,R.Odunze,5,Interception,0,Rome Odunze,Ty'Ron Hopper
@@ -2749,14 +2754,52 @@ ATL,K.Daniels,BAL,Z.Flowers,5,Tackled after catch,1,Zay Flowers,Kendal Daniels
 ATL,D.Deablo,BAL,Z.Flowers,5,Tackled after catch,6,Zay Flowers,Divine Deablo
 ATL,S.Brown,BAL,R.Bateman,5,Tackled after catch,5,Rashod Bateman,Sydney Brown
 BAL,M.Starks,ATL,D.London,5,Tackled after catch,20,Drake London,Malaki Starks
+BUF,C.Benford,LAR,C.Parkinson,5,Tackled after catch,3,Colby Parkinson,Christian Benford
+BUF,C.Benford,LAR,P.Nacua,5,Tackled after catch,4,Puka Nacua,Christian Benford
+BUF,C.Benford,LAR,P.Nacua,5,Tackled after catch,4,Puka Nacua,Christian Benford
+BUF,T.Bernard,LAR,T.Higbee,5,Tackled after catch,9,Tyler Higbee,Terrel Bernard
+BUF,C.Benford,LAR,T.Higbee,5,Tackled after catch,6,Tyler Higbee,Christian Benford
+BUF,C.Bishop,LAR,B.Corum,5,Tackled after catch,10,Blake Corum,Cole Bishop
+BUF,T.Bernard,LAR,B.Corum,5,Tackled after catch,9,Blake Corum,Terrel Bernard
+BUF,T.Bernard,LAR,P.Nacua,5,Tackled after catch,8,Puka Nacua,Terrel Bernard
+BUF,C.Gardner-Johnson,LAR,D.Allen,5,Tackled after catch,3,Davis Allen,C.J. Gardner-Johnson
+LAR,N.Landman,BUF,K.Shakir,5,Tackled after catch,6,Khalil Shakir,Nathan Landman
+LAR,B.Young,BUF,T.Johnson,5,Tackled after catch,40,Ty Johnson,Byron Young
+BUF,M.Hairston,LAR,T.Atwell,5,Tackled after catch,4,Tutu Atwell,Maxwell Hairston
+LAR,J.Wallace,BUF,D.Kincaid,5,Tackled after catch,7,Dalton Kincaid,Josh Wallace
+BUF,D.Igbinosun,LAR,D.Adams,5,Tackled after catch,13,Davante Adams,Davison Igbinosun
+BUF,D.Hamlin,LAR,K.Williams,5,Tackled after catch,4,Kyren Williams,Damar Hamlin
+BUF,C.Bishop,LAR,T.Higbee,5,Tackled after catch,10,Tyler Higbee,Cole Bishop
+BUF,D.Igbinosun,LAR,P.Nacua,5,Tackled after catch,12,Puka Nacua,Davison Igbinosun
+BUF,D.Igbinosun,LAR,P.Nacua,5,Tackled after catch,3,Puka Nacua,Davison Igbinosun
+LAR,K.Curl,BUF,T.Johnson,5,Tackled after catch,5,Ty Johnson,Kamren Curl
+LAR,K.Curl,BUF,T.Johnson,5,Tackled after catch,26,Ty Johnson,Kamren Curl
+BUF,C.Benford,LAR,P.Nacua,5,Tackled after catch,6,Puka Nacua,Christian Benford
+BUF,C.Bishop,LAR,T.Higbee,5,Tackled after catch,28,Tyler Higbee,Cole Bishop
+BUF,C.Gardner-Johnson,LAR,B.Corum,5,Tackled after catch,34,Blake Corum,C.J. Gardner-Johnson
+LAR,Q.Lake,BUF,R.Davis,5,Tackled after catch,31,Ray Davis,Quentin Lake
+BUF,K.Elarms-Orr,LAR,P.Nacua,5,Tackled after catch,7,Puka Nacua,Kaleb Elarms-Orr
+BUF,C.Benford,LAR,P.Nacua,5,Tackled after catch,4,Puka Nacua,Christian Benford
+BUF,C.Bishop,LAR,T.Higbee,5,Tackled after catch,30,Tyler Higbee,Cole Bishop
+LAR,O.Speights,BUF,D.Knox,5,Tackled after catch,6,Dawson Knox,Omar Speights
+LAR,K.Kinchens,BUF,K.Shakir,5,Tackled after catch,17,Khalil Shakir,Kamren Kinchens
+BUF,C.Bishop,LAR,D.Adams,5,Tackled after catch,14,Davante Adams,Cole Bishop
+BUF,D.Igbinosun,LAR,K.Williams,5,Tackled after catch,5,Kyren Williams,Davison Igbinosun
+BUF,D.Hamlin,LAR,P.Nacua,5,Tackled after catch,16,Puka Nacua,Damar Hamlin
+BUF,C.Benford,LAR,D.Adams,5,Tackled after catch,15,Davante Adams,Christian Benford
+BUF,A.Kendall,LAR,K.Williams,5,Tackled after catch,3,Kyren Williams,Anthony Kendall
+BUF,D.Hamlin,LAR,K.Williams,5,Tackled after catch,9,Kyren Williams,Damar Hamlin
+LAR,K.Kinchens,BUF,K.Shakir,5,Tackled after catch,57,Khalil Shakir,Kamren Kinchens
+BUF,C.Gardner-Johnson,LAR,D.Allen,5,Tackled after catch,21,Davis Allen,C.J. Gardner-Johnson
+BUF,D.Williams,LAR,P.Nacua,5,Tackled after catch,5,Puka Nacua,Dorian Williams
 GB,Z.Franklin,CHI,D.Swift,5,Tackled after catch,13,D'Andre Swift,Zaire Franklin
 GB,Z.Franklin,CHI,D.Swift,5,Tackled after catch,5,D'Andre Swift,Zaire Franklin
 CHI,D.Thieneman,GB,T.Kraft,5,Tackled after catch,13,Tucker Kraft,Dillon Thieneman
 CHI,C.Lewis,GB,M.Golden,5,Tackled after catch,3,Matthew Golden,Cameron Lewis
 CHI,D.Jackson,GB,C.Watson,5,Tackled after catch,5,Christian Watson,D'Marco Jackson
-CHI,C.Lewis,GB,P.Strong,5,Tackled after catch,4,P.Strong,Cameron Lewis
+CHI,C.Lewis,GB,P.Strong,5,Tackled after catch,4,Pierre Strong Jr.,Cameron Lewis
 CHI,C.Lewis,GB,S.Moore,5,Tackled after catch,0,Skyy Moore,Cameron Lewis
-CHI,T.Edwards,GB,P.Strong,5,Tackled after catch,-1,P.Strong,T.J. Edwards
+CHI,T.Edwards,GB,P.Strong,5,Tackled after catch,-1,Pierre Strong Jr.,T.J. Edwards
 GB,E.Williams,CHI,K.Raymond,5,Tackled after catch,3,Kalif Raymond,Evan Williams
 GB,E.Williams,CHI,C.Kmet,5,Tackled after catch,8,Cole Kmet,Evan Williams
 GB,E.Williams,CHI,L.Burden,5,Tackled after catch,13,Luther Burden III,Evan Williams
@@ -2820,7 +2863,7 @@ NYJ,J.Sherwood,CLE,Q.Judkins,5,Tackled after catch,1,Quinshon Judkins,Jamien She
 CLE,M.Harden,NYJ,M.Taylor,5,Tackled after catch,8,Mason Taylor,Myles Harden
 NYJ,B.Stephens,CLE,J.Jeudy,5,Tackled after catch,12,Jerry Jeudy,Brandon Stephens
 NYJ,D.Belton,CLE,I.Bond,5,Tackled after catch,20,Isaiah Bond,Dane Belton
-CLE,C.Schwesinger,NYJ,I.Davis,5,Tackled after catch,9,I.Davis,Carson Schwesinger
+CLE,C.Schwesinger,NYJ,I.Davis,5,Tackled after catch,9,Isaiah Davis,Carson Schwesinger
 CLE,G.Delpit,NYJ,M.Taylor,5,Tackled after catch,9,Mason Taylor,Grant Delpit
 NYJ,J.Brownlee,CLE,I.Bond,5,Tackled after catch,24,Isaiah Bond,Jarvis Brownlee
 NYJ,D.Belton,CLE,J.Jeudy,5,Tackled after catch,8,Jerry Jeudy,Dane Belton
@@ -2829,8 +2872,8 @@ CLE,Q.Williams,NYJ,M.Taylor,5,Tackled after catch,7,Mason Taylor,Quincy Williams
 CLE,S.Williams,NYJ,G.Wilson,5,Tackled after catch,9,Garrett Wilson,Sam Williams
 CLE,Q.Williams,NYJ,B.Allen,5,Tackled after catch,0,Braelon Allen,Quincy Williams
 CLE,Q.Williams,NYJ,K.Sadiq,5,Tackled after catch,4,Kenyon Sadiq,Quincy Williams
-CLE,C.Schwesinger,NYJ,T.Patrick,5,Tackled after catch,14,T.Patrick,Carson Schwesinger
-CLE,D.Ward,NYJ,T.Patrick,5,Tackled after catch,12,T.Patrick,Denzel Ward
+CLE,C.Schwesinger,NYJ,T.Patrick,5,Tackled after catch,14,Tim Patrick,Carson Schwesinger
+CLE,D.Ward,NYJ,T.Patrick,5,Tackled after catch,12,Tim Patrick,Denzel Ward
 NYJ,J.Brownlee,CLE,I.Bond,5,Tackled after catch,30,Isaiah Bond,Jarvis Brownlee
 NYJ,J.Brownlee,CLE,J.Jeudy,5,Tackled after catch,-1,Jerry Jeudy,Jarvis Brownlee
 CLE,C.Schwesinger,NYJ,G.Wilson,5,Tackled after catch,5,Garrett Wilson,Carson Schwesinger
@@ -2849,7 +2892,7 @@ DEN,M.Roach,LAC,T.Harris,5,Tackled after catch,2,Tre' Harris,Malcolm Roach
 LAC,T.Jefferson,DEN,T.Franklin,5,Tackled after catch,12,Troy Franklin,Tony Jefferson
 DEN,J.Strnad,LAC,K.Vidal,5,Tackled after catch,-1,Kimani Vidal,Justin Strnad
 LAC,D.Leonard,DEN,E.Engram,5,Tackled after catch,11,Evan Engram,Deane Leonard
-DEN,J.McMillian,LAC,T.Wease,5,Tackled after catch,16,T.Wease,Ja'Quan McMillian
+DEN,J.McMillian,LAC,T.Wease,5,Tackled after catch,16,Theo Wease Jr.,Ja'Quan McMillian
 DEN,J.Strnad,LAC,C.Kolar,5,Tackled after catch,8,Charlie Kolar,Justin Strnad
 DEN,A.Singleton,LAC,K.Mitchell,5,Tackled after catch,9,Keaton Mitchell,Alex Singleton
 DEN,J.McMillian,LAC,K.Mitchell,5,Tackled after catch,6,Keaton Mitchell,Ja'Quan McMillian
@@ -2889,9 +2932,9 @@ DET,R.McCreary,ARI,T.McBride,5,Tackled after catch,11,Trey McBride,Roger McCrear
 DET,K.Abney,ARI,T.McBride,5,Tackled after catch,9,Trey McBride,Keith Abney
 DET,C.Clark,ARI,J.Brooks,5,Tackled after catch,9,Jalen Brooks,Chuck Clark
 DET,J.Mills,ARI,T.McBride,5,Tackled after catch,3,Trey McBride,Jalen Mills
-DET,E.Rakestraw,ARI,R.Virgil,5,Tackled after catch,13,R.Virgil,Ennis Rakestraw
+DET,E.Rakestraw,ARI,R.Virgil,5,Tackled after catch,13,Reggie Virgil,Ennis Rakestraw
 DET,J.Campbell,ARI,T.Allgeier,5,Tackled after catch,4,Tyler Allgeier,Jack Campbell
-DET,R.McCreary,ARI,R.Virgil,5,Tackled after catch,16,R.Virgil,Roger McCreary
+DET,R.McCreary,ARI,R.Virgil,5,Tackled after catch,16,Reggie Virgil,Roger McCreary
 DET,R.McCreary,ARI,K.Bourne,5,Tackled after catch,8,Kendrick Bourne,Roger McCreary
 HOU,J.Hansen,TEN,C.Ridley,5,Tackled after catch,23,Calvin Ridley,Jake Hansen
 TEN,C.Flott,HOU,N.Collins,5,Tackled after catch,13,Nico Collins,Cordale Flott
@@ -2968,7 +3011,7 @@ NE,M.Jones,LV,B.Bowers,5,Tackled after catch,18,Brock Bowers,Marcus Jones
 NE,K.Vildor,LV,T.Tucker,5,Tackled after catch,11,Tre Tucker,Kindle Vildor
 NE,C.Woodson,LV,B.Bowers,5,Tackled after catch,14,Brock Bowers,Craig Woodson
 NE,C.Elliss,LV,A.Jeanty,5,Tackled after catch,8,Ashton Jeanty,Christian Elliss
-NE,C.Woods,LV,D.Laube,5,Tackled after catch,7,D.Laube,Charles Woods
+NE,C.Woods,LV,D.Laube,5,Tackled after catch,7,Dylan Laube,Charles Woods
 LV,T.Johnson,NE,E.Raridon,5,Tackled after catch,13,Eli Raridon,Taron Johnson
 LV,E.Stokes,NE,E.Chism,5,Tackled after catch,13,Efton Chism III,Eric Stokes
 LV,Q.Walker,NE,K.Williams,5,Tackled after catch,8,Kyle Williams,Quay Walker
@@ -2987,13 +3030,13 @@ NE,G.Jacas,LV,T.Tucker,5,Tackled after catch,4,Tre Tucker,Gabe Jacas
 LV,D.Porter,NE,E.Raridon,5,Tackled after catch,7,Eli Raridon,Darien Porter
 LV,J.McCoy,NE,E.Chism,5,Tackled after catch,8,Efton Chism III,Jermod McCoy
 LV,N.Dean,NE,C.Kiner,5,Tackled after catch,7,Corey Kiner,Nakobe Dean
-NE,D.Muasau,LV,D.Laube,5,Tackled after catch,2,D.Laube,Darius Muasau
+NE,D.Muasau,LV,D.Laube,5,Tackled after catch,2,Dylan Laube,Darius Muasau
 NE,M.Williams,LV,I.Thomas,5,Tackled after catch,9,Ian Thomas,Milton Williams
 NE,K.Vildor,LV,T.Tucker,5,Tackled after catch,16,Tre Tucker,Kindle Vildor
-NE,D.Muasau,LV,D.Laube,5,Tackled after catch,7,D.Laube,Darius Muasau
+NE,D.Muasau,LV,D.Laube,5,Tackled after catch,7,Dylan Laube,Darius Muasau
 NE,E.Davison,LV,M.Benson,5,Tackled after catch,6,Malik Benson,Elliott Davison
 NO,P.Werner,MIN,T.Hockenson,5,Tackled after catch,7,T.J. Hockenson,Pete Werner
-NO,D.Stutsman,MIN,B.Yurosek,5,Tackled after catch,10,B.Yurosek,Danny Stutsman
+NO,D.Stutsman,MIN,B.Yurosek,5,Tackled after catch,10,Ben Yurosek,Danny Stutsman
 NO,J.Blackmon,MIN,T.Felton,5,Tackled after catch,23,Tai Felton,Julian Blackmon
 NO,J.Reid,MIN,G.Bartholomew,5,Tackled after catch,13,Gavin Bartholomew,Justin Reid
 NO,P.Werner,MIN,D.Claiborne,5,Tackled after catch,6,Demond Claiborne,Pete Werner
@@ -3015,7 +3058,7 @@ MIN,T.Jackson,NO,C.Olave,5,Tackled after catch,16,Chris Olave,Theo Jackson
 MIN,B.Murphy,NO,J.Johnson,5,Tackled after catch,4,Juwan Johnson,Byron Murphy
 NO,P.Werner,MIN,D.Dallas,5,Tackled after catch,11,DeeJay Dallas,Pete Werner
 NO,D.Stutsman,MIN,A.Jones,5,Tackled after catch,2,Aaron Jones Sr.,Danny Stutsman
-NO,J.Reid,MIN,J.Jones,5,Tackled after catch,32,J.Jones,Justin Reid
+NO,J.Reid,MIN,J.Jones,5,Tackled after catch,32,Jeshaun Jones,Justin Reid
 NO,K.McKinstry,MIN,G.Bartholomew,5,Tackled after catch,2,Gavin Bartholomew,Kool-Aid McKinstry
 NO,Q.Riley,MIN,J.Jefferson,5,Tackled after catch,8,Justin Jefferson,Quincy Riley
 MIN,T.Jackson,NO,C.Olave,5,Tackled after catch,11,Chris Olave,Theo Jackson
@@ -3079,7 +3122,7 @@ PHI,C.DeJean,JAX,C.Rodriguez,5,Tackled after catch,6,Chris Rodriguez Jr.,Cooper 
 PHI,K.Moore,JAX,J.Cameron,5,Tackled after catch,32,Josh Cameron,Kenny Moore
 PHI,C.DeJean,JAX,B.Tuten,5,Tackled after catch,18,Bhayshul Tuten,Cooper DeJean
 PHI,J.Jones,JAX,B.Strange,5,Tackled after catch,14,Brenton Strange,Jonathan Jones
-JAX,D.Gardeck,PHI,D.Pierce,5,Tackled after catch,1,D.Pierce,Dennis Gardeck
+JAX,D.Gardeck,PHI,D.Pierce,5,Tackled after catch,1,Dameon Pierce,Dennis Gardeck
 PHI,Z.Baun,JAX,J.Cameron,5,Tackled after catch,3,Josh Cameron,Zack Baun
 JAX,J.Lewis,PHI,M.Lemon,5,Tackled after catch,18,Makai Lemon,Jourdan Lewis
 PHI,K.Moore,JAX,P.Washington,5,Tackled after catch,14,Parker Washington,Kenny Moore

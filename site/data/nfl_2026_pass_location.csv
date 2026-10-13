@@ -17,12 +17,12 @@ DEF,BAL,BAL,Middle,Deep,8,4.0,95.0,1.0,0.0,5.51,160.0
 DEF,BAL,BAL,Middle,Short,27,18.0,184.0,2.0,3.0,-4.57,170.0
 DEF,BAL,BAL,Right,Deep,8,6.0,146.0,1.0,0.0,8.94,165.0
 DEF,BAL,BAL,Right,Short,61,39.0,304.0,1.0,0.0,3.39,200.0
-DEF,BUF,BUF,Left,Deep,12,5.0,109.0,0.0,0.0,6.75,231.0
-DEF,BUF,BUF,Left,Short,46,28.0,249.0,2.0,1.0,2.31,211.0
-DEF,BUF,BUF,Middle,Deep,6,1.0,27.0,1.0,1.0,-3.81,123.0
-DEF,BUF,BUF,Middle,Short,24,20.0,217.0,3.0,0.0,17.04,138.0
-DEF,BUF,BUF,Right,Deep,19,9.0,211.0,1.0,0.0,12.9,447.0
-DEF,BUF,BUF,Right,Short,40,31.0,283.0,3.0,0.0,13.16,167.0
+DEF,BUF,BUF,Left,Deep,15,7.0,167.0,0.0,0.0,10.27,280.0
+DEF,BUF,BUF,Left,Short,59,40.0,360.0,4.0,1.0,10.59,248.0
+DEF,BUF,BUF,Middle,Deep,9,2.0,48.0,1.0,1.0,-3.46,208.0
+DEF,BUF,BUF,Middle,Short,34,27.0,280.0,4.0,0.0,20.56,210.0
+DEF,BUF,BUF,Right,Deep,22,10.0,232.0,1.0,0.0,13.68,502.0
+DEF,BUF,BUF,Right,Short,62,48.0,392.0,3.0,0.0,17.18,215.0
 DEF,CAR,CAR,Left,Deep,5,4.0,131.0,1.0,0.0,9.41,138.0
 DEF,CAR,CAR,Left,Short,41,24.0,189.0,1.0,0.0,5.01,143.0
 DEF,CAR,CAR,Middle,Deep,6,1.0,18.0,0.0,0.0,-2.73,138.0
@@ -101,12 +101,12 @@ DEF,LAC,LAC,Middle,Deep,2,0.0,0.0,0.0,0.0,-1.4,46.0
 DEF,LAC,LAC,Middle,Short,30,19.0,179.0,0.0,1.0,-9.69,150.0
 DEF,LAC,LAC,Right,Deep,7,5.0,129.0,0.0,0.0,8.33,161.0
 DEF,LAC,LAC,Right,Short,46,31.0,255.0,4.0,0.0,5.92,193.0
-DEF,LAR,LAR,Left,Deep,7,2.0,60.0,0.0,0.0,-0.88,193.0
-DEF,LAR,LAR,Left,Short,46,26.0,205.0,1.0,1.0,-11.4,194.0
-DEF,LAR,LAR,Middle,Deep,4,1.0,39.0,1.0,1.0,-3.3,138.0
-DEF,LAR,LAR,Middle,Short,21,11.0,77.0,1.0,0.0,3.09,54.0
-DEF,LAR,LAR,Right,Deep,6,1.0,18.0,1.0,0.0,-3.2,180.0
-DEF,LAR,LAR,Right,Short,43,27.0,216.0,3.0,1.0,-1.83,133.0
+DEF,LAR,LAR,Left,Deep,8,2.0,60.0,0.0,0.0,-1.94,218.0
+DEF,LAR,LAR,Left,Short,52,31.0,277.0,1.0,1.0,-8.08,193.0
+DEF,LAR,LAR,Middle,Deep,6,2.0,56.0,1.0,1.0,-2.53,178.0
+DEF,LAR,LAR,Middle,Short,22,12.0,134.0,1.0,0.0,7.55,59.0
+DEF,LAR,LAR,Right,Deep,8,1.0,18.0,1.0,1.0,-5.33,242.0
+DEF,LAR,LAR,Right,Short,50,32.0,280.0,4.0,1.0,2.03,147.0
 DEF,LV,LV,Left,Deep,16,7.0,250.0,1.0,1.0,13.11,380.0
 DEF,LV,LV,Left,Short,54,34.0,288.0,4.0,2.0,5.19,238.0
 DEF,LV,LV,Middle,Deep,11,5.0,141.0,0.0,1.0,0.14,299.0
@@ -209,12 +209,12 @@ OFF,BAL,BAL,Middle,Deep,5,2.0,49.0,1.0,0.0,2.12,131.0
 OFF,BAL,BAL,Middle,Short,34,28.0,335.0,4.0,0.0,15.29,217.0
 OFF,BAL,BAL,Right,Deep,5,4.0,108.0,0.0,0.0,9.48,121.0
 OFF,BAL,BAL,Right,Short,42,29.0,231.0,1.0,0.0,3.13,98.0
-OFF,BUF,BUF,Left,Deep,11,3.0,62.0,0.0,2.0,-3.04,316.0
-OFF,BUF,BUF,Left,Short,30,23.0,225.0,0.0,0.0,14.87,108.0
-OFF,BUF,BUF,Middle,Deep,12,7.0,222.0,4.0,0.0,19.99,349.0
-OFF,BUF,BUF,Middle,Short,17,13.0,135.0,0.0,1.0,-5.27,103.0
-OFF,BUF,BUF,Right,Deep,6,5.0,175.0,1.0,0.0,15.03,165.0
-OFF,BUF,BUF,Right,Short,43,28.0,220.0,1.0,0.0,2.53,123.0
+OFF,BUF,BUF,Left,Deep,12,3.0,62.0,0.0,2.0,-4.09,341.0
+OFF,BUF,BUF,Left,Short,36,28.0,297.0,0.0,0.0,18.19,107.0
+OFF,BUF,BUF,Middle,Deep,14,8.0,239.0,4.0,0.0,20.76,389.0
+OFF,BUF,BUF,Middle,Short,18,14.0,192.0,0.0,1.0,-0.82,108.0
+OFF,BUF,BUF,Right,Deep,8,5.0,175.0,1.0,1.0,12.89,227.0
+OFF,BUF,BUF,Right,Short,50,33.0,284.0,2.0,0.0,6.39,137.0
 OFF,CAR,CAR,Left,Deep,13,4.0,137.0,1.0,1.0,2.98,333.0
 OFF,CAR,CAR,Left,Short,57,35.0,283.0,3.0,1.0,0.4,267.0
 OFF,CAR,CAR,Middle,Deep,8,4.0,117.0,0.0,0.0,1.32,229.0
@@ -293,12 +293,12 @@ OFF,LAC,LAC,Middle,Deep,3,2.0,41.0,0.0,1.0,-2.52,60.0
 OFF,LAC,LAC,Middle,Short,22,17.0,151.0,3.0,1.0,-3.22,120.0
 OFF,LAC,LAC,Right,Deep,16,5.0,151.0,0.0,1.0,-0.48,438.0
 OFF,LAC,LAC,Right,Short,57,35.0,271.0,2.0,2.0,-2.7,246.0
-OFF,LAR,LAR,Left,Deep,14,4.0,83.0,0.0,1.0,-3.48,409.0
-OFF,LAR,LAR,Left,Short,41,33.0,286.0,2.0,1.0,8.42,191.0
-OFF,LAR,LAR,Middle,Deep,4,1.0,23.0,0.0,0.0,-0.08,104.0
-OFF,LAR,LAR,Middle,Short,24,18.0,197.0,2.0,0.0,6.42,139.0
-OFF,LAR,LAR,Right,Deep,22,10.0,323.0,1.0,4.0,0.62,473.0
-OFF,LAR,LAR,Right,Short,57,35.0,290.0,1.0,0.0,4.99,234.0
+OFF,LAR,LAR,Left,Deep,17,6.0,141.0,0.0,1.0,0.04,458.0
+OFF,LAR,LAR,Left,Short,54,45.0,397.0,4.0,1.0,16.7,228.0
+OFF,LAR,LAR,Middle,Deep,7,2.0,44.0,0.0,0.0,0.26,189.0
+OFF,LAR,LAR,Middle,Short,34,25.0,260.0,3.0,0.0,9.94,211.0
+OFF,LAR,LAR,Right,Deep,25,11.0,344.0,1.0,4.0,1.39,528.0
+OFF,LAR,LAR,Right,Short,79,52.0,399.0,1.0,0.0,9.01,282.0
 OFF,LV,LV,Left,Deep,16,9.0,245.0,2.0,2.0,10.99,373.0
 OFF,LV,LV,Left,Short,56,40.0,355.0,4.0,1.0,8.52,275.0
 OFF,LV,LV,Middle,Deep,6,1.0,23.0,0.0,1.0,-7.35,128.0
@@ -415,12 +415,12 @@ QB,Tyler Huntley,BAL,Left,Short,16,15.0,115.0,2.0,0.0,4.97,53.0
 QB,Tyler Huntley,BAL,Middle,Short,6,4.0,44.0,0.0,0.0,-5.29,39.0
 QB,Tyler Huntley,BAL,Right,Deep,1,1.0,19.0,0.0,0.0,1.39,19.0
 QB,Tyler Huntley,BAL,Right,Short,16,12.0,86.0,0.0,0.0,1.26,7.0
-QB,Josh Allen,BUF,Left,Deep,11,3.0,62.0,0.0,2.0,-3.04,316.0
-QB,Josh Allen,BUF,Left,Short,30,23.0,225.0,0.0,0.0,14.87,108.0
-QB,Josh Allen,BUF,Middle,Deep,12,7.0,222.0,4.0,0.0,19.99,349.0
-QB,Josh Allen,BUF,Middle,Short,17,13.0,135.0,0.0,1.0,-5.27,103.0
-QB,Josh Allen,BUF,Right,Deep,6,5.0,175.0,1.0,0.0,15.03,165.0
-QB,Josh Allen,BUF,Right,Short,43,28.0,220.0,1.0,0.0,2.53,123.0
+QB,Josh Allen,BUF,Left,Deep,12,3.0,62.0,0.0,2.0,-4.09,341.0
+QB,Josh Allen,BUF,Left,Short,36,28.0,297.0,0.0,0.0,18.19,107.0
+QB,Josh Allen,BUF,Middle,Deep,14,8.0,239.0,4.0,0.0,20.76,389.0
+QB,Josh Allen,BUF,Middle,Short,18,14.0,192.0,0.0,1.0,-0.82,108.0
+QB,Josh Allen,BUF,Right,Deep,8,5.0,175.0,1.0,1.0,12.89,227.0
+QB,Josh Allen,BUF,Right,Short,50,33.0,284.0,2.0,0.0,6.39,137.0
 QB,Bryce Young,CAR,Left,Deep,13,4.0,137.0,1.0,1.0,2.98,333.0
 QB,Bryce Young,CAR,Left,Short,56,35.0,283.0,3.0,1.0,0.78,264.0
 QB,Bryce Young,CAR,Middle,Deep,8,4.0,117.0,0.0,0.0,1.32,229.0
@@ -510,12 +510,12 @@ QB,Justin Herbert,LAC,Middle,Deep,3,2.0,41.0,0.0,1.0,-2.52,60.0
 QB,Justin Herbert,LAC,Middle,Short,22,17.0,151.0,3.0,1.0,-3.22,120.0
 QB,Justin Herbert,LAC,Right,Deep,16,5.0,151.0,0.0,1.0,-0.48,438.0
 QB,Justin Herbert,LAC,Right,Short,57,35.0,271.0,2.0,2.0,-2.7,246.0
-QB,Matthew Stafford,LAR,Left,Deep,14,4.0,83.0,0.0,1.0,-3.48,409.0
-QB,Matthew Stafford,LAR,Left,Short,41,33.0,286.0,2.0,1.0,8.42,191.0
-QB,Matthew Stafford,LAR,Middle,Deep,4,1.0,23.0,0.0,0.0,-0.08,104.0
-QB,Matthew Stafford,LAR,Middle,Short,21,16.0,184.0,2.0,0.0,6.23,116.0
-QB,Matthew Stafford,LAR,Right,Deep,22,10.0,323.0,1.0,4.0,0.62,473.0
-QB,Matthew Stafford,LAR,Right,Short,57,35.0,290.0,1.0,0.0,4.99,234.0
+QB,Matthew Stafford,LAR,Left,Deep,17,6.0,141.0,0.0,1.0,0.04,458.0
+QB,Matthew Stafford,LAR,Left,Short,54,45.0,397.0,4.0,1.0,16.7,228.0
+QB,Matthew Stafford,LAR,Middle,Deep,7,2.0,44.0,0.0,0.0,0.26,189.0
+QB,Matthew Stafford,LAR,Middle,Short,31,23.0,247.0,3.0,0.0,9.75,188.0
+QB,Matthew Stafford,LAR,Right,Deep,25,11.0,344.0,1.0,4.0,1.39,528.0
+QB,Matthew Stafford,LAR,Right,Short,79,52.0,399.0,1.0,0.0,9.01,282.0
 QB,Kirk Cousins,LV,Left,Deep,16,9.0,245.0,2.0,2.0,10.99,373.0
 QB,Kirk Cousins,LV,Left,Short,52,38.0,342.0,4.0,1.0,9.74,251.0
 QB,Kirk Cousins,LV,Middle,Deep,6,1.0,23.0,0.0,1.0,-7.35,128.0
