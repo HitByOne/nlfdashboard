@@ -5,23 +5,12 @@ on:
     # 11:00 UTC daily -- adjust to whenever you want the refresh to run.
     # cron is UTC regardless of your local timezone.
     - cron: '0 11 * * *'
-  workflow_dispatch:
-    inputs:
-      force_week:
-        description: 'Force-refresh a specific week (leave blank for normal auto-refresh)'
-        required: false
-        type: string
+  workflow_dispatch: {}  # lets you trigger it manually from the Actions tab
 
 permissions:
   contents: write   # needed to commit the refreshed CSVs back to the repo
   pages: write
   id-token: write
-
-# Matches the lightweight deploy-only workflow's group -- keeps the two
-# from ever deploying to Pages at literally the same instant.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -36,18 +25,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pandas requests pyarrow
+        run: pip install pandas requests
 
       - name: Run pipeline
         # All pipeline scripts + site/ live at the repo root.
-        # If a force_week input was provided when triggering manually, pass
-        # it through; otherwise runs with normal auto-detection.
-        run: |
-          if [ -n "${{ github.event.inputs.force_week }}" ]; then
-            python3 run_daily.py --week "${{ github.event.inputs.force_week }}"
-          else
-            python3 run_daily.py
-          fi
+        env:
+          # Add this under Settings -> Secrets and variables -> Actions. Never put the key in a file.
+          ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
+          # A manual run from the Actions tab always fetches prices, even on a non-game day.
+          ODDS_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: python3 run_daily.py
 
       - name: Commit refreshed CSVs
         run: |
