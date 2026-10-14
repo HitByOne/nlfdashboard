@@ -95,6 +95,10 @@ def main(force_week: int | None = None):
     # player stats file, non-critical.
     run("16_backtest.py", critical=False)
 
+    # Player-prop prices (OddsPapi). Needs the ODDSPAPI_KEY secret; only calls the API on game-prep days
+    # (see 17_prop_odds.py) so the free tier lasts. Non-critical: no key / no props / a bad response is fine.
+    run("17_prop_odds.py", critical=False)
+
     # Milestone Watch is a nice-to-have layered on top of everything else --
     # a flaky nflverse download shouldn't block the core weekly refresh, so
     # this one is non-critical.
