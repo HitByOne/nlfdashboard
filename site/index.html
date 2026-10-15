@@ -562,6 +562,7 @@
       <div class="tab-group-label">Picks &amp; Tools</div>
       <button data-tab="picks">Best Picks</button>
       <button data-tab="backtest">Backtest</button>
+      <button data-tab="propprices">Prop Prices</button>
       <button data-tab="predictions">Predictions</button>
       <button data-tab="mikes">Mike's Template</button>
       <button data-tab="anytimetd">Anytime TD Props</button>
@@ -779,6 +780,68 @@ function estimatePickProbability(pick){
   }
   const probability = defenseRate ? (playerRate.rate + defenseRate.rate) / 2 : playerRate.rate;
   return {probability, playerRate, defenseRate};
+}
+
+
+// ---- Sportsbook prices (OddsPapi, via 17_prop_odds.py -> data/nfl_2026_prop_odds.csv) ----
+// A price is only matched when the book has the SAME bet: same player, same stat, same line. "300+ yards" on a slip is
+// Over 299.5 at the book; "Over 4.5" and "Under 60.5" are used as written. Anything else shows the nearest posted line
+// instead of pretending to be a match.
+let _propIdx = {src:null, val:null};
+function propIndex(){
+  if(_propIdx.src === DATA.propOdds) return _propIdx.val;
+  const map = new Map();
+  (DATA.propOdds || []).forEach(r => {
+    if(!r.stat || !r.ou) return;
+    if(String(r.active).toLowerCase() === 'false') return;
+    const dec = parseFloat(r.decimal_odds);
+    if(!(dec > 1)) return;
+    const k = slipNorm(r.player) + '|' + r.stat;
+    const row = {line: r.line === '' || r.line === undefined ? null : parseFloat(r.line), ou: r.ou, dec, book: r.book, game: r.game, kickoff: r.kickoff, player: r.player, stat: r.stat, fetched: r.fetched};
+    if(!map.has(k)) map.set(k, []);
+    map.get(k).push(row);
+  });
+  _propIdx = {src: DATA.propOdds, val: map};
+  return map;
+}
+function propHasData(){ return !!(DATA.propOdds && DATA.propOdds.length); }
+const PROP_BOOK_SHORT = {fanduel:'FD', draftkings:'DK', caesars:'CZR', betrivers:'BR', thescore:'theScore', hardrockbet:'HR'};
+function propAmerican(dec){ return dec >= 2 ? '+' + Math.round((dec - 1) * 100) : String(Math.round(-100 / (dec - 1))); }
+function propWanted(pick){
+  if(pick.stat === 'Any TD') return {ou:'yes', line:null};
+  const t = parseFloat(pick.threshold);
+  if(!isFinite(t)) return null;
+  if(pick.direction === 'under') return {ou:'under', line:t};
+  if(pick.direction === 'over') return {ou:'over', line:t};
+  return {ou:'over', line:t - 0.5};
+}
+function propPrice(pick){
+  if(!propHasData() || !pick) return null;
+  const want = propWanted(pick); if(!want) return null;
+  const rows = propIndex().get(slipNorm(pick.player) + '|' + pick.stat);
+  if(!rows || !rows.length) return null;
+  const same = rows.filter(r => r.ou === want.ou);
+  const exact = same.filter(r => want.line === null ? true : (r.line !== null && Math.abs(r.line - want.line) < 0.01));
+  if(exact.length){
+    const best = exact.reduce((a, b) => b.dec > a.dec ? b : a);
+    const opp = rows.find(r => r.book === best.book && r.line === best.line && ((want.ou === 'over' && r.ou === 'under') || (want.ou === 'under' && r.ou === 'over')));
+    const noVig = opp ? (1 / best.dec) / (1 / best.dec + 1 / opp.dec) : null;
+    return {near:false, dec:best.dec, am:propAmerican(best.dec), book:best.book, books:new Set(exact.map(r => r.book)).size, implied:1 / best.dec, noVig, line:best.line, fetched:best.fetched};
+  }
+  if(want.line === null || !same.length) return null;
+  const near = same.filter(r => r.line !== null).sort((a, b) => Math.abs(a.line - want.line) - Math.abs(b.line - want.line))[0];
+  return near ? {near:true, dec:near.dec, am:propAmerican(near.dec), book:near.book, line:near.line, ou:want.ou, wantLine:want.line} : null;
+}
+// Price chip for a leg that has not started. Shows the best price across books and, when the dashboard can estimate the
+// leg, how that price compares with the estimate (a rough estimate: see the note on the Prop Prices tab).
+function propChipHtml(pick){
+  const pr = propPrice(pick);
+  if(!pr) return propHasData() ? '<span style="color:var(--chalk-dim);">no line</span>' : '<span style="color:var(--chalk-dim);">--</span>';
+  const bk = PROP_BOOK_SHORT[pr.book] || pr.book;
+  if(pr.near) return `<span style="color:var(--chalk-dim);" title="No ${pr.ou} ${pr.wantLine} posted. Nearest line shown.">${pr.ou === 'over' ? 'o' : 'u'}${pr.line} ${pr.am} ${bk}</span>`;
+  const est = estimatePickProbability(pick);
+  const tip = `Best of ${pr.books} book${pr.books === 1 ? '' : 's'}. Book implies ${Math.round(pr.implied * 100)}%${pr.noVig ? ` (about ${Math.round(pr.noVig * 100)}% without the book's margin)` : ''}${est ? `. Dashboard estimate ${Math.round(est.probability * 100)}%` : ''}.`;
+  return `<b title="${tip}">${pr.am}</b> <span style="color:var(--chalk-dim);">${bk}${pr.books > 1 ? ' +' + (pr.books - 1) : ''} &middot; ${Math.round(pr.implied * 100)}%</span>`;
 }
 
 // A parlay needs every leg to hit, so its probability is the product of
@@ -1152,6 +1215,96 @@ function ticketOutcome(list, meta){
   return {state:'open', toWin: pr, bonus, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length};
 }
 
+
+// ---- Prop Prices tab ----
+function renderPropPrices(){
+  if(!propHasData()){
+    return `<div class="panel"><div class="panel-title">Prop Prices</div>
+      <div class="panel-note">No prop prices loaded yet. They come from your OddsPapi script (<code>17_prop_odds.py</code>), which the daily refresh runs on
+      Thursdays and Sundays so the free 250 requests a month last. Set up once: (1) add your key as a GitHub secret named <b>ODDSPAPI_KEY</b>
+      (Settings, Secrets and variables, Actions) and never put it in a file, (2) upload the new <code>17_prop_odds.py</code>, <code>run_daily.py</code> and
+      <code>daily_refresh.yml</code>, (3) run the workflow from the Actions tab (a manual run always fetches). Props often post late in the week, so an early run can come back empty.</div></div>`;
+  }
+  return `<div class="panel"><div class="panel-title">Prop Prices</div>
+    <div class="panel-note" id="pp-note"></div>
+    <div class="controls">
+      <label class="ctl-label">Stat <select id="pp-stat"><option value="">All</option></select></label>
+      <label class="ctl-label">Game <select id="pp-game"><option value="">All</option></select></label>
+      <label class="ctl-label">Player <input type="text" id="pp-player" placeholder="search" style="width:150px;"></label>
+      <label class="ctl-label"><input type="checkbox" id="pp-est"> only lines the dashboard can estimate</label>
+    </div>
+    <div id="pp-table"></div></div>`;
+}
+function mountPropPrices(){
+  if(!propHasData()) return;
+  const all = DATA.propOdds;
+  const books = [...new Set(all.map(r => r.book))].filter(Boolean);
+  const fetched = all.map(r => r.fetched).filter(Boolean).sort().pop() || '';
+  const unmapped = [...new Set(all.filter(r => !r.stat).map(r => r.market))];
+  $('#pp-note').innerHTML = `${all.length.toLocaleString()} prices from ${books.map(b => PROP_BOOK_SHORT[b] || b).join(', ')}${fetched ? `, fetched ${fetched.replace('T', ' ').replace('Z', ' UTC')}` : ''}.
+    "Dashboard" is this app's own estimate for the Over (or Yes) from the player's season hit rate and the opponent's history, and "Gap" is that estimate minus the book's no-margin
+    price, pulled toward zero when only a few games sit behind the estimate (3 games count for less than half). <b>Read a gap as a question, not a signal:</b> books know about injuries, weather and game plans this app does not, so a big gap is more often the app being wrong than a bargain,
+    and a handful of games behind an estimate is thin. ${unmapped.length ? `<span style="color:var(--chalk-dim);">${unmapped.length} market types are not mapped to a stat and are ignored: ${unmapped.slice(0, 8).join('; ')}${unmapped.length > 8 ? '...' : ''}.</span>` : ''}`;
+  const groups = new Map();
+  all.forEach(r => {
+    if(!r.stat || !r.ou) return;
+    if(String(r.active).toLowerCase() === 'false') return;
+    const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
+    const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
+    const k = [slipNorm(r.player), r.stat, line, r.game].join('|');
+    if(!groups.has(k)) groups.set(k, {player: r.player, stat: r.stat, line, game: r.game, over: [], under: []});
+    const g = groups.get(k);
+    (r.ou === 'under' ? g.under : g.over).push({dec, book: r.book});
+  });
+  const lastRow = {};
+  (DATA.playerGame || []).forEach(r => { const k = slipNorm(r.Player); if(!lastRow[k] || num(r.Week) >= num(lastRow[k].Week)) lastRow[k] = r; });
+  const rows = [...groups.values()].map(g => {
+    const best = a => a.length ? a.reduce((x, y) => y.dec > x.dec ? y : x) : null;
+    const bo = best(g.over), bu = best(g.under);
+    const lr = lastRow[slipNorm(g.player)];
+    let est = null, n = null;
+    if(lr && bo){
+      const wk = (DATA.week2 || []).find(r => r.Team === lr.Team);
+      const t = g.stat === 'Any TD' ? 1 : (g.line === null ? null : (Number.isInteger(g.line) ? g.line + 1 : g.line + 0.5));
+      if(t !== null){
+        const e = estimatePickProbability({player:lr.Player, position:lr.Position, team:lr.Team, opponent: wk ? wk.Opponent : '', stat:g.stat, threshold:t});
+        if(e && e.playerRate.total >= 3){ est = e.probability; n = e.playerRate.total; }
+      }
+    }
+    // Book price without its margin: only when both sides are posted at this line by the same book.
+    let nv = null;
+    if(bo && bu){ const bk = g.over.find(o => g.under.some(u => u.book === o.book)); if(bk){ const u = g.under.find(x => x.book === bk.book); nv = (1 / bk.dec) / (1 / bk.dec + 1 / u.dec); } }
+    const implied = bo ? (nv !== null ? nv : 1 / bo.dec) : null;
+    return {player:g.player, game:g.game, stat:g.stat, lineNum: g.line === null ? -1 : g.line, line: g.line === null ? 'Yes' : g.line,
+      over: bo ? bo.dec : '', overTxt: bo ? `${propAmerican(bo.dec)} ${PROP_BOOK_SHORT[bo.book] || bo.book}` : '--', under: bu ? bu.dec : '', underTxt: bu ? `${propAmerican(bu.dec)} ${PROP_BOOK_SHORT[bu.book] || bu.book}` : '--',
+      implied: implied === null ? '' : implied, est: est === null ? '' : est, n: n === null ? '' : n,
+      // Few games behind an estimate say little, so the gap is pulled toward the book's price: weight n against 4 games of the book's view.
+      gap: est !== null && implied !== null ? (n * est + 4 * implied) / (n + 4) - implied : ''};
+  });
+  const statSel = $('#pp-stat'), gameSel = $('#pp-game');
+  [...new Set(rows.map(r => r.stat))].sort().forEach(x => statSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  [...new Set(rows.map(r => r.game))].sort().forEach(x => gameSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  const cols = [
+    {key:'player', label:'Player'}, {key:'stat', label:'Stat'}, {key:'lineNum', label:'Line', numeric:true, render:(v, r) => String(r.line)},
+    {key:'over', label:'Best over / yes', numeric:true, render:(v, r) => r.overTxt}, {key:'under', label:'Best under', numeric:true, render:(v, r) => r.underTxt},
+    {key:'implied', label:'Book %', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
+    {key:'est', label:'Dashboard', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
+    {key:'n', label:'Games', numeric:true, render:v => v === '' ? '--' : v},
+    {key:'gap', label:'Gap (thin samples shrunk)', numeric:true, render:v => v === '' ? '--' : `<span style="color:var(--chalk-dim);">${v >= 0 ? '+' : ''}${Math.round(v * 100)} pts</span>`},
+    {key:'game', label:'Game'},
+  ];
+  function draw(){
+    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#pp-player').value), onlyEst = $('#pp-est').checked;
+    const list = rows.filter(r => (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyEst || r.est !== ''));
+    $('#pp-table').innerHTML = '';
+    if(!list.length){ $('#pp-table').innerHTML = '<div class="empty">No lines match.</div>'; return; }
+    buildTable($('#pp-table'), cols, list, {defaultSort:'player', defaultDir:'asc', limit:500});
+  }
+  [statSel, gameSel, $('#pp-est')].forEach(el => el.addEventListener('change', draw));
+  $('#pp-player').addEventListener('input', draw);
+  draw();
+}
+
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
 // player is genuinely "close" to a milestone (within 20% of the step size)
 // rather than just eventually on track toward some future round number.
@@ -1195,6 +1348,7 @@ const CSV_FILES = {
   defenseCoverage: 'data/nfl_2026_defense_coverage.csv',
   passLocation:    'data/nfl_2026_pass_location.csv',
   backtest:        'data/nfl_2026_backtest.csv',
+  propOdds:        'data/nfl_2026_prop_odds.csv',
 };
 
 const TEAM_NAMES = {
@@ -5262,7 +5416,7 @@ function mountSlipImport(opts){
           <td><input type="number" step="0.5" data-i="${i}" data-f="threshold" value="${l.threshold}" style="width:64px;"></td>
           <td><input type="number" data-i="${i}" data-f="week" value="${l.week ?? ''}" style="width:52px;"></td>
           <td>${l.opponent ? teamChip(l.opponent) : '--'}</td>
-          <td>${flag}</td><td>${chip}</td></tr>`;
+          <td>${flag}</td><td>${chip}</td><td>${pk && (!g || g.status === 'PENDING') ? propChipHtml(pk) : '--'}</td></tr>`;
       }).join('');
       const odds = picks.length ? analyzeTicketOdds(picks) : null;
       let grade = '';
@@ -5281,7 +5435,7 @@ function mountSlipImport(opts){
         <div class="line-note">${flagged ? `${flagged} row${flagged === 1 ? '' : 's'} need a look (amber or red). Fix them, or untick any row you don't want.` : 'Every row read cleanly.'}</div>
         <div class="controls"><label class="ctl-label">These legs are for
           <select id="slip-week-mode"><option value="upcoming" ${curMode === 'upcoming' ? 'selected' : ''}>the upcoming games</option><option value="played" ${curMode === 'played' ? 'selected' : ''}>games already played (grade them)</option></select></label></div>
-        <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="table-scroll"><table><thead><tr><th></th><th>Player</th><th>Pos / Team</th><th>Stat</th><th>Line type</th><th>Line</th><th>Wk</th><th>Opp</th><th>Check</th><th>Hit rate</th><th>Book price</th></tr></thead><tbody>${rows}</tbody></table></div>
         ${grade}
         <div class="controls">
           <label class="ctl-label">Book <input type="text" id="slip-book" value="${curMeta.book || ''}" style="width:100px;"></label>
@@ -5850,6 +6004,7 @@ function mountMyPicks(){
           if(g.live) return `<span style="color:${color};font-weight:700;">${g.status}</span> <span style="color:var(--chalk-dim);">(${g.status === 'HIT' ? 'cleared' : 'busted'} at ${fmt(g.actual)}, game live${g.detail ? ' &middot; ' + g.detail : ''})</span>`;
           return `<span style="color:${color};font-weight:700;">${g.status}</span> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual${g.fromLive && !g.persist ? ', not in ESPN box score' : ''})</span>`;
         }},
+        {key:'_price', label:'Book price', render:(v,row)=>{ const g = gradeMyPick(row); return g && g.status !== 'PENDING' ? '<span style="color:var(--chalk-dim);">--</span>' : propChipHtml(row); }},
         {key:'_move', label:'Move to', render:(v,row)=>{
           const idx = picks.indexOf(row);
           return `<select class="move-pick-select" data-move-idx="${idx}">${ticketNames.map(t=>`<option value="${t}" ${t===ticket?'selected':''}>${t}</option>`).join('')}</select>`;
@@ -6912,12 +7067,12 @@ function mountFriends(){
         else if(g && (g.status === 'HIT' || g.status === 'MISS')) cell = `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)}</span>`;
         const est = estimatePickProbability(pk);
         return `<tr><td>${frEsc(pk.player)}</td><td>${frEsc(frLegLabel(l))}</td><td>${pk.opponent ? teamChip(pk.opponent) : '--'}</td><td class="num">${frEsc(pk.week)}</td>
-          <td class="num">${est ? Math.round(est.probability * 100) + '%' : '--'}</td><td>${cell}</td>
+          <td class="num">${est ? Math.round(est.probability * 100) + '%' : '--'}</td><td>${g && g.status !== 'PENDING' ? '--' : propChipHtml(pk)}</td><td>${cell}</td>
           <td><button class="save-pick-btn" data-leg="${ti}:${li}">Copy</button></td></tr>`;
       }).join('');
       return `<div class="log-pos-group" style="margin-bottom:16px;">
         <div class="log-pos-label" style="font-size:14px;">${frEsc(name)} &middot; ${frEsc(t.data.ticket || t.ticket)} ${t.data.book ? `<span style="color:var(--chalk-dim);font-weight:400;">&middot; ${frEsc(t.data.book)}</span>` : ''} ${t.data.odds ? `<span style="color:var(--chalk-dim);font-weight:400;">${frEsc(t.data.odds)}</span>` : ''} &middot; ${res}</div>
-        <div class="table-scroll"><table><thead><tr><th>Player</th><th>Pick</th><th>Opp</th><th class="num">Wk</th><th class="num" title="This dashboard's own hit-rate estimate for the leg">Dashboard</th><th>Result</th><th></th></tr></thead><tbody>${legs}</tbody></table></div>
+        <div class="table-scroll"><table><thead><tr><th>Player</th><th>Pick</th><th>Opp</th><th class="num">Wk</th><th class="num" title="This dashboard's own hit-rate estimate for the leg">Dashboard</th><th>Book price</th><th>Result</th><th></th></tr></thead><tbody>${legs}</tbody></table></div>
         <div class="controls"><button class="save-pick-btn" data-ticket="${ti}">Copy whole ticket to mine</button></div></div>`;
     }).join('');
     feedEl.innerHTML = `<div class="panel-title">Friends' Picks</div>
@@ -7690,6 +7845,7 @@ const renderers = {
   mypicks: {render: renderMyPicks, mount: mountMyPicks},
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
   anytimetd: {render: renderAnytimeTD, mount: mountAnytimeTD},
+  propprices: {render: renderPropPrices, mount: mountPropPrices},
 };
 function showTab(tab){
   if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
@@ -7711,7 +7867,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation', 'backtest'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation', 'backtest', 'propOdds'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
