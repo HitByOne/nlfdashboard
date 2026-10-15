@@ -116,6 +116,7 @@ Davis Mills,HOU,QB,Pass TD,40,50,10
 Kyren Williams,LAR,RB,Rush TD,40,50,10
 Calvin Ridley,TEN,WR,Receiving TD,40,50,10
 Joshua Dobbs,DET,QB,Interceptions,15,25,10
+Jake Browning,LAC,QB,Interceptions,15,25,10
 Alvin Kamara,NO,RB,Receiving Yards,4989,5000,11
 Trey McBride,ARI,TE,Receptions,389,400,11
 James Conner,ARI,RB,Receptions,289,300,11
@@ -235,6 +236,7 @@ Derius Davis,LAC,WR,Receptions,31,50,19
 Keaton Mitchell,LAC,RB,Receptions,31,50,19
 Isaiah Davis,NYJ,RB,Receptions,31,50,19
 David Sills V,TB,WR,Receptions,31,50,19
+Chris Moore,BAL,WR,Receiving Yards,1980,2000,20
 Chris Olave,NO,WR,Receptions,330,350,20
 Pat Freiermuth,PIT,TE,Receptions,280,300,20
 Deshaun Watson,CLE,QB,Pass TD,130,150,20
@@ -345,6 +347,7 @@ Alvin Kamara,NO,RB,Receiving TD,25,50,25
 Zach Wilson,NO,QB,Interceptions,25,50,25
 Travis Etienne Jr.,NO,RB,Rush TD,25,50,25
 Mason Tipton,NO,WR,Receptions,25,50,25
+Kevin Austin Jr.,NO,WR,Receptions,25,50,25
 Zamir White,NO,RB,Receptions,25,50,25
 Gunner Olszewski,NYG,WR,Receptions,25,50,25
 Sterling Shepard,NYJ,WR,Receiving TD,25,50,25
@@ -472,6 +475,7 @@ Tim Jones,JAX,WR,Receptions,18,50,32
 Cody White,LV,WR,Receptions,18,50,32
 Tyler Scott,LV,WR,Receptions,18,50,32
 Quentin Johnston,LAC,WR,Receiving TD,18,50,32
+Jake Browning,LAC,QB,Pass TD,18,50,32
 Terrance Ferguson,LAR,TE,Receptions,18,50,32
 Hassan Haskins,NE,RB,Receptions,18,50,32
 Jaxson Dart,NYG,QB,Pass TD,18,50,32
@@ -619,6 +623,7 @@ Geno Smith,NYJ,QB,Rush TD,12,50,38
 Tank Bigsby,PHI,RB,Rush TD,12,50,38
 Dontayvion Wicks,PHI,WR,Receiving TD,12,50,38
 Brock Purdy,SF,QB,Rush TD,12,50,38
+Velus Jones Jr.,SEA,RB,Receptions,12,50,38
 Rashid Shaheed,SEA,WR,Receiving TD,12,50,38
 Baker Mayfield,TB,QB,Rush TD,12,50,38
 Rachaad White,WSH,RB,Receiving TD,12,50,38
@@ -664,6 +669,7 @@ Bo Nix,DEN,QB,Pass TD,60,100,40
 Cooper Kupp,SEA,WR,Receiving TD,60,100,40
 Simi Fehoko,ARI,WR,Receptions,10,50,40
 Bijan Robinson,ATL,RB,Receiving TD,10,50,40
+Chris Moore,BAL,WR,Receiving TD,10,50,40
 Keon Coleman,BUF,WR,Receiving TD,10,50,40
 Greg Dortch,BUF,WR,Receiving TD,10,50,40
 Dalton Kincaid,BUF,TE,Receiving TD,10,50,40
@@ -760,9 +766,11 @@ Khalil Herbert,ATL,RB,Rush Yards,1957,2000,43
 David Montgomery,HOU,RB,Receiving Yards,1957,2000,43
 Joshua Palmer,BUF,WR,Receptions,207,250,43
 Devin Duvernay,ARI,WR,Receptions,107,150,43
+Jerome Ford,ARI,RB,Receptions,107,150,43
 Mark Andrews,BAL,TE,Receiving TD,57,100,43
 Zach Ertz,PHI,TE,Receiving TD,57,100,43
 Xavier Weaver,ARI,WR,Receptions,7,50,43
+Jerome Ford,ARI,RB,Rush TD,7,50,43
 Zachariah Branch,ATL,WR,Receptions,7,50,43
 Dylan Drummond,ATL,WR,Receptions,7,50,43
 Gage Larvadain,BAL,WR,Receptions,7,50,43
@@ -779,6 +787,7 @@ Israel Abanikanda,DAL,RB,Receptions,7,50,43
 RJ Harvey,DEN,RB,Rush TD,7,50,43
 Sione Vaki,DET,RB,Receptions,7,50,43
 Jawhar Jordan,HOU,RB,Receptions,7,50,43
+Bryce Oliver,HOU,WR,Receptions,7,50,43
 Jonathan Taylor,IND,RB,Receiving TD,7,50,43
 Chris Rodriguez Jr.,JAX,RB,Receptions,7,50,43
 Brenton Strange,JAX,TE,Receiving TD,7,50,43
@@ -848,6 +857,7 @@ DK Metcalf,PIT,WR,Receiving TD,55,100,45
 Devin Duvernay,ARI,WR,Receiving TD,5,50,45
 Bam Knight,ARI,RB,Rush TD,5,50,45
 Gardner Minshew II,ARI,QB,Rush TD,5,50,45
+Jerome Ford,ARI,RB,Receiving TD,5,50,45
 Brian Robinson Jr.,ATL,RB,Receiving TD,5,50,45
 Matt Hibner,BAL,TE,Receptions,5,50,45
 Justice Hill,BAL,RB,Receiving TD,5,50,45
@@ -911,6 +921,7 @@ Eric Saubert,SEA,TE,Receptions,53,100,47
 Gunnar Helm,TEN,TE,Receptions,53,100,47
 Dak Prescott,DAL,QB,Pass TD,252,300,48
 Chig Okonkwo,WSH,TE,Receptions,202,250,48
+Chris Moore,BAL,WR,Receptions,152,200,48
 Luke Schoonmaker,DAL,TE,Receptions,52,100,48
 Justin Fields,KC,QB,Pass TD,52,100,48
 Rhamondre Stevenson,NE,RB,Receptions,201,250,49
@@ -1037,6 +1048,7 @@ Rico Dowdle,PIT,RB,Receiving Yards,718,1000,282
 John Bates,WSH,TE,Receiving Yards,718,1000,282
 Ty Chandler,NO,RB,Rush Yards,710,1000,290
 Marquez Valdes-Scantling,LAC,WR,Receiving Yards,3708,4000,292
+Jake Browning,LAC,QB,Pass Yards,2707,3000,293
 Patrick Mahomes,KC,QB,Rush Yards,2706,3000,294
 Daniel Jones,IND,QB,Pass Yards,18704,19000,296
 Cam Skattebo,NYG,RB,Rush Yards,704,1000,296
@@ -1068,6 +1080,7 @@ Ashton Dulin,IND,WR,Receiving Yards,652,1000,348
 Luke Musgrave,GB,TE,Receiving Yards,649,1000,351
 Bo Nix,DEN,QB,Pass Yards,8648,9000,352
 Baker Mayfield,TB,QB,Rush Yards,1648,2000,352
+Jerome Ford,ARI,RB,Receiving Yards,647,1000,353
 Geno Smith,NYJ,QB,Rush Yards,1646,2000,354
 Braelon Allen,NYJ,RB,Rush Yards,646,1000,354
 Tyler Conklin,DET,TE,Receiving Yards,2645,3000,355
@@ -1177,6 +1190,7 @@ Jalin Hyatt,NYG,WR,Receiving Yards,470,1000,530
 Luke Schoonmaker,DAL,TE,Receiving Yards,468,1000,532
 Charlie Kolar,LAC,TE,Receiving Yards,467,1000,533
 Chris Brooks,GB,RB,Rush Yards,465,1000,535
+Jerome Ford,ARI,RB,Rush Yards,1463,2000,537
 Courtland Sutton,DEN,WR,Receiving Yards,6461,7000,539
 Case Keenum,CHI,QB,Rush Yards,461,1000,539
 Tez Johnson,TB,WR,Receiving Yards,460,1000,540
@@ -1290,6 +1304,7 @@ Tylan Wallace,CLE,WR,Receiving Yards,305,1000,695
 Xavier Worthy,KC,WR,Receiving Yards,1303,2000,697
 Sam Howell,DAL,QB,Rush Yards,300,1000,700
 Tyler Goodson,DAL,RB,Rush Yards,298,1000,702
+Kevin Austin Jr.,NO,WR,Receiving Yards,298,1000,702
 Deebo Samuel Sr.,SF,WR,Rush Yards,1296,2000,704
 Terrance Ferguson,LAR,TE,Receiving Yards,294,1000,706
 Jake Tonges,SF,TE,Receiving Yards,293,1000,707
@@ -1381,6 +1396,7 @@ Kyle Monangai,CHI,RB,Receiving Yards,203,1000,797
 Tua Tagovailoa,ATL,QB,Pass Yards,18200,19000,800
 Cade Otton,TB,TE,Receiving Yards,2200,3000,800
 Javonte Williams,DAL,RB,Receiving Yards,1197,2000,803
+Velus Jones Jr.,SEA,RB,Rush Yards,197,1000,803
 Keenan Allen,IND,WR,Receiving Yards,12196,13000,804
 Jonnu Smith,GB,TE,Rush Yards,196,1000,804
 Elijah Arroyo,SEA,TE,Receiving Yards,196,1000,804
@@ -1433,6 +1449,7 @@ Tre Tucker,LV,WR,Rush Yards,166,1000,834
 Mitchell Tinsley,CIN,WR,Receiving Yards,165,1000,835
 Malik Washington,MIA,WR,Rush Yards,165,1000,835
 Terry McLaurin,WSH,WR,Receiving Yards,7164,8000,836
+Jake Browning,LAC,QB,Rush Yards,164,1000,836
 Teagan Quitoriano,ARI,TE,Receiving Yards,161,1000,839
 George Holani,SEA,RB,Rush Yards,160,1000,840
 Kyle Allen,BUF,QB,Rush Yards,159,1000,841
@@ -1473,6 +1490,7 @@ Kene Nwangwu,NYJ,RB,Rush Yards,137,1000,863
 Kaelon Black,SF,RB,Rush Yards,136,1000,864
 Raheim Sanders,CLE,RB,Rush Yards,135,1000,865
 Dont'e Thornton Jr.,LV,WR,Receiving Yards,135,1000,865
+Velus Jones Jr.,SEA,RB,Receiving Yards,135,1000,865
 Jaxon Smith-Njigba,SEA,WR,Receiving Yards,4134,5000,866
 Blake Corum,LAR,RB,Rush Yards,1134,2000,866
 Easton Stick,TB,QB,Pass Yards,1133,2000,867
@@ -1526,6 +1544,7 @@ Tanner Conner,NE,TE,Receiving Yards,107,1000,893
 Jaylen Waddle,DEN,WR,Rush Yards,104,1000,896
 Devin Neal,WSH,RB,Receiving Yards,104,1000,896
 David Moore,CAR,WR,Rush Yards,103,1000,897
+Bryce Oliver,HOU,WR,Receiving Yards,103,1000,897
 Jordan Addison,MIN,WR,Rush Yards,102,1000,898
 Tank Bigsby,PHI,RB,Receiving Yards,102,1000,898
 Jarrett Stidham,DEN,QB,Rush Yards,101,1000,899
@@ -1586,6 +1605,7 @@ Scotty Miller,CHI,WR,Rush Yards,81,1000,919
 Jaret Patterson,CLE,RB,Receiving Yards,81,1000,919
 British Brooks,HOU,RB,Rush Yards,80,1000,920
 Malik Davis,DAL,RB,Receiving Yards,79,1000,921
+Chris Moore,BAL,WR,Rush Yards,78,1000,922
 Savion Williams,GB,WR,Receiving Yards,78,1000,922
 DeMario Douglas,NE,WR,Rush Yards,78,1000,922
 Jaxon Smith-Njigba,SEA,WR,Rush Yards,78,1000,922
@@ -1643,6 +1663,7 @@ Deuce Vaughn,HOU,RB,Receiving Yards,58,1000,942
 Bryce Lance,NO,WR,Receiving Yards,57,1000,943
 Calvin Austin III,NYG,WR,Rush Yards,57,1000,943
 Chuba Hubbard,CAR,RB,Receiving Yards,1056,2000,944
+Shedrick Jackson,ARI,WR,Receiving Yards,56,1000,944
 Emmett Johnson,KC,RB,Rush Yards,56,1000,944
 A.J. Brown,NE,WR,Receiving Yards,8055,9000,945
 Tony Pollard,TEN,RB,Rush Yards,6055,7000,945
@@ -1862,6 +1883,7 @@ Jake Briningstool,KC,TE,Receiving Yards,9,1000,991
 Jalen Nailor,LV,WR,Rush Yards,9,1000,991
 Stetson Bennett IV,LAR,QB,Rush Yards,9,1000,991
 Lan Larison,NE,RB,Receiving Yards,9,1000,991
+Kevin Austin Jr.,NO,WR,Rush Yards,9,1000,991
 Garrett Wilson,NYJ,WR,Rush Yards,9,1000,991
 Jacob Cowing,SF,WR,Rush Yards,9,1000,991
 Cole Kmet,CHI,TE,Rush Yards,8,1000,992
