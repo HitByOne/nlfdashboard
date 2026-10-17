@@ -35,7 +35,6 @@ Jonathan Taylor,IND,RB,Rush Yards,7996,8000,4
 Travis Kelce,KC,TE,Receptions,1096,1100,4
 Kendrick Bourne,ARI,WR,Receptions,346,350,4
 Garrett Wilson,NYJ,WR,Receptions,346,350,4
-Darius Slayton,IND,WR,Receptions,296,300,4
 Jake Ferguson,DAL,TE,Receptions,246,250,4
 Tetairoa McMillan,CAR,WR,Receptions,96,100,4
 Tee Higgins,CIN,WR,Receiving TD,46,50,4
@@ -395,7 +394,6 @@ Cole Kmet,CHI,TE,Receiving TD,22,50,28
 Tylan Wallace,CLE,WR,Receptions,22,50,28
 Sam Howell,DAL,QB,Pass TD,22,50,28
 George Pickens,DAL,WR,Receiving TD,22,50,28
-Darius Slayton,IND,WR,Receiving TD,22,50,28
 Quintin Morris,JAX,TE,Receptions,22,50,28
 Blake Corum,LAR,RB,Receptions,22,50,28
 De'Von Achane,MIA,RB,Rush TD,22,50,28
@@ -1206,13 +1204,12 @@ Bo Melton,GB,WR,Receiving Yards,446,1000,554
 Kendrick Bourne,ARI,WR,Receiving Yards,4443,5000,557
 DeeJay Dallas,MIN,RB,Receiving Yards,441,1000,559
 Drew Lock,SEA,QB,Rush Yards,440,1000,560
-Darius Slayton,IND,WR,Receiving Yards,4435,5000,565
 Ollie Gordon II,MIA,RB,Rush Yards,435,1000,565
 Chase Brown,CIN,RB,Rush Yards,2434,3000,566
 Stone Smartt,NO,TE,Receiving Yards,432,1000,568
 Isaac TeSlaa,DET,WR,Receiving Yards,426,1000,574
 Isaiah Bond,CLE,WR,Receiving Yards,424,1000,576
-Joe Milton III,DAL,QB,Pass Yards,424,1000,576
+Joe Milton III,PHI,QB,Pass Yards,424,1000,576
 Eric Saubert,SEA,TE,Receiving Yards,423,1000,577
 Tyrod Taylor,GB,QB,Rush Yards,2422,3000,578
 Jarrett Stidham,DEN,QB,Pass Yards,1422,2000,578
@@ -1646,8 +1643,8 @@ Tyquan Thornton,KC,WR,Rush Yards,67,1000,933
 Kameron Johnson,TB,WR,Receiving Yards,67,1000,933
 Dyami Brown,WSH,WR,Rush Yards,67,1000,933
 Jonathon Brooks,CAR,RB,Receiving Yards,66,1000,934
-Joe Milton III,DAL,QB,Rush Yards,66,1000,934
 Tai Felton,MIN,WR,Receiving Yards,66,1000,934
+Joe Milton III,PHI,QB,Rush Yards,66,1000,934
 Treylon Burks,WSH,WR,Rush Yards,66,1000,934
 James Conner,ARI,RB,Rush Yards,6065,7000,935
 Cam Ward,TEN,QB,Pass Yards,4065,5000,935
