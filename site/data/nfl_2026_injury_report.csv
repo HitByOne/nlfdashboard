@@ -26,7 +26,7 @@ ARI,Teagan Quitoriano,Active,Quitoriano caught both of his targets for 15 yards 
 ARI,Trey McBride,Active,McBride brought in nine of 10 targets for 66 yards and a touchdown in the Cardinals' 45-21 loss to the Lions on Sunday.
 ATL,Kendal Daniels,Questionable,Neck
 ATL,Billy Bowman Jr.,Questionable,Hamstring
-ATL,Avieon Terrell,Active,"Terrell (head) returned to Sunday's game against the Bears, William McFadden of the Falcons' official site reports"
+ATL,Avieon Terrell,Active,"Terrell (head) returned to Sunday's game against the Bears, William McFadden of the Falcons' official site reports."
 ATL,Divine Deablo,Questionable,Arm
 ATL,Michael Penix Jr.,Active,"Penix (undisclosed) reentered Sunday's game versus the Bears, Will McFadden of the Falcons' official site reports."
 ATL,Za'Darius Smith,Active,Smith (neck) is active for Sunday's game against the Bears.
@@ -374,6 +374,7 @@ JAX,Anton Harrison,Injured Reserve,Knee
 JAX,Daniel Faalele,Active,
 JAX,Alijah Huzzie,Active,
 JAX,Cam Little,Active,Little made both of his field goals and went 1-for-2 on extra-point tries during the Jaguars' 19-17 win over the Eagles on Sunday in London.
+KC,Jaylon Moore,Questionable,Head
 KC,L'Jarius Sneed,Active,"Sneed (knee) is active for Sunday's game against the Chargers, Matt McMullen of the Chiefs' official site reports."
 KC,Josh Simmons,Out,Back
 KC,Jared Wiley,Out,Coach's Decision
@@ -398,7 +399,6 @@ KC,Patrick Mahomes,Active,Mahomes completed 15 of 30 passes for 225 yards and tw
 KC,Kenneth Walker III,Active,Walker rushed 22 times for 177 yards and two touchdowns while catching his only target for two yards in Sunday's 30-27 win over the Raiders.
 KC,Chamarri Conner,Active,Conner (knee) was a full participant at practice Wednesday.
 KC,Tyreke Smith,Active,
-KC,Chris Jones,Active,
 LV,Darien Porter,Active,"Porter is starting at outside cornerback in place of Hezekiah Masses in Sunday's game against the Bills, Sam Warren of The Athletic reports."
 LV,Trey Zuhn III,Active,Zuhn (knee) is active for Sunday's game against the Bills.
 LV,Aidan O'Connell,Out,Coach's Decision
@@ -575,7 +575,8 @@ NO,Daniel Carlson,Active,Carlson went 1-for-2 on extra-point tries during the Sa
 NO,Juwan Johnson,Active,Johnson brought in four of five targets for 16 yards in the Saints' 23-13 loss to the Vikings on Sunday.
 NO,Devaughn Vele,Active,Vele secured four of six targets for 26 yards in the Saints' 23-13 loss to the Vikings on Sunday.
 NYG,Jermaine Eluemunor,Out,Calf
-NYG,Andrew Thomas,Active,
+NYG,Andrew Thomas,Active,"Thomas did not sustain a concussion in the Giants' 34-27 loss to the Saints on Sunday, Ryan Dunleavy of the New York Post reports."
+NYG,Tremaine Edmunds,Questionable,Shoulder
 NYG,Darnell Mooney,Questionable,Neck
 NYG,Greg Newsome II,Questionable,Concussion
 NYG,Abdul Carter,Active,"Carter (calf) is active for Sunday's game against the Saints, Dan Salomone of the team's official site reports."
@@ -598,7 +599,6 @@ NYG,J.C. Davis,Active,
 NYG,Bobby Jamison-Travis,Active,
 NYG,Devin Singletary,Active,
 NYG,Dominic Zvada,Active,Zvada went 2-for-5 on field-goal attempts and made all three of his extra-point tries during Sunday's 27-27 tie with the Commanders.
-NYG,Isaiah Likely,Active,Likely caught 11 of 13 targets for 94 yards and two touchdowns in Sunday's 27-27 tie against the Commanders.
 NYJ,Kiko Mauigoa,Questionable,Thigh
 NYJ,Omar Cooper Jr.,Active,Cooper (ankle) is active for Sunday's game against the Patriots.
 NYJ,Kenyon Sadiq,Active,Sadiq (concussion) is active for Sunday's game against the Patriots.
