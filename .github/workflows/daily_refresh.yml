@@ -29,12 +29,21 @@ jobs:
 
       - name: Run pipeline
         # All pipeline scripts + site/ live at the repo root.
+        run: python3 run_daily.py
+
+      - name: Fetch player prop prices
+        # Its own step so it always shows in the log. A failure here never stops the refresh.
+        continue-on-error: true
         env:
-          # Add this under Settings -> Secrets and variables -> Actions. Never put the key in a file.
+          # Settings -> Secrets and variables -> Actions -> New repository secret: ODDSPAPI_KEY
           ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
           # A manual run from the Actions tab always fetches prices, even on a non-game day.
           ODDS_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
-        run: python3 run_daily.py
+        run: |
+          python3 17_prop_odds.py
+          echo "--- status file ---"
+          cat site/data/nfl_2026_prop_odds_status.csv || true
+          ls -la site/data | grep -i prop || true
 
       - name: Commit refreshed CSVs
         run: |
