@@ -326,8 +326,8 @@ Christian Watson,GB,WR,Receiving TD,26,50,24
 Davis Mills,HOU,QB,Interceptions,26,50,24
 Brashard Smith,KC,RB,Receptions,26,50,24
 Pat Freiermuth,PIT,TE,Receiving TD,26,50,24
-Roman Wilson,PIT,WR,Receptions,26,50,24
 Brandon Johnson,PIT,WR,Receptions,26,50,24
+Roman Wilson,PIT,WR,Receptions,26,50,24
 Odell Beckham Jr.,MIN,WR,Receptions,575,600,25
 Cade Otton,TB,TE,Receptions,225,250,25
 Dontayvion Wicks,PHI,WR,Receptions,125,150,25
@@ -373,8 +373,8 @@ Jalen Brooks,ARI,WR,Receptions,23,50,27
 Kyle Monangai,CHI,RB,Receptions,23,50,27
 Isaiah Bond,CLE,WR,Receptions,23,50,27
 Sam LaPorta,DET,TE,Receiving TD,23,50,27
-Drew Ogletree,IND,TE,Receptions,23,50,27
 Will Mallory,IND,TE,Receptions,23,50,27
+Drew Ogletree,IND,TE,Receptions,23,50,27
 Trevor Lawrence,JAX,QB,Rush TD,23,50,27
 Justin Fields,KC,QB,Rush TD,23,50,27
 Jordan Addison,MIN,WR,Receiving TD,23,50,27
@@ -400,7 +400,6 @@ De'Von Achane,MIA,RB,Rush TD,22,50,28
 Jauan Jennings,MIN,WR,Receiving TD,22,50,28
 Hollywood Brown,PHI,WR,Receptions,371,400,29
 Ameer Abdullah,JAX,RB,Receptions,221,250,29
-Marquez Valdes-Scantling,LAC,WR,Receptions,221,250,29
 Davante Adams,LAR,WR,Receiving TD,121,150,29
 Colston Loveland,CHI,TE,Receptions,71,100,29
 Xavier Hutchinson,HOU,WR,Receptions,71,100,29
@@ -411,7 +410,6 @@ Cooper Rush,ATL,QB,Pass TD,21,50,29
 Brycen Tremayne,CAR,WR,Receptions,21,50,29
 Brevyn Spann-Ford,DAL,TE,Receptions,21,50,29
 Daniel Jones,IND,QB,Rush TD,21,50,29
-Marquez Valdes-Scantling,LAC,WR,Receiving TD,21,50,29
 Aaron Jones Sr.,MIN,RB,Receiving TD,21,50,29
 Noah Fant,NO,TE,Receiving TD,21,50,29
 Will Levis,NYJ,QB,Pass TD,21,50,29
@@ -476,7 +474,6 @@ Tyler Scott,LV,WR,Receptions,18,50,32
 Quentin Johnston,LAC,WR,Receiving TD,18,50,32
 Jake Browning,LAC,QB,Pass TD,18,50,32
 Terrance Ferguson,LAR,TE,Receptions,18,50,32
-Hassan Haskins,NE,RB,Receptions,18,50,32
 Jaxson Dart,NYG,QB,Pass TD,18,50,32
 Tim Patrick,NYJ,WR,Receiving TD,18,50,32
 Will Shipley,PHI,RB,Receptions,18,50,32
@@ -1048,7 +1045,6 @@ Skylar Thompson,BAL,QB,Pass Yards,721,1000,279
 Rico Dowdle,PIT,RB,Receiving Yards,718,1000,282
 John Bates,WSH,TE,Receiving Yards,718,1000,282
 Ty Chandler,NO,RB,Rush Yards,710,1000,290
-Marquez Valdes-Scantling,LAC,WR,Receiving Yards,3708,4000,292
 Jake Browning,LAC,QB,Pass Yards,2707,3000,293
 Patrick Mahomes,KC,QB,Rush Yards,2706,3000,294
 Daniel Jones,IND,QB,Pass Yards,18704,19000,296
@@ -1365,7 +1361,6 @@ Tom Kennedy,DET,WR,Receiving Yards,231,1000,769
 Rashid Shaheed,SEA,WR,Rush Yards,231,1000,769
 Tyler Badie,DEN,RB,Receiving Yards,230,1000,770
 Tommy DeVito,NE,QB,Rush Yards,229,1000,771
-Hassan Haskins,NE,RB,Rush Yards,229,1000,771
 Ian Thomas,LV,TE,Receiving Yards,1228,2000,772
 Tory Horton,SEA,WR,Receiving Yards,228,1000,772
 Charlie Woerner,ATL,TE,Receiving Yards,227,1000,773
@@ -1515,7 +1510,6 @@ Kyler Murray,MIN,QB,Pass Yards,21122,22000,878
 Will Shipley,PHI,RB,Receiving Yards,122,1000,878
 Ladd McConkey,LAC,WR,Receiving Yards,2121,3000,879
 Greg Dortch,BUF,WR,Rush Yards,119,1000,881
-Hassan Haskins,NE,RB,Receiving Yards,119,1000,881
 Jadarian Price,SEA,RB,Rush Yards,119,1000,881
 Jalen Nailor,LV,WR,Receiving Yards,1118,2000,882
 Bub Means,CLE,WR,Receiving Yards,118,1000,882
@@ -1673,7 +1667,6 @@ Rasheen Ali,BAL,RB,Rush Yards,55,1000,945
 Matthew Golden,GB,WR,Rush Yards,55,1000,945
 Jonathan Ward,BAL,RB,Receiving Yards,52,1000,948
 Jonathon Brooks,CAR,RB,Rush Yards,52,1000,948
-Marquez Valdes-Scantling,LAC,WR,Rush Yards,52,1000,948
 Jaylen Wright,MIA,RB,Receiving Yards,52,1000,948
 Arian Smith,NYJ,WR,Receiving Yards,52,1000,948
 Julius Chestnut,TEN,RB,Receiving Yards,52,1000,948
@@ -1748,8 +1741,8 @@ Christian Kirk,SF,WR,Pass Yards,32,1000,968
 Corey Kiner,NE,RB,Receiving Yards,31,1000,969
 Tyler Warren,IND,TE,Receiving Yards,1030,2000,970
 Darren Waller,CAR,TE,Rush Yards,30,1000,970
-Kene Nwangwu,NYJ,RB,Receiving Yards,30,1000,970
 Omar Cooper Jr.,NYJ,WR,Receiving Yards,30,1000,970
+Kene Nwangwu,NYJ,RB,Receiving Yards,30,1000,970
 Reggie Virgil,ARI,WR,Receiving Yards,29,1000,971
 LaJohntay Wester,BAL,WR,Receiving Yards,29,1000,971
 Isaiah Bond,CLE,WR,Rush Yards,29,1000,971
