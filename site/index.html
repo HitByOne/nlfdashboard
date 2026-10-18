@@ -312,6 +312,11 @@
     background:var(--panel);
   }
   thead th:hover{color:var(--chalk);}
+  .tbl-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 6px;font-family:var(--mono);font-size:11.5px;color:var(--chalk-dim);}
+  .tbl-bar input,.tbl-bar select{background:var(--panel);color:var(--chalk);border:1px solid var(--hash);border-radius:4px;padding:4px 7px;font-family:var(--mono);font-size:11.5px;}
+  .tbl-bar input{width:190px;max-width:100%;}
+  .tbl-bar button{background:transparent;color:var(--chalk-dim);border:1px solid var(--hash);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:11px;cursor:pointer;}
+  .tbl-bar .tbl-count{margin-left:auto;}
   thead th.sorted::after{content:' ▾';font-size:10px;}
   thead th.sorted-asc::after{content:' ▴';font-size:10px;}
   tbody td{padding:7px 10px;border-bottom:1px solid var(--hash-line);white-space:nowrap;color:var(--chalk);}
@@ -562,6 +567,7 @@
       <div class="tab-group-label">Picks &amp; Tools</div>
       <button data-tab="picks">Best Picks</button>
       <button data-tab="backtest">Backtest</button>
+      <button data-tab="restload">Schedule Load</button>
       <button data-tab="propprices">Prop Prices</button>
       <button data-tab="predictions">Predictions</button>
       <button data-tab="mikes">Mike's Template</button>
@@ -1217,16 +1223,23 @@ function ticketOutcome(list, meta){
 
 
 // ---- Prop Prices tab ----
+function propStatusHtml(){
+  const st = (DATA.propStatus || [])[0];
+  if(!st) return '<div class="line-note">The price step has not reported yet. It writes a status line each time it really tries; if this stays empty after a manual run from the Actions tab, the new <code>run_daily.py</code> or <code>17_prop_odds.py</code> is not in the repo root.</div>';
+  const ok = st.outcome === 'ok';
+  return `<div class="player-preview-stats" style="border-left:3px solid ${ok ? 'var(--mint)' : 'var(--gold)'};padding-left:10px;"><b>Last attempt:</b> ${frEsc(st.ran_at)} &middot; <b style="color:${ok ? 'var(--mint)' : 'var(--gold)'};">${frEsc(st.outcome)}</b><br>${frEsc(st.detail)}</div>`;
+}
 function renderPropPrices(){
   if(!propHasData()){
     return `<div class="panel"><div class="panel-title">Prop Prices</div>
       <div class="panel-note">No prop prices loaded yet. They come from your OddsPapi script (<code>17_prop_odds.py</code>), which the daily refresh runs on
       Thursdays and Sundays so the free 250 requests a month last. Set up once: (1) add your key as a GitHub secret named <b>ODDSPAPI_KEY</b>
       (Settings, Secrets and variables, Actions) and never put it in a file, (2) upload the new <code>17_prop_odds.py</code>, <code>run_daily.py</code> and
-      <code>daily_refresh.yml</code>, (3) run the workflow from the Actions tab (a manual run always fetches). Props often post late in the week, so an early run can come back empty.</div></div>`;
+      <code>daily_refresh.yml</code>, (3) run the workflow from the Actions tab (a manual run always fetches). Props often post late in the week, so an early run can come back empty.</div>${propStatusHtml()}</div>`;
   }
   return `<div class="panel"><div class="panel-title">Prop Prices</div>
     <div class="panel-note" id="pp-note"></div>
+    ${propStatusHtml()}
     <div class="controls">
       <label class="ctl-label">Stat <select id="pp-stat"><option value="">All</option></select></label>
       <label class="ctl-label">Game <select id="pp-game"><option value="">All</option></select></label>
@@ -1305,6 +1318,131 @@ function mountPropPrices(){
   draw();
 }
 
+
+// ---- Schedule Load: rest days and "3 games in X days" ----
+// For every team-game: rest = days since the previous game; span3 = days from two games ago to this game (a normal
+// run of three Sundays is 14; Sunday, Sunday, Thursday is 11). Dates come from the team-week file (played) and the
+// upcoming-matchups file (not played yet); scores from game_team_stats when it exists.
+let _restCache = {key:null, val:null};
+function restDay(s){
+  const str = String(s || '');
+  if(!str) return null;
+  const ts = str.length <= 10 ? Date.parse(str + 'T12:00:00Z') : Date.parse(str);
+  if(isNaN(ts)) return null;
+  // Kickoffs are stored in UTC; shift to US time so a Thursday night game stays a Thursday.
+  const d = new Date(str.length <= 10 ? ts : ts - 5 * 3600 * 1000);
+  return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000);
+}
+function restModel(){
+  const key = [DATA.teamWeek, DATA.week2, DATA.gameTeamStats];
+  if(_restCache.key && _restCache.key.every((k, i) => k === key[i])) return _restCache.val;
+  const scores = new Map();
+  (DATA.gameTeamStats || []).forEach(r => { if(r['Final Score'] !== undefined && r['Final Score'] !== '') scores.set(r['Game ID'] + '|' + r.Team, {pf:num(r['Final Score']), pa:num(r['Opponent Score'])}); });
+  const byTeam = {}, seen = new Set();
+  const push = (r, done) => {
+    const day = restDay(r.Date); if(day === null) return;
+    const id = r['Game ID'] + '|' + r.Team; if(seen.has(id)) return; seen.add(id);
+    const sc = done ? scores.get(id) : null;
+    (byTeam[r.Team] = byTeam[r.Team] || []).push({id:r['Game ID'], team:r.Team, opp:r.Opponent, week:num(r.Week), day, done, pf:sc ? sc.pf : null, pa:sc ? sc.pa : null, ha:r['Home/Away'] || ''});
+  };
+  (DATA.teamWeek || []).forEach(r => push(r, true));
+  (DATA.week2 || []).forEach(r => push(r, false));
+  const games = [];
+  Object.values(byTeam).forEach(list => {
+    list.sort((a, b) => a.day - b.day || a.week - b.week);
+    list.forEach((g, i) => {
+      g.rest = i > 0 ? g.day - list[i - 1].day : null;
+      g.span3 = i > 1 ? g.day - list[i - 2].day : null;
+      g.afterBye = g.rest !== null && g.rest >= 13;
+      g.thursday = new Date(g.day * 86400000).getUTCDay() === 4;
+      games.push(g);
+    });
+  });
+  // Record entering each game, from games with scores that were played earlier.
+  const rec = (team, beforeDay) => {
+    let w = 0, n = 0;
+    (byTeam[team] || []).forEach(g => { if(g.done && g.pf !== null && g.day < beforeDay){ n++; w += g.pf > g.pa ? 1 : (g.pf === g.pa ? 0.5 : 0); } });
+    return {w, n};
+  };
+  const lookup = {};
+  games.forEach(g => { lookup[g.id + '|' + g.team] = g; });
+  games.forEach(g => {
+    const o = rec(g.opp, g.day); g.oppN = o.n; g.oppPct = o.n ? o.w / o.n : null;
+    const og = lookup[g.id + '|' + g.opp]; g.oppRest = og ? og.rest : null; g.oppSpan3 = og ? og.span3 : null;
+  });
+  const val = {games, byTeam};
+  _restCache = {key, val};
+  return val;
+}
+function restTier(span3, thr){ return span3 === null ? '' : (span3 <= thr ? 'compressed' : 'normal'); }
+function renderRest(){
+  return `<div class="panel"><div class="panel-title">Schedule Load</div>
+    <div class="panel-note">Tests the idea that a team playing <b>three games in about 12 days</b> (a Thursday game after two Sundays, or Monday, Sunday, Thursday) plays worse, especially against weak teams.
+    For every team-game it counts the days from two games ago to this one: 14 is a normal run of three Sundays, 11 is Sunday, Sunday, Thursday. Part one shows who is compressed this week. Part two
+    checks the idea on this season's finished games.</div>
+    <div class="controls"><label class="ctl-label">Count as compressed when the last three games fit in
+      <select id="rest-thr"><option value="11">11 days or fewer</option><option value="12" selected>12 days or fewer</option><option value="13">13 days or fewer</option></select></label></div>
+  </div>
+  <div class="panel" id="rest-upcoming"></div>
+  <div class="panel" id="rest-test"></div>`;
+}
+function mountRest(){
+  const thrEl = $('#rest-thr');
+  function draw(){
+    const thr = parseInt(thrEl.value, 10);
+    const {games} = restModel();
+    // ---- part 1: the upcoming slate ----
+    const up = games.filter(g => !g.done);
+    const wk = up.length ? Math.min(...up.map(g => g.week)) : null;
+    const slate = up.filter(g => g.week === wk);
+    const seenGame = new Set(), rows = [];
+    slate.forEach(g => { if(seenGame.has(g.id)) return; seenGame.add(g.id); const o = slate.find(x => x.id === g.id && x.team === g.opp); rows.push([g, o]); });
+    const cell = g => g ? `${g.rest === null ? '--' : g.rest + 'd rest'}${g.afterBye ? ' (bye)' : ''}${g.thursday ? ' &middot; Thu' : ''}<br><span style="color:var(--chalk-dim);">${g.span3 === null ? 'under 3 games' : '3 games in ' + g.span3 + 'd'}</span>` : '--';
+    const flag = g => g && g.span3 !== null && g.span3 <= thr ? ' <b style="color:var(--gold);">compressed</b>' : '';
+    $('#rest-upcoming').innerHTML = `<div class="panel-title">${wk ? 'Week ' + wk + ' slate' : 'Upcoming slate'}</div>` + (rows.length ? `<div class="table-scroll"><table><thead><tr><th>Game</th><th>Away</th><th>Home</th><th>Rest edge</th></tr></thead><tbody>${rows.map(([a, b]) => {
+      const away = a.ha === 'Away' ? a : b, home = a.ha === 'Away' ? b : a;
+      const edge = away && home && away.rest !== null && home.rest !== null ? home.rest - away.rest : null;
+      return `<tr><td>${away ? teamChip(away.team) : ''} @ ${home ? teamChip(home.team) : ''}</td><td>${cell(away)}${flag(away)}</td><td>${cell(home)}${flag(home)}</td>
+        <td>${edge === null ? '--' : edge === 0 ? 'even' : (edge > 0 ? teamName(home.team) : teamName(away.team)) + ' +' + Math.abs(edge) + 'd'}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No upcoming games loaded.</div>');
+    // ---- part 2: this season's finished games ----
+    const done = games.filter(g => g.done && g.pf !== null && g.span3 !== null && !g.afterBye);
+    const BAD = 0.4;
+    const bucket = (list) => {
+      const n = list.length, w = list.filter(g => g.pf > g.pa).length, l = list.filter(g => g.pf < g.pa).length;
+      const margin = n ? list.reduce((a, g) => a + (g.pf - g.pa), 0) / n : 0;
+      const bad = list.filter(g => g.oppPct !== null && g.oppN >= 2 && g.oppPct <= BAD);
+      const badLost = bad.filter(g => g.pf < g.pa).length;
+      return {n, w, l, margin, bad: bad.length, badLost, winPct: n ? w / n : 0};
+    };
+    const comp = bucket(done.filter(g => restTier(g.span3, thr) === 'compressed')), norm = bucket(done.filter(g => restTier(g.span3, thr) === 'normal'));
+    const pctTxt = (h, n) => { if(!n) return '--'; const [lo, hi] = btWilson(h, n); return `${Math.round(h / n * 100)}% <span style="color:var(--chalk-dim);">(${Math.round(lo * 100)}-${Math.round(hi * 100)}%)</span>`; };
+    const row = (label, b) => `<tr><td>${label}</td><td class="num">${b.n}</td><td class="num">${b.w}-${b.l}</td><td class="num">${pctTxt(b.w, b.n)}</td><td class="num">${b.n ? (b.margin >= 0 ? '+' : '') + b.margin.toFixed(1) : '--'}</td>
+      <td class="num">${b.bad}</td><td class="num">${b.bad ? b.badLost + ' (' + pctTxt(b.badLost, b.bad) + ')' : '--'}</td></tr>`;
+    // Does the rest edge matter on its own? Short rest against an opponent with 3+ more days.
+    const shortVs = done.filter(g => g.rest !== null && g.oppRest !== null && g.oppRest - g.rest >= 3), evenOrBetter = done.filter(g => g.rest !== null && g.oppRest !== null && g.oppRest - g.rest < 3);
+    const sv = bucket(shortVs), eb = bucket(evenOrBetter);
+    let verdict = '';
+    if(comp.n < 15) verdict = `Only ${comp.n} compressed team-games have finished so far, which is far too few to say anything either way. Check back as the season goes on.`;
+    else if(comp.n && norm.n){
+      const [cl, ch] = btWilson(comp.w, comp.n), [nl, nh] = btWilson(norm.w, norm.n);
+      const overlap = !(ch < nl || nh < cl);
+      verdict = overlap ? `Compressed teams are ${comp.w}-${comp.l} and rested teams ${norm.w}-${norm.l}. The ranges overlap, so this season's results do not separate the two groups.`
+        : `Compressed teams are ${comp.w}-${comp.l} against ${norm.w}-${norm.l} for rested teams, and the ranges do not overlap. That is worth watching, but one season is still a small sample.`;
+    }
+    $('#rest-test').innerHTML = `<div class="panel-title">Does it show up in this season's results?</div>
+      <div class="panel-note">Finished games only, from each team's third game on, leaving out games right after a bye. "Weak opponent" means the other team's record coming into that game was ${Math.round(BAD * 100)}% or worse after at least two games.
+      Ranges are 95% confidence ranges; wide ranges mean the sample is small.</div>
+      <div class="player-preview-stats"><b>Read:</b> ${verdict || 'Not enough finished games with scores yet. Scores come from the game stats file.'}</div>
+      <div class="table-scroll"><table><thead><tr><th>Group</th><th class="num">Games</th><th class="num">Record</th><th class="num">Win % (range)</th><th class="num">Avg margin</th><th class="num">Vs weak teams</th><th class="num">Lost to a weak team</th></tr></thead><tbody>
+        ${row('Compressed (' + thr + ' days or fewer)', comp)}${row('Normal (more than ' + thr + ' days)', norm)}</tbody></table></div>
+      <div class="table-scroll" style="margin-top:12px;"><table><thead><tr><th>Rest vs. opponent</th><th class="num">Games</th><th class="num">Record</th><th class="num">Win % (range)</th><th class="num">Avg margin</th><th class="num">Vs weak teams</th><th class="num">Lost to a weak team</th></tr></thead><tbody>
+        ${row('3+ fewer rest days than the opponent', sv)}${row('Even, or less than 3 days behind', eb)}</tbody></table></div>
+      <div class="line-note">Caveats: the teams that end up compressed are not a random sample (Thursday games go to particular teams), the same few games count twice (once for each side), and who the opponent is matters more than rest in most games. Treat this as a prompt to look, not a rule.</div>`;
+  }
+  thrEl.addEventListener('change', draw);
+  draw();
+}
+
 // Mirrors 07_milestone_watch.py's MILESTONE_STEP -- used to judge whether a
 // player is genuinely "close" to a milestone (within 20% of the step size)
 // rather than just eventually on track toward some future round number.
@@ -1349,6 +1487,7 @@ const CSV_FILES = {
   passLocation:    'data/nfl_2026_pass_location.csv',
   backtest:        'data/nfl_2026_backtest.csv',
   propOdds:        'data/nfl_2026_prop_odds.csv',
+  propStatus:      'data/nfl_2026_prop_odds_status.csv',
 };
 
 const TEAM_NAMES = {
@@ -7846,6 +7985,7 @@ const renderers = {
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
   anytimetd: {render: renderAnytimeTD, mount: mountAnytimeTD},
   propprices: {render: renderPropPrices, mount: mountPropPrices},
+  restload: {render: renderRest, mount: mountRest},
 };
 function showTab(tab){
   if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
@@ -7867,7 +8007,7 @@ async function loadCSV(path){
 // milestones.csv depends on an external nflverse download on top of ESPN,
 // so it's more prone to an occasional failure and shouldn't be able to
 // take down the whole dashboard just because it's missing or briefly broken.
-const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation', 'backtest', 'propOdds'];
+const OPTIONAL_CSV_KEYS = ['milestones', 'teamMilestones', 'injuries', 'epa', 'gameTeamStats', 'gameQbStats', 'redzone', 'coaching', 'lineTeam', 'linePlayers', 'lineInjuries', 'defenseRoster', 'defenseCoverage', 'passLocation', 'backtest', 'propOdds', 'propStatus'];
 async function loadCSVLenient(key, path){
   try {
     return await loadCSV(path);
@@ -7878,6 +8018,136 @@ async function loadCSVLenient(key, path){
     }
     throw err;
   }
+}
+
+
+// ---- Every table: click a header to sort, and a filter bar above it ----
+// buildTable() tables already sort; hand-built ones do not. This layer watches the page and gives all of them the same
+// behaviour, including tables added later. Filter: type words (all must match), pick one column, or use > < >= <= = with a number
+// (for example ">60" on the Pass Yards column). Tables with merged header cells or detail rows are left alone.
+const TBL_MIN_ROWS_FOR_FILTER = 6;
+function tblCellNum(txt){
+  const m = String(txt).replace(/,/g, '').match(/^\s*([+-]?)\$?\s*(\d+\.?\d*|\.\d+)/);
+  return m ? parseFloat((m[1] === '-' ? '-' : '') + m[2]) : null;
+}
+function tblDataRows(table){
+  const tb = table.tBodies[0];
+  return tb ? [...tb.rows].filter(r => !r.querySelector('td[colspan]')) : [];
+}
+function tblHeaderCells(table){
+  const head = table.tHead && table.tHead.rows.length ? table.tHead.rows[table.tHead.rows.length - 1] : null;
+  return head ? [...head.cells] : [];
+}
+function tblEligible(table){
+  if(table.closest('.game-stats-table, .df-detail, [data-no-enhance]')) return false;
+  if(table.parentElement && table.parentElement.closest('table')) return false;
+  const ths = tblHeaderCells(table);
+  if(ths.length < 2 || ths.some(th => th.colSpan > 1 || th.rowSpan > 1)) return false;
+  const rows = tblDataRows(table);
+  if(rows.length < 2) return false;
+  if(rows.some(r => r.cells.length !== ths.length)) return false;
+  return true;
+}
+function tblApplyFilter(table, bar){
+  const q = bar.querySelector('input').value.trim().toLowerCase(), col = bar.querySelector('select').value;
+  const ci = col === '' ? -1 : parseInt(col, 10);
+  const tokens = q ? q.split(/\s+/) : [];
+  const rows = tblDataRows(table);
+  let shown = 0;
+  rows.forEach(r => {
+    const cells = [...r.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim());
+    const ok = tokens.every(tok => {
+      const m = tok.match(/^(>=|<=|>|<|=)(-?\d+\.?\d*)$/);
+      if(m){
+        const v = parseFloat(m[2]), test = n => n !== null && (m[1] === '>' ? n > v : m[1] === '<' ? n < v : m[1] === '>=' ? n >= v : m[1] === '<=' ? n <= v : n === v);
+        return ci >= 0 ? test(tblCellNum(cells[ci])) : cells.some(c => test(tblCellNum(c)));
+      }
+      return (ci >= 0 ? cells[ci] : cells.join(' ')).toLowerCase().includes(tok);
+    });
+    r.style.display = ok ? '' : 'none';
+    if(ok) shown++;
+  });
+  const cnt = bar.querySelector('.tbl-count');
+  if(cnt) cnt.textContent = tokens.length ? `${shown} of ${rows.length} rows` : `${rows.length} rows`;
+}
+function tblMakeBar(table, container){
+  const rows = tblDataRows(table);
+  const bar = document.createElement('div');
+  bar.className = 'tbl-bar';
+  bar.innerHTML = `<select title="Filter on one column, or all"></select><input type="text" placeholder="Filter rows... (or >60)" aria-label="Filter rows"><button type="button" title="Clear the filter">Clear</button><span class="tbl-count"></span>`;
+  bar._table = table; bar._for = container || table;
+  const fill = t => {
+    const sel = bar.querySelector('select'), prev = sel.value;
+    sel.innerHTML = '<option value="">All columns</option>' + tblHeaderCells(t).map((th, i) => ({i, name: th.textContent.replace(/\s+/g, ' ').trim()})).filter(o => o.name).map(o => `<option value="${o.i}">${frEsc(o.name)}</option>`).join('');
+    if(prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+  };
+  fill(table);
+  bar.refresh = t => { bar._table = t; fill(t); tblApplyFilter(t, bar); };
+  bar.querySelector('input').addEventListener('input', () => tblApplyFilter(bar._table, bar));
+  bar.querySelector('select').addEventListener('change', () => tblApplyFilter(bar._table, bar));
+  bar.querySelector('button').addEventListener('click', () => { bar.querySelector('input').value = ''; tblApplyFilter(bar._table, bar); });
+  tblApplyFilter(table, bar);
+  return bar;
+}
+function tblMakeSortable(table){
+  const ths = tblHeaderCells(table);
+  ths.forEach((th, ci) => {
+    th.setAttribute('data-enh-sort', '1'); th.style.cursor = 'pointer'; th.title = th.title || 'Click to sort';
+    th.addEventListener('click', () => {
+      const rows = tblDataRows(table);
+      const vals = rows.map(r => r.cells[ci].textContent.replace(/\s+/g, ' ').trim());
+      const nums = vals.map(tblCellNum), filled = vals.filter(v => v !== '' && v !== '--' && v !== '-').length;
+      const numeric = filled > 0 && nums.filter(n => n !== null).length >= 0.7 * filled;
+      const was = th.classList.contains('sorted') ? 'desc' : th.classList.contains('sorted-asc') ? 'asc' : '';
+      const dir = was ? (was === 'desc' ? 'asc' : 'desc') : (numeric ? 'desc' : 'asc');
+      ths.forEach(x => x.classList.remove('sorted', 'sorted-asc'));
+      th.classList.add(dir === 'asc' ? 'sorted-asc' : 'sorted');
+      const order = rows.map((r, i) => ({r, i, v: vals[i], n: nums[i]}));
+      const empty = o => o.v === '' || o.v === '--' || o.v === '-';
+      order.sort((a, b) => {
+        if(empty(a) !== empty(b)) return empty(a) ? 1 : -1;       // blanks always last
+        let c;
+        if(numeric){ c = (a.n === null ? -Infinity : a.n) - (b.n === null ? -Infinity : b.n); if(!isFinite(c)) c = a.n === b.n ? 0 : (a.n === null ? -1 : 1); }
+        else c = a.v.localeCompare(b.v, undefined, {numeric: true, sensitivity: 'base'});
+        if(c === 0) return a.i - b.i;
+        return dir === 'asc' ? c : -c;
+      });
+      const tb = table.tBodies[0];
+      const anchor = rows.length ? rows[rows.length - 1].nextSibling : null;
+      order.forEach(o => tb.insertBefore(o.r, anchor));
+    });
+  });
+}
+function enhanceTables(root){
+  // Drop filter bars whose table has gone.
+  (root || document).querySelectorAll('.tbl-bar').forEach(b => { if(!b._for || !b._for.isConnected) b.remove(); });
+  (root || document).querySelectorAll('table').forEach(table => {
+    if(table.dataset.enh) return;
+    if(!tblEligible(table)) return;   // not cached: rows may arrive later, and checking again is cheap
+    const ths = tblHeaderCells(table);
+    const built = ths.some(th => th.hasAttribute('data-key'));          // made by buildTable: already sortable
+    const scroll = table.closest('.table-scroll');
+    const container = built && scroll ? scroll.parentElement : null;      // buildTable rewrites this element on every sort
+    if(container && container._tblBar && container._tblBar.isConnected){
+      table.dataset.enh = 'built'; container._tblBar.refresh(table); return;
+    }
+    table.dataset.enh = built ? 'built' : 'sort';
+    if(!built) tblMakeSortable(table);
+    if(tblDataRows(table).length >= TBL_MIN_ROWS_FOR_FILTER){
+      const bar = tblMakeBar(table, container);
+      const anchor = container || scroll || table;
+      anchor.parentNode.insertBefore(bar, anchor);
+      if(container) container._tblBar = bar;
+    }
+  });
+}
+let _tblTimer = null;
+function tblWatch(){
+  const target = document.getElementById('content');
+  if(!target || target._tblObs) return;
+  target._tblObs = new MutationObserver(() => { clearTimeout(_tblTimer); _tblTimer = setTimeout(() => { try { enhanceTables(target); } catch(e){ console.warn('table enhance', e); } }, 60); });
+  target._tblObs.observe(target, {childList:true, subtree:true});
+  enhanceTables(target);
 }
 
 async function init(){
@@ -7913,6 +8183,8 @@ async function init(){
   showTab(acctReadInvite() ? 'friends' : 'overview');
 }
 init();
+document.addEventListener('DOMContentLoaded', tblWatch);
+if(document.readyState !== 'loading') tblWatch();
 </script>
 </body>
 </html>
