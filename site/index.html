@@ -4615,6 +4615,30 @@ function bpResultHtml(g, floor, proj){
   return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b>${tag}${proj_}`;
 }
 
+// Kickoff window for Best Picks: converts the UTC kickoff to US Eastern and buckets it.
+function bpWindow(dateStr){
+  const d = new Date(dateStr);
+  if(isNaN(d)) return {key:'tbd', label:'Time to be set', order:9e15, time:''};
+  const parts = new Intl.DateTimeFormat('en-US', {timeZone:'America/New_York', weekday:'long', hour:'numeric', minute:'2-digit', hour12:false}).formatToParts(d);
+  const get = t => (parts.find(p => p.type === t) || {}).value;
+  const day = get('weekday');
+  const hr = parseInt(get('hour'), 10) % 24, mn = parseInt(get('minute'), 10);
+  const hh = hr + mn / 60;
+  const time = new Intl.DateTimeFormat('en-US', {timeZone:'America/New_York', hour:'numeric', minute:'2-digit'}).format(d) + ' ET';
+  let key, label;
+  if(day === 'Sunday'){
+    if(hh < 12){ key = 'sun-am'; label = 'Sunday Morning (international)'; }
+    else if(hh < 14.5){ key = 'sun-early'; label = 'Sunday Early Afternoon'; }
+    else if(hh < 19){ key = 'sun-late'; label = 'Sunday Late Afternoon'; }
+    else { key = 'sun-night'; label = 'Sunday Night'; }
+  } else if(day === 'Thursday' || day === 'Monday'){
+    const night = hh >= 17;
+    key = day.slice(0, 3).toLowerCase() + (night ? '-night' : '-day');
+    label = day + (night ? ' Night' : ' (daytime)');
+  } else { key = day.slice(0, 3).toLowerCase(); label = day; }
+  return {key, label, order:d.getTime(), time, day};
+}
+
 function renderPicks(){
   return `
   <div class="panel">
@@ -4640,6 +4664,9 @@ function renderPicks(){
       <div class="pill-group" id="bp-pos-pills">
         <span class="pill active" data-pos="">ALL</span><span class="pill" data-pos="QB">QB</span><span class="pill" data-pos="RB">RB</span><span class="pill" data-pos="WR">WR</span><span class="pill" data-pos="TE">TE</span>
       </div>
+    </div>
+    <div class="controls">
+      <div class="pill-group" id="bp-win-pills" title="Filter by when the game kicks off (US Eastern)"></div>
     </div>
     <div class="controls">
       <button class="save-pick-btn" id="bp-live-refresh">Refresh live grading</button>
@@ -4790,29 +4817,62 @@ function mountPicks(){
     $$('#bp-hist-pills .pill').forEach(pl => pl.addEventListener('click', () => { histWeek = parseInt(pl.dataset.w, 10); renderRecord(allShown); }));
   }
 
+  // Windows, in kickoff order. Each game is tagged with its window.
+  const winMap = new Map();
+  gameList.forEach(g => {
+    g.win = bpWindow(g.date);
+    if(!winMap.has(g.win.key)) winMap.set(g.win.key, {key:g.win.key, label:g.win.label, order:g.win.order, time:g.win.time, games:[]});
+    const w = winMap.get(g.win.key);
+    w.order = Math.min(w.order, g.win.order);
+    w.games.push(g);
+  });
+  const windows = [...winMap.values()].sort((x, y) => x.order - y.order);
+  let winFilter = '';
+  const winPills = $('#bp-win-pills');
+  if(winPills){
+    winPills.innerHTML = `<span class="pill active" data-win="">All windows</span>` + windows.map(w => `<span class="pill" data-win="${w.key}">${w.label} <span style="opacity:.6;">(${w.games.length})</span></span>`).join('');
+    $$('#bp-win-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+      $$('#bp-win-pills .pill').forEach(x => x.classList.remove('active'));
+      pl.classList.add('active'); winFilter = pl.dataset.win; apply();
+    }));
+  }
+
   function apply(){
     const startersOnly = bpMode();
     const all = [];
-    const sections = gameList.map(g => {
-      const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
-      const spreadText = g.sides.away.Spread || g.sides.home.Spread || '';
-      const a = bpPicksForGame(away, home, startersOnly, bpSpreadFor(away, spreadText)), h = bpPicksForGame(home, away, startersOnly, bpSpreadFor(home, spreadText));
-      const picks = [...a.picks, ...h.picks].filter(p => !posFilter || p.position === posFilter).sort((x, y) => y.score - x.score || y.edge - x.edge);
-      picks.forEach(p => all.push({...p, week}));
-      const spread = g.sides.away.Spread || g.sides.home.Spread || '';
-      const none = a.noLine + h.noLine;
-      return `<div class="log-pos-group" style="margin-bottom:20px;">
-        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spread}</span>` : ''}</div>
+    const winHtml = [];
+    windows.forEach(w => {
+      const wAll = [];
+      const sections = w.games.map(g => {
+        const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
+        const spreadText = g.sides.away.Spread || g.sides.home.Spread || '';
+        const a = bpPicksForGame(away, home, startersOnly, bpSpreadFor(away, spreadText)), h = bpPicksForGame(home, away, startersOnly, bpSpreadFor(home, spreadText));
+        const picks = [...a.picks, ...h.picks].filter(p => !posFilter || p.position === posFilter).sort((x, y) => y.score - x.score || y.edge - x.edge);
+        picks.forEach(p => { if(!winFilter || w.key === winFilter) all.push({...p, week}); wAll.push({...p, week}); });
+        const spread = g.sides.away.Spread || g.sides.home.Spread || '';
+        const none = a.noLine + h.noLine;
+        return `<div class="log-pos-group" style="margin-bottom:20px;">
+        <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spread}</span>` : ''} <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${g.win.day.slice(0, 3)} ${g.win.time}</span></div>
         ${picks.length ? `<div class="table-scroll"><table>${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
           : '<div class="empty" style="padding:8px 0;">No line where both sides agree for this game yet.</div>'}
         ${none && !posFilter ? `<div class="line-note">${none} starter${none === 1 ? '' : 's'} had no floor that both they and the defense clear.</div>` : ''}
       </div>`;
+      });
+      if(winFilter && w.key !== winFilter) return;
+      wAll.sort((x, y) => y.score - x.score || y.edge - x.edge);
+      const times = [...new Set(w.games.map(g => g.win.time))].join(' / ');
+      winHtml.push(`<div class="bp-window" style="margin-bottom:34px;">
+        <div class="panel-title" style="margin:0 0 4px;padding:8px 12px;border-left:4px solid var(--gold);background:var(--field-deep);">${w.label} <span style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);font-weight:400;">&middot; ${times} &middot; ${w.games.length} game${w.games.length === 1 ? '' : 's'} &middot; ${wAll.length} pick${wAll.length === 1 ? '' : 's'}</span></div>
+        ${wAll.length ? `<div class="log-pos-group" style="margin:10px 0 18px;"><div class="log-pos-label" style="font-size:13px;">Best in this window</div>
+          <div class="table-scroll"><table>${head}<tbody>${wAll.slice(0, 3).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : ''}
+        ${sections.join('')}
+      </div>`);
     });
     all.sort((x, y) => y.score - x.score || y.edge - x.edge);
     renderRecord(all);
-    topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across the slate</div>
+    topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across ${winFilter ? 'this window' : 'the slate'}</div>
         <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
-    container.innerHTML = sections.join('') || '<div class="empty">No picks yet.</div>';
+    container.innerHTML = winHtml.join('') || '<div class="empty">No picks yet.</div>';
     if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or widen the group with Everyone.</div>';
 
     $$('.save-pick-btn', $('#content')).forEach(btn => {
