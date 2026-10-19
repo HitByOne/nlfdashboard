@@ -255,19 +255,27 @@ def main():
     now = int(time.time())
     iso_from, iso_to = date.today().isoformat(), (date.today() + timedelta(days=DAYS_AHEAD + 1)).isoformat()
     fixtures = None
-    for attempt in ({"startTimeFrom": now - 3600, "startTimeTo": now + DAYS_AHEAD * 86400},   # epoch-seconds style
-                    {"from": iso_from, "to": iso_to},                                          # date style
-                    {}):                                                                       # no window; filter below
+    errors = []
+    styles = [("fixtures", {"sportId": sport_id, "tournamentId": tournament_id, "startTimeFrom": now - 3600, "startTimeTo": now + DAYS_AHEAD * 86400}),
+              ("fixtures", {"sportId": sport_id, "tournamentId": tournament_id, "from": iso_from, "to": iso_to}),
+              ("fixtures", {"sportId": sport_id, "tournamentId": tournament_id}),
+              ("fixtures", {"tournamentId": tournament_id}),
+              ("fixtures", {"sportId": sport_id}),
+              ("fixtures", {})]
+    for path, prm in styles:
         try:
-            fixtures = api_get("fixtures", sportId=sport_id, tournamentId=tournament_id, **attempt)
+            fixtures = api_get(path, **prm)
+            if isinstance(fixtures, dict):   # some wrappers nest the list
+                fixtures = next((v for v in fixtures.values() if isinstance(v, list)), [])
             break
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code in (401, 403, 429):
                 write_status("api error", f"/fixtures -> {e}", calls=calls_used)
                 return 1
-            print(f"[prop odds] /fixtures rejected {list(attempt)} ({e}); trying the next style")
+            errors.append(f"{sorted(prm)} -> {str(e)[:160]}")
+            print(f"[prop odds] /fixtures rejected {sorted(prm)} ({e}); trying the next style")
     if fixtures is None:
-        write_status("api error", "/fixtures was rejected with every parameter style. Send me the endpoint's code snippet from RapidAPI.", calls=calls_used)
+        write_status("api error", "/fixtures rejected every request. Errors: " + " | ".join(errors[:3]) + f" (host {RAPID_HOST if USE_RAPID else 'direct'}, sport {sport_id}, tournament {tournament_id})", calls=calls_used)
         return 1
     window_end = now + DAYS_AHEAD * 86400
     games = []
