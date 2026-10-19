@@ -4651,6 +4651,14 @@ function bpWindow(dateStr){
   return {key, label, order:d.getTime(), time, day};
 }
 
+// Book price for a Best Picks row: the floor "60+ yards" is Over 59.5 at the book. Hidden once the game is decided.
+function bpPriceCell(p, week){
+  if(!propHasData()) return '<span style="color:var(--chalk-dim);">--</span>';
+  const g = bpGrade(p, week);
+  if(g && (g.final || g.status === 'HIT' || g.status === 'MISS')) return '<span style="color:var(--chalk-dim);">--</span>';
+  return propChipHtml({player:p.player, position:p.position, team:p.team, opponent:p.opponent, stat:p.stat, threshold:p.floor, week});
+}
+
 function renderPicks(){
   return `
   <div class="panel">
@@ -4750,6 +4758,7 @@ function mountPicks(){
         <td style="font-weight:700;color:var(--gold);">${p.floor}+ ${p.stat}</td>
         <td class="num" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
         <td class="num">${p.pj.line.toFixed(1)}</td>
+        <td style="white-space:nowrap;">${bpPriceCell(p, week)}</td>
         <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), p.floor, p.pj.proj)}</td>
         <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
         <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
@@ -4758,12 +4767,12 @@ function mountPicks(){
         <td class="num" style="font-weight:700;color:${scoreColor};">${pct(p.score)}</td>
         <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.stat}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${p.stat} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.proj)}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
       </tr>`;
-    const detail = open ? `<tr class="def-detail-row"><td colspan="14" style="background:var(--field-deep);padding:10px 16px;">
+    const detail = open ? `<tr class="def-detail-row"><td colspan="15" style="background:var(--field-deep);padding:10px 16px;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
         ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
     return row + detail;
   }
-  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th>Live / result</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
+  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th title="Best price across your books for this pick's floor (over floor minus a half). Grey = that exact line is not posted, nearest line shown.">Book price</th><th>Live / result</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
 
   let histWeek = null;
   function renderRecord(allShown){
