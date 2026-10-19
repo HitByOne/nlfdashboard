@@ -522,6 +522,34 @@
   footer{text-align:center;padding:30px 0 10px;font-family:var(--mono);font-size:11px;color:var(--hash);}
   .bp-t th, .bp-t td{padding:5px 8px;font-size:12.5px;}
   .bp-t th{white-space:nowrap;}
+  /* Prop Prices: sportsbook-style board */
+  .pp-board{display:flex;flex-direction:column;gap:16px;}
+  .pp-game{border:1px solid var(--panel-border);border-radius:8px;overflow:hidden;background:var(--panel);}
+  .pp-game-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 14px;background:var(--field-deep);border-bottom:1px solid var(--panel-border);}
+  .pp-game-title{font-weight:700;font-size:15px;color:var(--chalk);}
+  .pp-game-time{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);}
+  .pp-cols{display:grid;grid-template-columns:minmax(140px,1.3fr) 1fr 1fr;gap:10px;padding:6px 14px;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--chalk-dim);border-bottom:1px solid var(--panel-border);}
+  .pp-row{display:grid;grid-template-columns:minmax(140px,1.3fr) 1fr 1fr;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--panel-border);}
+  .pp-cols + .pp-row{border-top:none;}
+  .pp-name{font-weight:700;font-size:14px;color:var(--chalk);line-height:1.25;}
+  .pp-sub{font-size:11px;color:var(--chalk-dim);font-weight:400;}
+  .pp-alt-tag{font-size:10px;color:var(--chalk-dim);border:1px solid var(--panel-border);border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:middle;}
+  .pp-btns{display:flex;gap:6px;}
+  .pp-btn{flex:1;min-width:64px;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 6px 6px;background:var(--field-deep);border:1px solid var(--panel-border);border-radius:6px;line-height:1.15;}
+  .pp-btn i{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.8px;}
+  .pp-btn i.fd{color:#4aa8ff;} .pp-btn i.dk{color:#53d337;} .pp-btn i.ot{color:var(--chalk-dim);}
+  .pp-btn em{font-style:normal;font-size:11px;color:var(--chalk-dim);}
+  .pp-btn b{font-size:15px;color:var(--chalk);font-variant-numeric:tabular-nums;}
+  .pp-btn.best{border-color:var(--gold);background:rgba(227,169,59,0.10);}
+  .pp-btn.best b{color:var(--gold);}
+  .pp-btn.off{opacity:.35;}
+  .pp-ana{grid-column:1 / -1;font-family:var(--mono);font-size:11px;color:var(--chalk-dim);padding-top:2px;}
+  .pp-ana b{color:var(--chalk);}
+  @media (max-width:700px){
+    .pp-cols{display:none;}
+    .pp-row{grid-template-columns:1fr 1fr;}
+    .pp-name{grid-column:1 / -1;}
+  }
 </style>
 </head>
 <body>
@@ -1277,12 +1305,12 @@ function renderPropPrices(){
   return `<div class="panel"><div class="panel-title">Prop Prices</div>
     <div class="panel-note" id="pp-note"></div>
     ${propStatusHtml()}
+    <div class="controls"><div class="pill-group" id="pp-stat-pills"></div></div>
     <div class="controls">
-      <label class="ctl-label">Stat <select id="pp-stat"><option value="">All</option></select></label>
-      <label class="ctl-label">Game <select id="pp-game"><option value="">All</option></select></label>
+      <label class="ctl-label">Game <select id="pp-game"><option value="">All games</option></select></label>
       <label class="ctl-label">Player <input type="text" id="pp-player" placeholder="search" style="width:150px;"></label>
-      <label class="ctl-label"><input type="checkbox" id="pp-main" checked> main lines only (hide alternate lines)</label>
-      <label class="ctl-label"><input type="checkbox" id="pp-est"> only lines the dashboard can estimate</label>
+      <label class="ctl-label"><input type="checkbox" id="pp-alt"> alternate lines</label>
+      <label class="ctl-label"><input type="checkbox" id="pp-ana"> show the app's read</label>
     </div>
     <div id="pp-table"></div></div>`;
 }
@@ -1293,8 +1321,8 @@ function mountPropPrices(){
   const fetched = all.map(r => r.fetched).filter(Boolean).sort().pop() || '';
   const unmapped = [...new Set(all.filter(r => !r.stat).map(r => r.market))];
   $('#pp-note').innerHTML = `${all.length.toLocaleString()} prices from ${books.map(b => PROP_BOOK_SHORT[b] || b).join(', ')}${fetched ? `, fetched ${fetched.replace('T', ' ').replace('Z', ' UTC')}` : ''}.
-    "Dashboard" is this app's own estimate for the Over (or Yes) from the player's season hit rate and the opponent's history, and "Gap" is that estimate minus the book's no-margin
-    price, pulled toward zero when only a few games sit behind the estimate (3 games count for less than half). <b>Read a gap as a question, not a signal:</b> books know about injuries, weather and game plans this app does not, so a big gap is more often the app being wrong than a bargain,
+    Gold = best price between the books. Turn on <b>show the app's read</b> to see this app's own estimate for the Over (or Yes), from the player's season hit rate and the opponent's history, and the gap to the book's no-margin
+    price, pulled toward zero when only a few games sit behind it. <b>Read a gap as a question, not a signal:</b> books know about injuries, weather and game plans this app does not, so a big gap is more often the app being wrong than a bargain,
     and a handful of games behind an estimate is thin. ${unmapped.length ? `<span style="color:var(--chalk-dim);">${unmapped.length} market types are not mapped to a stat and are ignored: ${unmapped.slice(0, 8).join('; ')}${unmapped.length > 8 ? '...' : ''}.</span>` : ''}`;
   const groups = new Map();
   all.forEach(r => {
@@ -1303,9 +1331,11 @@ function mountPropPrices(){
     const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
     const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
     const k = [slipNorm(r.player), r.stat, line, r.game].join('|');
-    if(!groups.has(k)) groups.set(k, {player: r.player, stat: r.stat, line, game: r.game, over: [], under: []});
+    if(!groups.has(k)) groups.set(k, {player: r.player, stat: r.stat, line, game: r.game, kickoff: r.kickoff, over: [], under: [], ob: {}, ub: {}});
     const g = groups.get(k);
     (r.ou === 'under' ? g.under : g.over).push({dec, book: r.book});
+    const bm = r.ou === 'under' ? g.ub : g.ob;
+    if(!bm[r.book] || dec > bm[r.book]) bm[r.book] = dec;
   });
   const lastRow = {};
   (DATA.playerGame || []).forEach(r => { const k = slipNorm(r.Player); if(!lastRow[k] || num(r.Week) >= num(lastRow[k].Week)) lastRow[k] = r; });
@@ -1326,7 +1356,7 @@ function mountPropPrices(){
     let nv = null;
     if(bo && bu){ const bk = g.over.find(o => g.under.some(u => u.book === o.book)); if(bk){ const u = g.under.find(x => x.book === bk.book); nv = (1 / bk.dec) / (1 / bk.dec + 1 / u.dec); } }
     const implied = bo ? (nv !== null ? nv : 1 / bo.dec) : null;
-    return {player:g.player, game:g.game, stat:g.stat, lineNum: g.line === null ? -1 : g.line, line: g.line === null ? 'Yes' : g.line,
+    return {player:g.player, game:g.game, kickoff:g.kickoff, ob:g.ob, ub:g.ub, team: lr ? lr.Team : '', pos: lr ? lr.Position : '', stat:g.stat, lineNum: g.line === null ? -1 : g.line, line: g.line === null ? 'Yes' : g.line,
       over: bo ? bo.dec : '', overTxt: bo ? `${propAmerican(bo.dec)} ${PROP_BOOK_SHORT[bo.book] || bo.book}` : '--', under: bu ? bu.dec : '', underTxt: bu ? `${propAmerican(bu.dec)} ${PROP_BOOK_SHORT[bu.book] || bu.book}` : '--',
       implied: implied === null ? '' : implied, est: est === null ? '' : est, n: n === null ? '' : n,
       // Few games behind an estimate say little, so the gap is pulled toward the book's price: weight n against 4 games of the book's view.
@@ -1343,26 +1373,61 @@ function mountPropPrices(){
     list.forEach(r => { if(score(r) < score(best)) best = r; });
     list.forEach(r => { r.main = (r === best); });
   });
-  const statSel = $('#pp-stat'), gameSel = $('#pp-game');
-  [...new Set(rows.map(r => r.stat))].sort().forEach(x => statSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  const statOrder = ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
+  const statRank = s => { const i = statOrder.indexOf(s); return s === 'Any TD' ? 99 : (i < 0 ? 50 : i); };
+  const stats = [...new Set(rows.map(r => r.stat))].sort((a, b) => statRank(a) - statRank(b) || a.localeCompare(b));
+  const statLabel = s => ({'Pass Yards':'Passing Yds', 'Pass + Rush Yards':'Pass + Rush Yds', 'Rush Yards':'Rushing Yds', 'Receiving Yards':'Receiving Yds', 'Receptions':'Receptions', 'Any TD':'Anytime TD'})[s] || s;
+  let curStat = stats[0] || '';
+  const statPills = $('#pp-stat-pills'), gameSel = $('#pp-game');
+  statPills.innerHTML = stats.map(s => `<span class="pill ${s === curStat ? 'active' : ''}" data-stat="${frEsc(s)}">${frEsc(statLabel(s))}</span>`).join('');
+  $$('#pp-stat-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    $$('#pp-stat-pills .pill').forEach(x => x.classList.remove('active'));
+    pl.classList.add('active'); curStat = pl.dataset.stat; draw();
+  }));
   [...new Set(rows.map(r => r.game))].sort().forEach(x => gameSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
-  const cols = [
-    {key:'player', label:'Player'}, {key:'stat', label:'Stat'}, {key:'lineNum', label:'Line', numeric:true, render:(v, r) => String(r.line)},
-    {key:'over', label:'Best over / yes', numeric:true, render:(v, r) => r.overTxt}, {key:'under', label:'Best under', numeric:true, render:(v, r) => r.underTxt},
-    {key:'implied', label:'Book %', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
-    {key:'est', label:'Dashboard', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
-    {key:'n', label:'Games', numeric:true, render:v => v === '' ? '--' : v},
-    {key:'gap', label:'Gap (thin samples shrunk)', numeric:true, render:v => v === '' ? '--' : `<span style="color:var(--chalk-dim);">${v >= 0 ? '+' : ''}${Math.round(v * 100)} pts</span>`},
-    {key:'game', label:'Game'},
-  ];
+  // Book columns: FanDuel and DraftKings first, then anything else that appears.
+  const bookOrder = ['fanduel', 'draftkings'];
+  const bookCols = [...new Set([...bookOrder, ...books])].filter(b => books.includes(b) || bookOrder.includes(b));
+  const bookTag = b => `<i class="${b === 'fanduel' ? 'fd' : b === 'draftkings' ? 'dk' : 'ot'}">${frEsc((PROP_BOOK_SHORT[b] || b).toUpperCase())}</i>`;
+  const btn = (map, book, label, bestDec) => {
+    const dec = map && map[book];
+    if(!dec) return `<span class="pp-btn off">${bookTag(book)}<em>${label}</em><b>--</b></span>`;
+    return `<span class="pp-btn ${dec === bestDec ? 'best' : ''}">${bookTag(book)}<em>${label}</em><b>${propAmerican(dec)}</b></span>`;
+  };
+  const side = (map, label) => {
+    const px = bookCols.map(b => (map && map[b]) || 0).filter(Boolean);
+    const best = px.length > 1 && Math.max(...px) > Math.min(...px) ? Math.max(...px) : 0;   // gold only when the books differ
+    return `<div class="pp-btns">${bookCols.map(b => btn(map, b, label, best)).join('')}</div>`;
+  };
   function draw(){
-    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#pp-player').value), onlyEst = $('#pp-est').checked, mainOnly = $('#pp-main').checked;
-    const list = rows.filter(r => (!mainOnly || r.main) && (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyEst || r.est !== ''));
-    $('#pp-table').innerHTML = '';
-    if(!list.length){ $('#pp-table').innerHTML = '<div class="empty">No lines match.</div>'; return; }
-    buildTable($('#pp-table'), cols, list, {defaultSort:'player', defaultDir:'asc', limit:500});
+    const gm = gameSel.value, q = slipNorm($('#pp-player').value), alt = $('#pp-alt').checked, ana = $('#pp-ana').checked;
+    const list = rows.filter(r => r.stat === curStat && (alt || r.main) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)));
+    const out = $('#pp-table'); out.innerHTML = '';
+    if(!list.length){ out.innerHTML = '<div class="empty">No lines match.</div>'; return; }
+    const byGame = new Map();
+    list.forEach(r => { if(!byGame.has(r.game)) byGame.set(r.game, {game:r.game, kickoff:r.kickoff, rows:[]}); byGame.get(r.game).rows.push(r); });
+    const games = [...byGame.values()].sort((a, b) => (new Date(a.kickoff).getTime() || 9e15) - (new Date(b.kickoff).getTime() || 9e15) || a.game.localeCompare(b.game));
+    const isTD = curStat === 'Any TD';
+    out.innerHTML = `<div class="pp-board">${games.map(g => {
+      const w = bpWindow(g.kickoff);
+      const when = w && w.day ? `${w.day.slice(0, 3)} ${w.time}` : '';
+      g.rows.sort((a, b) => b.lineNum - a.lineNum || a.player.localeCompare(b.player) || (b.main ? 1 : 0) - (a.main ? 1 : 0));
+      // With alternates on, keep each player's lines together (main line first), players ordered by their main line.
+      if(alt){
+        const mainLine = {}; g.rows.forEach(r => { if(r.main) mainLine[slipNorm(r.player)] = r.lineNum; });
+        g.rows.sort((a, b) => (mainLine[slipNorm(b.player)] || 0) - (mainLine[slipNorm(a.player)] || 0) || a.player.localeCompare(b.player) || a.lineNum - b.lineNum);
+      }
+      return `<div class="pp-game"><div class="pp-game-head"><span class="pp-game-title">${frEsc(g.game)}</span><span class="pp-game-time">${frEsc(when)}</span></div>
+        <div class="pp-cols"><span>Player</span><span>${isTD ? 'Yes' : 'Over'}</span><span>${isTD ? '' : 'Under'}</span></div>
+        ${g.rows.map(r => {
+          const lab = isTD ? 'YES' : 'O ' + r.line, labU = 'U ' + r.line;
+          const anaHtml = ana ? `<div class="pp-ana">${r.implied !== '' ? `Book ${isTD ? 'yes' : 'over'} <b>${Math.round(r.implied * 100)}%</b>` : ''}${r.est !== '' ? ` &middot; Dashboard <b>${Math.round(r.est * 100)}%</b> (${r.n} games) &middot; gap <b>${r.gap >= 0 ? '+' : ''}${Math.round(r.gap * 100)} pts</b>` : ' &middot; no estimate'}</div>` : '';
+          return `<div class="pp-row"><div class="pp-name">${frEsc(r.player)}${r.team ? ` <span class="pp-sub">${frEsc(r.pos)} &middot; ${frEsc(r.team)}</span>` : ''}${alt && !r.main && !isTD ? '<span class="pp-alt-tag">ALT</span>' : ''}</div>
+            ${side(r.ob, lab)}${isTD ? '<div></div>' : side(r.ub, labU)}${anaHtml}</div>`;
+        }).join('')}</div>`;
+    }).join('')}</div>`;
   }
-  [statSel, gameSel, $('#pp-est'), $('#pp-main')].forEach(el => el.addEventListener('change', draw));
+  [gameSel, $('#pp-alt'), $('#pp-ana')].forEach(el => el.addEventListener('change', draw));
   $('#pp-player').addEventListener('input', draw);
   draw();
 }
