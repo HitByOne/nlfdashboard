@@ -35,11 +35,18 @@ jobs:
         # Its own step so it always shows in the log. A failure here never stops the refresh.
         continue-on-error: true
         env:
-          # Settings -> Secrets and variables -> Actions -> New repository secret: ODDSPAPI_KEY
+          # Settings -> Secrets and variables -> Actions -> New repository secret: RAPIDAPI_KEY (your RapidAPI key)
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
           # A manual run from the Actions tab always fetches prices, even on a non-game day.
           ODDS_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
+          echo "--- files in repo root ---"
+          ls -1
+          F=$(find . -name '17_prop_odds*.py' -not -path './.git/*' | head -1)
+          echo "--- found script at: ${F:-NOT FOUND} ---"
+          if [ -z "$F" ]; then echo "17_prop_odds.py is not in the repo. Upload it to the main folder next to run_daily.py."; exit 1; fi
+          cp "$F" ./17_prop_odds.py 2>/dev/null || true
           python3 17_prop_odds.py
           echo "--- status file ---"
           cat site/data/nfl_2026_prop_odds_status.csv || true
@@ -51,7 +58,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add site/data
           git diff --staged --quiet || git commit -m "Daily data refresh"
-          git push
+          # If you uploaded files while this ran, pull them in first (our fresh data wins on any clash), then push.
+          git pull --rebase -X theirs origin main || true
+          git push || (sleep 5 && git pull --rebase -X theirs origin main && git push)
 
       - name: Upload site as Pages artifact
         uses: actions/upload-pages-artifact@v3
