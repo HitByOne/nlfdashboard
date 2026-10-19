@@ -569,6 +569,7 @@
       <button data-tab="backtest">Backtest</button>
       <button data-tab="restload">Schedule Load</button>
       <button data-tab="propprices">Prop Prices</button>
+      <button data-tab="booklines">Book Lines</button>
       <button data-tab="predictions">Predictions</button>
       <button data-tab="mikes">Mike's Template</button>
       <button data-tab="anytimetd">Anytime TD Props</button>
@@ -1330,6 +1331,139 @@ function mountPropPrices(){
   draw();
 }
 
+
+
+// ---- Book Lines: start from the line the book actually sets, then compare ----
+// Same price data as Prop Prices, but only each player's MAIN line (the one priced closest to even money), so you are looking at
+// the number the book is really offering rather than a low-paying floor. For every main line it shows the best over and under
+// prices, the book's no-margin chance of the over, this app's projection, and the app's own chance of the over. A "lean" appears
+// only when the two disagree by a few points, and it is a question to check (injury? weather? game plan?), not a signal.
+function blProjection(playerName, stat){
+  if(!BP_FLOORS[stat]) return null;
+  const key = slipNorm(playerName);
+  const games = (DATA.playerGame || []).filter(r => slipNorm(r.Player) === key);
+  if(games.length < BP_MIN_PLAYER_GAMES) return null;
+  const last = games.reduce((a, b) => num(b.Week) >= num(a.Week) ? b : a);
+  const team = last.Team, position = last.Position;
+  const wk = (DATA.week2 || []).find(r => r.Team === team);
+  if(!wk) return {team, position, opponent:'', vals: games.map(g => getStatValue(g, stat)), pj:null};
+  const opp = wk.Opponent;
+  const vals = games.map(g => getStatValue(g, stat));
+  const l3 = games.slice().sort((a, b) => num(a.Week) - num(b.Week)).slice(-3).map(g => getStatValue(g, stat));
+  const defRows = bpDefenseSamples(opp, position, bpMode(), team);
+  let pj = null;
+  if(defRows.length >= BP_MIN_DEF_SAMPLES){
+    const allowed = defRows.reduce((a, r) => a + getStatValue(r, stat), 0) / defRows.length;
+    const league = bpLeagueAvg(position, stat, bpMode());
+    const defGames = new Set((DATA.playerGame || []).filter(r => r.Opponent === opp).map(r => r.Week)).size;
+    const spreadText = (DATA.week2 || []).filter(r => r['Game ID'] === wk['Game ID']).map(r => r.Spread).find(Boolean) || '';
+    pj = bpProject(vals, l3.reduce((a, v) => a + v, 0) / l3.length, allowed, league, defGames, stat, bpSpreadFor(team, spreadText) || 0);
+  }
+  return {team, position, opponent: opp, vals, pj};
+}
+
+function renderBookLines(){
+  const head = `<div class="panel"><div class="panel-title">Book Lines</div>`;
+  if(!propHasData()) return head + `<div class="panel-note">No prop prices loaded yet. They come from the Prop Prices pull, so once that has data this tab fills in too.</div>${propStatusHtml()}</div>`;
+  return head + `
+    <div class="panel-note" id="bl-note"></div>
+    ${propStatusHtml()}
+    <div class="controls">
+      <label class="ctl-label">Stat <select id="bl-stat"><option value="">All</option></select></label>
+      <label class="ctl-label">Game <select id="bl-game"><option value="">All</option></select></label>
+      <label class="ctl-label">Player <input type="text" id="bl-player" placeholder="search" style="width:150px;"></label>
+      <label class="ctl-label"><input type="checkbox" id="bl-fair" checked> hide short prices (worse than -150)</label>
+      <label class="ctl-label"><input type="checkbox" id="bl-lean"> only lines with a lean</label>
+    </div>
+    <div id="bl-table"></div></div>`;
+}
+
+function mountBookLines(){
+  if(!propHasData()) return;
+  const all = DATA.propOdds;
+  const fetched = all.map(r => r.fetched).filter(Boolean).sort().pop() || '';
+  $('#bl-note').innerHTML = `Only the line the book sets for each player and stat (the one priced closest to even money; alternate lines are left out).
+    <b>Book over %</b> is the book's chance of the over with its margin removed. <b>Projection</b> is this app's estimate (season and last-3 form, scaled by how the opponent
+    defends that position). <b>Dashboard over %</b> is the app's own chance of clearing the line from the player's and the defense's history, and <b>Gap</b> is that minus the book's
+    number, pulled toward zero when only a few games sit behind it. <b>Lean</b> shows up only when the gap is 4 points or more, and <b>Lean price</b> is what the book pays on that side.
+    <b>Treat a lean as a question, not a signal:</b> books price in injuries, weather and game plans that box scores do not show, and a few games is a thin sample.
+    ${fetched ? `Prices fetched ${fetched.replace('T', ' ').replace('Z', ' UTC')}.` : ''}`;
+  const groups = new Map();
+  all.forEach(r => {
+    if(!r.stat || !r.ou || r.stat === 'Any TD') return;
+    if(String(r.active).toLowerCase() === 'false') return;
+    const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
+    const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
+    if(line === null || !isFinite(line)) return;
+    const k = [slipNorm(r.player), r.stat, line].join('|');
+    if(!groups.has(k)) groups.set(k, {player:r.player, stat:r.stat, line, game:r.game, over:[], under:[]});
+    (r.ou === 'under' ? groups.get(k).under : groups.get(k).over).push({dec, book:r.book});
+  });
+  const best = a => a.length ? a.reduce((x, y) => y.dec > x.dec ? y : x) : null;
+  const cand = [...groups.values()].map(g => ({g, bo:best(g.over), bu:best(g.under)}));
+  // Main line per player + stat: both sides posted beats one-sided, then the over and under closest to even.
+  const byPS = new Map();
+  cand.forEach(c => { const k = slipNorm(c.g.player) + '|' + c.g.stat; if(!byPS.has(k)) byPS.set(k, []); byPS.get(k).push(c); });
+  const mains = [];
+  byPS.forEach(list => {
+    const score = c => (c.bo && c.bu) ? Math.abs(1 / c.bo.dec - 1 / c.bu.dec) : 1 + Math.abs(((c.bo || c.bu).dec) - 1.91);
+    mains.push(list.reduce((a, b) => score(b) < score(a) ? b : a));
+  });
+  const rows = mains.map(({g, bo, bu}) => {
+    const pr = blProjection(g.player, g.stat);
+    const t = Number.isInteger(g.line) ? g.line + 1 : g.line + 0.5;
+    let est = null, n = null;
+    if(pr && pr.opponent){
+      const e = estimatePickProbability({player:g.player, position:pr.position, team:pr.team, opponent:pr.opponent, stat:g.stat, threshold:t});
+      if(e && e.playerRate.total >= 3){ est = e.probability; n = e.playerRate.total; }
+    }
+    let nv = null;
+    if(bo && bu){
+      const bk = g.over.filter(o => g.under.some(u => u.book === o.book)).sort((a, b) => b.dec - a.dec)[0];
+      if(bk){ const u = g.under.find(x => x.book === bk.book); nv = (1 / bk.dec) / (1 / bk.dec + 1 / u.dec); }
+    }
+    const implied = nv !== null ? nv : (bo ? 1 / bo.dec : null);
+    const gap = (est !== null && implied !== null) ? (n * est + 4 * implied) / (n + 4) - implied : null;
+    const lean = gap !== null && Math.abs(gap) >= 0.04 ? (gap > 0 ? 'Over' : 'Under') : '';
+    const lp = lean === 'Over' ? bo : lean === 'Under' ? bu : null;
+    const proj = pr && pr.pj ? pr.pj.proj : null;
+    const hit = pr ? `${pr.vals.filter(v => v > g.line).length}/${pr.vals.length}` : '';
+    const fmtP = p => p ? `${propAmerican(p.dec)} ${PROP_BOOK_SHORT[p.book] || p.book}` : '--';
+    return {player:g.player, team: pr ? pr.team : '', opp: pr ? pr.opponent : '', stat:g.stat, line:g.line, game:g.game,
+      over: bo ? bo.dec : '', overTxt: fmtP(bo), under: bu ? bu.dec : '', underTxt: fmtP(bu),
+      implied: implied === null ? '' : implied, proj: proj === null ? '' : proj, diff: proj === null ? '' : proj - g.line,
+      est: est === null ? '' : est, n: n === null ? '' : n, hit, gap: gap === null ? '' : gap, lean,
+      leanDec: lp ? lp.dec : '', leanTxt: lean ? fmtP(lp) : '--'};
+  });
+  const statSel = $('#bl-stat'), gameSel = $('#bl-game');
+  [...new Set(rows.map(r => r.stat))].sort().forEach(x => statSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  [...new Set(rows.map(r => r.game))].sort().forEach(x => gameSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  const cols = [
+    {key:'player', label:'Player'}, {key:'team', label:'Team'}, {key:'opp', label:'Opp'}, {key:'stat', label:'Stat'},
+    {key:'line', label:'Book line', numeric:true},
+    {key:'over', label:'Over', numeric:true, render:(v, r) => r.overTxt}, {key:'under', label:'Under', numeric:true, render:(v, r) => r.underTxt},
+    {key:'implied', label:'Book over %', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
+    {key:'proj', label:'Projection', numeric:true, render:v => v === '' ? '--' : fmt(v)},
+    {key:'diff', label:'Proj vs line', numeric:true, render:v => v === '' ? '--' : `<span style="color:${v >= 0 ? 'var(--mint)' : 'var(--red)'};">${v >= 0 ? '+' : ''}${fmt(v)}</span>`},
+    {key:'est', label:'Dashboard over %', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
+    {key:'hit', label:'Own games over', render:v => v || '--'},
+    {key:'gap', label:'Gap', numeric:true, render:v => v === '' ? '--' : `<span style="color:var(--chalk-dim);">${v >= 0 ? '+' : ''}${Math.round(v * 100)} pts</span>`},
+    {key:'lean', label:'Lean', render:v => v ? `<b style="color:var(--gold);">${v}</b>` : '<span style="color:var(--chalk-dim);">--</span>'},
+    {key:'leanDec', label:'Lean price', numeric:true, render:(v, r) => r.leanTxt},
+    {key:'game', label:'Game'},
+  ];
+  function draw(){
+    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#bl-player').value), fair = $('#bl-fair').checked, onlyLean = $('#bl-lean').checked;
+    const list = rows.filter(r => (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyLean || r.lean)
+      && (!fair || (r.lean ? r.leanDec >= 1.67 : ((r.over === '' || r.over >= 1.67) && (r.under === '' || r.under >= 1.67)))));
+    $('#bl-table').innerHTML = '';
+    if(!list.length){ $('#bl-table').innerHTML = '<div class="empty">No lines match.</div>'; return; }
+    buildTable($('#bl-table'), cols, list, {defaultSort:'gap', defaultDir:'desc', limit:500});
+  }
+  [statSel, gameSel, $('#bl-fair'), $('#bl-lean')].forEach(el => el.addEventListener('change', draw));
+  $('#bl-player').addEventListener('input', draw);
+  draw();
+}
 
 // ---- Schedule Load: rest days and "3 games in X days" ----
 // For every team-game: rest = days since the previous game; span3 = days from two games ago to this game (a normal
@@ -8066,6 +8200,7 @@ const renderers = {
   mikes: {render: renderMikesTemplate, mount: mountMikesTemplate},
   anytimetd: {render: renderAnytimeTD, mount: mountAnytimeTD},
   propprices: {render: renderPropPrices, mount: mountPropPrices},
+  booklines: {render: renderBookLines, mount: mountBookLines},
   restload: {render: renderRest, mount: mountRest},
 };
 function showTab(tab){
