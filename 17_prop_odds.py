@@ -31,7 +31,7 @@ from nfl_common import SEASON, PROCESSED_DIR
 RAPID_HOST = os.environ.get("ODDS_RAPIDAPI_HOST", "odds-api1.p.rapidapi.com").strip()
 USE_RAPID = bool(os.environ.get("RAPIDAPI_KEY", "").strip())
 BASE_URL = f"https://{RAPID_HOST}" if USE_RAPID else "https://v5.oddspapi.io/en"
-WANT_BOOKS = [b.strip() for b in os.environ.get("ODDS_BOOKS", "fanduel,draftkings,caesars,betmgm,betrivers,hardrockbet,espnbet,fanatics").split(",") if b.strip()]
+WANT_BOOKS = [b.strip() for b in os.environ.get("ODDS_BOOKS", "fanduel,draftkings").split(",") if b.strip()]
 DAYS_AHEAD = int(os.environ.get("ODDS_DAYS_AHEAD", "7"))
 RUN_DAYS = {int(x) for x in os.environ.get("ODDS_RUN_DAYS", "3,6").split(",") if x.strip().isdigit()}
 MIN_HOURS_BETWEEN_RUNS = 6
@@ -165,6 +165,8 @@ def build_rows(fixture_odds, markets, players, fetched):
     rows = []
     for game, kickoff, odds in fixture_odds:
         for book, quotes in (odds or {}).items():
+            if book not in WANT_BOOKS:      # only the books you asked for, even if the API sends more
+                continue
             for _k, q in (quotes or {}).items():
                 pid = q.get("playerId") or 0
                 if not pid:
