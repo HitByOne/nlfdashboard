@@ -156,35 +156,6 @@ def flip_name(name):
     return name
 
 
-def main_lines_only(rows):
-    """Keep one line per player and stat at each book (no alternate lines).
-    If the API flags main lines, trust the flag. Otherwise keep the line whose over and under prices are closest to even."""
-    if any(r.get("_main") is True for r in rows):
-        rows = [r for r in rows if r.get("_main") is not False]
-    else:
-        groups = {}
-        for r in rows:
-            if r["ou"] in ("over", "under") and r["line"] != "":
-                groups.setdefault((r["game"], r["book"], r["player"], r["stat"] or r["market"]), {}).setdefault(str(r["line"]), []).append(r)
-        keep = set()
-        for key, lines in groups.items():
-            def gap(item):
-                rs = item[1]
-                o = [float(x["decimal_odds"]) for x in rs if x["ou"] == "over" and x["decimal_odds"] not in (None, "")]
-                u = [float(x["decimal_odds"]) for x in rs if x["ou"] == "under" and x["decimal_odds"] not in (None, "")]
-                if o and u:
-                    return abs(o[0] - u[0])
-                return abs((o or u or [9.0])[0] - 1.91) + 1.0   # one-sided lines rank after two-sided ones
-            best = min(lines.items(), key=gap)[0]
-            for ln, rs in lines.items():
-                if ln == best:
-                    keep.update(id(x) for x in rs)
-        rows = [r for r in rows if r["ou"] not in ("over", "under") or r["line"] == "" or id(r) in keep]
-    for r in rows:
-        r.pop("_main", None)
-    return rows
-
-
 def build_rows(fixture_odds, markets, players, fetched):
     """fixture_odds: list of (game label, kickoff iso, odds dict book -> {key -> quote})."""
     outcome_names = {}
@@ -214,7 +185,9 @@ def build_rows(fixture_odds, markets, players, fetched):
                     "book": book, "active": bool(q.get("active", True) and q.get("marketActive", True)), "fetched": fetched,
                     "_main": q.get("mainLine"),
                 })
-    return main_lines_only([r for r in rows if r["player"]])
+    for r in rows:
+        r.pop("_main", None)
+    return [r for r in rows if r["player"]]
 
 
 def write_status(outcome, detail="", games="", rows="", calls=""):
@@ -332,13 +305,7 @@ def main():
         ts = start_epoch(g.get("startTime"))
         kickoff = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%MZ") if ts else ""
         try:
-            try:
-                data = api_get("fixtures/odds", fixtureId=g["fixtureId"], bookmakers=book_param, mainLine="true")   # main lines only, no alts
-            except requests.HTTPError as e:
-                if e.response is not None and e.response.status_code in (401, 403, 429):
-                    raise
-                print(f"  mainLine filter not accepted ({e}); asking without it and filtering here")
-                data = api_get("fixtures/odds", fixtureId=g["fixtureId"], bookmakers=book_param)
+            data = api_get("fixtures/odds", fixtureId=g["fixtureId"], bookmakers=book_param)   # all lines; the dashboard hides alternates
         except requests.HTTPError as e:
             print(f"  skipped {label} ({e})")
             continue
