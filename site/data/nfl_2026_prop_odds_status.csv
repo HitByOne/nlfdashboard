@@ -1,2 +1,2 @@
 ran_at,outcome,detail,games,rows,calls
-2026-10-19 00:03 UTC,api error,"/sports -> HTTP 401 on /sports: {""error"":401,""message"":""invalid apiKey"",""code"":""invalid_api_key""}. 401/403: the key is wrong or is a v4 key (v5 keys come from your oddspapi.io account). 429: request limit used up.",,,1
+2026-10-19 01:31 UTC,api error,/fixtures was rejected with every parameter style. Send me the endpoint's code snippet from RapidAPI.,,,6
