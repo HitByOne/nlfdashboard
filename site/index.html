@@ -190,6 +190,10 @@
     .tab-group-label{display:none;}
   }
 
+  .layout-switch{display:block;margin:10px 14px 4px;padding:7px 10px;font-size:12px;font-family:var(--mono);color:var(--gold);border:1px dashed var(--gold);border-radius:4px;text-decoration:none;text-align:center;}
+  .layout-switch:hover{background:rgba(227,169,59,0.08);}
+  @media (max-width:900px){.layout-switch{margin:4px 8px;white-space:nowrap;}}
+
   /* ---- Panels ---- */
   .panel{
     background:var(--panel);
@@ -539,6 +543,7 @@
 <div class="wrap">
   <div class="main-layout">
     <nav class="tabs" id="tabs">
+      <a class="layout-switch" href="new.html">Try the new layout &rarr;</a>
       <button data-tab="overview" class="active">Overview</button>
 
       <div class="tab-group-label">Games</div>
