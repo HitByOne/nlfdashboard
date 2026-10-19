@@ -520,6 +520,8 @@
   canvas{max-width:100%;}
   .empty{color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center;}
   footer{text-align:center;padding:30px 0 10px;font-family:var(--mono);font-size:11px;color:var(--hash);}
+  .bp-t th, .bp-t td{padding:5px 8px;font-size:12.5px;}
+  .bp-t th{white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -817,6 +819,35 @@ function propIndex(){
   return map;
 }
 function propHasData(){ return !!(DATA.propOdds && DATA.propOdds.length); }
+// The line the book itself sets for a player + stat (same rule as the Book Lines tab: both sides posted beats one-sided,
+// then the over and under priced closest to even). thr is the smallest result that beats it: Over 54.5 -> 55, Over 55 -> 56.
+let _propMain = {src:null, val:null};
+function propMainIndex(){
+  if(_propMain.src === DATA.propOdds && _propMain.val) return _propMain.val;
+  const groups = new Map();
+  (DATA.propOdds || []).forEach(r => {
+    if(!r.stat || !r.ou || r.stat === 'Any TD') return;
+    if(String(r.active).toLowerCase() === 'false') return;
+    const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
+    const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
+    if(line === null || !isFinite(line)) return;
+    const ps = slipNorm(r.player) + '|' + r.stat, k = ps + '|' + line;
+    if(!groups.has(k)) groups.set(k, {ps, line, over:[], under:[]});
+    (r.ou === 'under' ? groups.get(k).under : groups.get(k).over).push({dec, book:r.book});
+  });
+  const best = a => a.length ? a.reduce((x, y) => y.dec > x.dec ? y : x) : null;
+  const byPS = new Map();
+  groups.forEach(g => { if(!byPS.has(g.ps)) byPS.set(g.ps, []); byPS.get(g.ps).push({line:g.line, bo:best(g.over), bu:best(g.under)}); });
+  const out = new Map();
+  byPS.forEach((list, ps) => {
+    const score = c => (c.bo && c.bu) ? Math.abs(1 / c.bo.dec - 1 / c.bu.dec) : 1 + Math.abs(((c.bo || c.bu).dec) - 1.91);
+    const m = list.reduce((a, b) => score(b) < score(a) ? b : a);
+    out.set(ps, {line:m.line, thr:Math.floor(m.line) + 1, bo:m.bo, bu:m.bu});
+  });
+  _propMain = {src:DATA.propOdds, val:out};
+  return out;
+}
+function propMainFor(player, stat){ return propHasData() ? (propMainIndex().get(slipNorm(player) + '|' + stat) || null) : null; }
 const PROP_BOOK_SHORT = {fanduel:'FD', draftkings:'DK', caesars:'CZR', betrivers:'BR', thescore:'theScore', hardrockbet:'HR'};
 function propAmerican(dec){ return dec >= 2 ? '+' + Math.round((dec - 1) * 100) : String(Math.round(-100 / (dec - 1))); }
 function propWanted(pick){
@@ -4730,11 +4761,27 @@ function bpPicksForGame(offense, defense, startersOnly, spread){
 // live from ESPN while the games are on, then from the final box score. That is what keeps
 // the previous weeks' picks, and their results, after the page moves on to the next slate.
 const BP_HISTORY_KEY = 'nfl_dashboard_bestpicks_history';
-function bpHistGet(){ try { return JSON.parse(localStorage.getItem(BP_HISTORY_KEY) || '{}'); } catch(e){ return {}; } }
-function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} if(window.syncSchedule) syncSchedule(); }
+const BP_STAT_SHORT = {'Pass Yards':'pass yds', 'Rush Yards':'rush yds', 'Receiving Yards':'rec yds', 'Receptions':'rec', 'Pass + Rush Yards':'pass+rush yds'};
+let _bpHC = {raw:null, val:{}};
+function bpHistGet(){ try { const raw = localStorage.getItem(BP_HISTORY_KEY) || '{}'; if(raw === _bpHC.raw) return _bpHC.val; const v = JSON.parse(raw); _bpHC = {raw, val:v}; return v; } catch(e){ return {}; } }
+function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} _bpHC = {raw:null, val:{}}; if(window.syncSchedule) syncSchedule(); }
 function bpPickKey(p, week){ return `${week}|${p.team}|${p.player}|${p.stat}|${p.floor}`; }
+// Week of the slate on the page: book lines in the prop file belong to these games.
+function bpCurWeek(){ const r = (DATA.week2 || [])[0]; return r ? String(r.Week) : ''; }
+// What a pick is graded against. The book's own line when there is one (a pick HITS when the player goes over it), saved with the
+// pick so it stays put once the game starts; otherwise the floor, as before.
+function bpLine(p, week){
+  const e = bpHistGet()[bpPickKey(p, week)];
+  if(e && typeof e.bookThr === 'number') return {thr:e.bookThr, line:e.bookLine, book:true, over: typeof e.bookOver === 'number' ? {dec:e.bookOver, book:e.bookBook} : null};
+  if(String(week) === bpCurWeek()){
+    const m = propMainFor(p.player, p.stat);
+    if(m) return {thr:m.thr, line:m.line, book:true, over: m.bo ? {dec:m.bo.dec, book:m.bo.book} : null};
+  }
+  return {thr:p.floor, line:null, book:false, over:null};
+}
+function bpLineLabel(p, week){ const L = bpLine(p, week); return L.book ? 'o' + L.line : p.floor + '+'; }
 function bpGrade(p, week){
-  return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:p.floor, finalStat:p.finalStat, finalActual:p.finalActual});
+  return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:bpLine(p, week).thr, finalStat:p.finalStat, finalActual:p.finalActual});
 }
 // Save this week's picks the first time they are seen; graded results are written back too.
 function bpSnapshot(allPicks){
@@ -4752,18 +4799,25 @@ function bpSnapshot(allPicks){
     const e = h[k];
     if(typeof e.finalActual === 'number') return;
     const g = bpGrade(e, e.week);
-    if(g && g.final && g.persist && typeof g.actual === 'number'){ e.finalActual = g.actual; e.finalStat = e.stat; changed = true; }
+    // Save the book's line with the pick: it follows the book until kickoff, then stays fixed.
+    const m = String(e.week) === bpCurWeek() ? propMainFor(e.player, e.stat) : null;
+    if(m && (typeof e.bookThr !== 'number' || (g && g.status === 'PENDING' && m.thr !== e.bookThr))){
+      e.bookThr = m.thr; e.bookLine = m.line;
+      if(m.bo){ e.bookOver = m.bo.dec; e.bookBook = m.bo.book; } else { delete e.bookOver; delete e.bookBook; }
+      changed = true;
+    }
+    const g2 = bpGrade(e, e.week);
+    if(g2 && g2.final && g2.persist && typeof g2.actual === 'number'){ e.finalActual = g2.actual; e.finalStat = e.stat; changed = true; }
   });
   if(changed) bpHistSave(h);
   return h;
 }
-function bpResultHtml(g, floor, proj){
+function bpResultHtml(g, label){
   if(!g || g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Not started</span>';
-  const proj_ = proj !== undefined ? ` <span style="color:var(--chalk-dim);">(proj ${fmt(proj)})</span>` : '';
-  if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${floor}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
+  if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${label}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
   const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
   const tag = g.live ? ' <span style="color:var(--chalk-dim);">live</span>' : (g.fromLive && !g.persist ? ' <span style="color:var(--chalk-dim);" title="ESPN lists only players who recorded a stat, so this is counted as 0 until the daily data confirms it">not in box</span>' : '');
-  return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b>${tag}${proj_}`;
+  return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b> <span style="color:var(--chalk-dim);">vs ${label}</span>${tag}`;
 }
 
 // Kickoff window for Best Picks: converts the UTC kickoff to US Eastern and buckets it.
@@ -4790,12 +4844,15 @@ function bpWindow(dateStr){
   return {key, label, order:d.getTime(), time, day};
 }
 
-// Book price for a Best Picks row: the floor "60+ yards" is Over 59.5 at the book. Hidden once the game is decided.
+// Book line for a Best Picks row: the line the book sets for this player and stat, with the best over price. The pick is graded
+// against it (Over 54.5 hits at 55 or more). Grey "no line" = nothing posted yet, so the floor is used.
 function bpPriceCell(p, week){
   if(!propHasData()) return '<span style="color:var(--chalk-dim);">--</span>';
-  const g = bpGrade(p, week);
-  if(g && (g.final || g.status === 'HIT' || g.status === 'MISS')) return '<span style="color:var(--chalk-dim);">--</span>';
-  return propChipHtml({player:p.player, position:p.position, team:p.team, opponent:p.opponent, stat:p.stat, threshold:p.floor, week});
+  const L = bpLine(p, week);
+  if(!L.book) return `<span style="color:var(--chalk-dim);" title="No book line posted for this player yet. Graded against the floor (${p.floor}+).">no line</span>`;
+  const o = L.over, bk = o ? (PROP_BOOK_SHORT[o.book] || o.book) : '';
+  const tip = `The book's line for this stat is ${L.line}. This pick is graded as Over ${L.line} (${L.thr}+)${L.thr === p.floor ? ', the same as the floor' : ', the floor is ' + p.floor + '+'}.${o ? ' Best over price ' + propAmerican(o.dec) + ' at ' + bk + '.' : ''}`;
+  return `<b title="${tip}">o${L.line}</b>${o ? ` <span style="color:var(--chalk-dim);">${propAmerican(o.dec)} ${bk}</span>` : ''}`;
 }
 
 function renderPicks(){
@@ -4810,9 +4867,10 @@ function renderPicks(){
       passes both, so it's the real overlap, not an easy number. Next to it is a <b>projection</b>, how many the
       player should get: his season and last-3 average, scaled by how this defense treats starters compared with the league
       (shrunk toward neutral until the defense has 6 games, and capped), plus a small game-script nudge from the spread
-      (favorites run more, underdogs throw more). The likely range is the middle half of outcomes, and the
-      book-style line is the projection rounded to a half. Hover a projection to see the factors. It is an estimate
-      built from this season's box scores, not a real sportsbook line. Touchdowns are on the Anytime TD tab. Out / Doubtful
+      (favorites run more, underdogs throw more). The likely range is the middle half of outcomes. Hover a projection to see the factors.
+      <b>Book line</b> is the line the sportsbook sets for that player and stat, with the best over price, and
+      <b>each pick is graded against that line</b>: it hits when the player goes over it. If no book line is posted yet,
+      the floor is used instead. The line locks once the game starts. Touchdowns are on the Anytime TD tab. Out / Doubtful
       players are skipped, and the next starter moves up. Starters are ranked by usage this season, so
       treat early weeks with care. The buttons switch who is checked: <b>Starters</b>, the <b>Top 5 at position</b> (only the five busiest players in the whole league at QB, RB, WR and TE, ranked by usage per game; they are compared with what the defense gave up to starters, since a defense faces too few of the league's top five to judge), or <b>Everyone</b>. Click a row for the player's game log.
     </div>
@@ -4837,7 +4895,7 @@ function renderPicks(){
   <div class="panel">
     <div class="panel-title">Best Picks Record</div>
     <div class="panel-note">
-      Every pick this page shows is saved the first time it appears, then graded: live from ESPN's box scores while games are on
+      Every pick this page shows is saved the first time it appears, then graded against the book's line (the floor when no line was posted): live from ESPN's box scores while games are on
       (an at-least line that has already cleared shows HIT), and from the final box score after. Past weeks stay here with their
       results. Saved in this browser only. Picks are saved only while Starters is selected, so the record is one consistent
       definition.
@@ -4892,26 +4950,23 @@ function mountPicks(){
     const scoreColor = p.score >= 0.8 ? 'var(--mint)' : 'var(--gold)';
     const row = `<tr class="pick-row" data-pick-key="${key}" style="cursor:pointer;">
         <td class="num" style="color:var(--chalk-dim);">${open ? '&#9662;' : '&#9656;'}</td>
-        <td><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
-        <td>${teamChip(p.team)}</td><td>${teamChip(p.opponent)}</td>
-        <td style="font-weight:700;color:var(--gold);">${p.floor}+ ${p.stat}</td>
-        <td class="num" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
-        <td class="num">${p.pj.line.toFixed(1)}</td>
+        <td style="white-space:nowrap;"><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
+        <td style="white-space:nowrap;" title="${teamName(p.team)} vs ${teamName(p.opponent)}"><b>${p.team}</b> <span style="color:var(--chalk-dim);">vs</span> ${p.opponent}</td>
+        <td style="font-weight:700;color:var(--gold);white-space:nowrap;" title="${p.floor}+ ${p.stat}">${p.floor}+ ${BP_STAT_SHORT[p.stat] || p.stat}</td>
         <td style="white-space:nowrap;">${bpPriceCell(p, week)}</td>
-        <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), p.floor, p.pj.proj)}</td>
-        <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
-        <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
-        <td class="num">${fmt(p.avg)} <span style="color:var(--chalk-dim);">L3 ${fmt(p.l3avg)}</span></td>
-        <td class="num">${fmt(p.allowed)} <span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}%</span></td>
+        <td class="num" style="white-space:nowrap;" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
+        <td class="num" style="white-space:nowrap;" title="Games cleared: his own ${p.ph}/${p.pt} (${pct(p.pr)}), then starters against ${p.opponent} ${p.dh}/${p.dt} (${pct(p.dr)})">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">&middot;</span> ${p.dh}/${p.dt}</td>
         <td class="num" style="font-weight:700;color:${scoreColor};">${pct(p.score)}</td>
+        <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), bpLineLabel(p, week))}</td>
         <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.stat}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${p.stat} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.proj)}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
       </tr>`;
-    const detail = open ? `<tr class="def-detail-row"><td colspan="15" style="background:var(--field-deep);padding:10px 16px;">
+    const detail = open ? `<tr class="def-detail-row"><td colspan="10" style="background:var(--field-deep);padding:10px 16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">Own avg <b>${fmt(p.avg)}</b> (last 3 ${fmt(p.l3avg)}) &middot; ${p.opponent} gives starters <b>${fmt(p.allowed)}</b> (<span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}% vs league</span>) &middot; cleared ${p.floor}+ in ${p.ph}/${p.pt} own games (${pct(p.pr)}) and ${p.dh}/${p.dt} starter games vs ${p.opponent} (${pct(p.dr)})</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
         ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
     return row + detail;
   }
-  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th title="Best price across your books for this pick's floor (over floor minus a half). Grey = that exact line is not posted, nearest line shown.">Book price</th><th>Live / result</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
+  const head = `<thead><tr><th></th><th>Player</th><th>Matchup</th><th title="The floor both the player and the defense agree on">Floor</th><th title="The line the book sets, with the best over price. The pick is graded against this line. Grey = no line posted yet, graded against the floor.">Book line</th><th>Projection (range)</th><th title="Games cleared: the player's own, then starters against this defense">Cleared</th><th>Score</th><th>Result vs line</th><th></th></tr></thead>`;
 
   let histWeek = null;
   function renderRecord(allShown){
@@ -4954,7 +5009,7 @@ function mountPicks(){
     };
     const statOrder = ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
     const statRows = Object.keys(byStat).sort((a, b) => (statOrder.indexOf(a) + 99) % 99 - (statOrder.indexOf(b) + 99) % 99).map(k => recRow(k, byStat[k], false)).join('');
-    const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks cleared their floor (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
+    const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks beat their line (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
       <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${recRow('All stats', tot, true)}${statRows}</tbody></table></div>
       <div class="line-note">Hit rate counts graded picks only (open = not played yet). A projection miss is in the stat's own unit (yards or catches).</div></div>`;
     let H = 0, M = 0;
@@ -4966,14 +5021,14 @@ function mountPicks(){
     const detail = rows.filter(r => (parseInt(r.e.week, 10) || 0) === sel)
       .sort((a, b) => (a.g && a.g.status === 'HIT' ? 0 : 1) - (b.g && b.g.status === 'HIT' ? 0 : 1) || a.e.player.localeCompare(b.e.player));
     recEl.innerHTML = totalHtml + `
-      <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks cleared their floor (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
+      <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks beat their line (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
         <div class="table-scroll"><table><thead><tr><th class="num">Week</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>
       <div class="controls"><div class="pill-group" id="bp-hist-pills">${weeks.map(w => `<span class="pill ${w === sel ? 'active' : ''}" data-w="${w}">Week ${w || '--'}</span>`).join('')}</div></div>
       <div class="table-scroll"><table><thead><tr><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (range)</th><th>Result</th></tr></thead><tbody>${detail.map(({e, g}) => `<tr>
         <td><span class="player-preview-pos">${e.slot}</span> ${e.player}</td><td>${teamChip(e.team)}</td><td>${teamChip(e.opponent)}</td>
         <td style="font-weight:700;color:var(--gold);">${e.floor}+ ${e.stat}</td>
         <td class="num"><b>${fmt(e.proj)}</b> <span style="color:var(--chalk-dim);">(${e.lo}-${e.hi})</span></td>
-        <td style="white-space:nowrap;">${bpResultHtml(g, e.floor)}</td></tr>`).join('')}</tbody></table></div>`;
+        <td style="white-space:nowrap;">${bpResultHtml(g, bpLineLabel(e, e.week))}</td></tr>`).join('')}</tbody></table></div>`;
     $$('#bp-hist-pills .pill').forEach(pl => pl.addEventListener('click', () => { histWeek = parseInt(pl.dataset.w, 10); renderRecord(allShown); }));
   }
 
@@ -5013,7 +5068,7 @@ function mountPicks(){
         const none = a.noLine + h.noLine;
         return `<div class="log-pos-group" style="margin-bottom:20px;">
         <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spread}</span>` : ''} <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${g.win.day.slice(0, 3)} ${g.win.time}</span></div>
-        ${picks.length ? `<div class="table-scroll"><table>${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
+        ${picks.length ? `<div class="table-scroll"><table class="bp-t">${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
           : '<div class="empty" style="padding:8px 0;">No line where both sides agree for this game yet.</div>'}
         ${none && !posFilter ? `<div class="line-note">${none} starter${none === 1 ? '' : 's'} had no floor that both they and the defense clear.</div>` : ''}
       </div>`;
@@ -5024,14 +5079,14 @@ function mountPicks(){
       winHtml.push(`<div class="bp-window" style="margin-bottom:34px;">
         <div class="panel-title" style="margin:0 0 4px;padding:8px 12px;border-left:4px solid var(--gold);background:var(--field-deep);">${w.label} <span style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);font-weight:400;">&middot; ${times} &middot; ${w.games.length} game${w.games.length === 1 ? '' : 's'} &middot; ${wAll.length} pick${wAll.length === 1 ? '' : 's'}</span></div>
         ${wAll.length ? `<div class="log-pos-group" style="margin:10px 0 18px;"><div class="log-pos-label" style="font-size:13px;">Best in this window</div>
-          <div class="table-scroll"><table>${head}<tbody>${wAll.slice(0, 3).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : ''}
+          <div class="table-scroll"><table class="bp-t">${head}<tbody>${wAll.slice(0, 3).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : ''}
         ${sections.join('')}
       </div>`);
     });
     all.sort((x, y) => y.score - x.score || y.edge - x.edge);
     renderRecord(all);
     topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across ${winFilter ? 'this window' : 'the slate'}</div>
-        <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
+        <div class="table-scroll"><table class="bp-t">${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
     container.innerHTML = winHtml.join('') || '<div class="empty">No picks yet.</div>';
     if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or widen the group with Everyone.</div>';
 
