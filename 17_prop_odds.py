@@ -14,7 +14,7 @@ Rebuilt for OddsPapi v5 (https://docs.oddspapi.io): base https://v5.oddspapi.io/
 
 Runs as its own workflow step (continue-on-error): if anything here fails, the rest of the refresh is unaffected.
 
-Run it by hand:   ODDSPAPI_KEY=xxxx ODDS_FORCE=1 python3 17_prop_odds.py
+Run it by hand:   RAPIDAPI_KEY=xxxx ODDS_FORCE=1 python3 17_prop_odds.py   (or ODDSPAPI_KEY=... for the direct oddspapi.io API)
 """
 import csv
 import os
@@ -27,7 +27,10 @@ import requests
 
 from nfl_common import SEASON, PROCESSED_DIR
 
-BASE_URL = "https://v5.oddspapi.io/en"
+# Two ways in. RapidAPI (RAPIDAPI_KEY set): host odds-api1.p.rapidapi.com, key in x-rapidapi-key. Direct (ODDSPAPI_KEY): v5.oddspapi.io.
+RAPID_HOST = os.environ.get("ODDS_RAPIDAPI_HOST", "odds-api1.p.rapidapi.com").strip()
+USE_RAPID = bool(os.environ.get("RAPIDAPI_KEY", "").strip())
+BASE_URL = f"https://{RAPID_HOST}" if USE_RAPID else "https://v5.oddspapi.io/en"
 WANT_BOOKS = [b.strip() for b in os.environ.get("ODDS_BOOKS", "fanduel,draftkings,caesars,betmgm,betrivers,hardrockbet,espnbet,fanatics").split(",") if b.strip()]
 DAYS_AHEAD = int(os.environ.get("ODDS_DAYS_AHEAD", "7"))
 RUN_DAYS = {int(x) for x in os.environ.get("ODDS_RUN_DAYS", "3,6").split(",") if x.strip().isdigit()}
@@ -46,7 +49,8 @@ def api_get(endpoint, **params):
     global calls_used
     params = {k: v for k, v in params.items() if v is not None}
     for attempt in (1, 2):
-        resp = requests.get(f"{BASE_URL}/{endpoint}", params=params, headers={"X-API-Key": _KEY}, timeout=40)
+        hdrs = {"x-rapidapi-key": _KEY, "x-rapidapi-host": RAPID_HOST} if USE_RAPID else {"X-API-Key": _KEY}
+        resp = requests.get(f"{BASE_URL}/{endpoint}", params=params, headers=hdrs, timeout=40)
         calls_used += 1
         print(f"[prop odds] GET /{endpoint} {({k: v for k, v in params.items() if k != 'playerIds'})} -> HTTP {resp.status_code}")
         if resp.status_code == 429 and attempt == 1:
@@ -105,6 +109,42 @@ def normalize_ou(side):
         if s.startswith(word):
             return word
     return ""
+
+
+def start_epoch(v):
+    """startTime comes as epoch seconds in one version and an ISO string in another."""
+    if v in (None, ""):
+        return 0
+    try:
+        n = float(v)
+        return int(n / 1000) if n > 1e11 else int(n)
+    except (TypeError, ValueError):
+        try:
+            return int(datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
+        except ValueError:
+            return 0
+
+
+def normalize_odds(data):
+    """Return ({book: {key: quote}}, {playerId: name}) from either response layout.
+    v5: data['odds'][book][key] = {marketId, outcomeId, playerId, price, ...}
+    v4: data['bookmakerOdds'][book]['markets'][marketId]['outcomes'][outcomeId]['players'][playerId] = {price, active, playerName}"""
+    names = {}
+    if isinstance(data, dict) and isinstance(data.get("odds"), dict):
+        return data["odds"], names
+    out = {}
+    for book, bk in ((data or {}).get("bookmakerOdds") or {}).items():
+        quotes = out.setdefault(book, {})
+        for mid, md in (bk.get("markets") or {}).items():
+            for oid, od in (md.get("outcomes") or {}).items():
+                for pid, pl in (od.get("players") or {}).items():
+                    if not isinstance(pl, dict) or str(pid) in ("0", ""):
+                        continue
+                    if pl.get("playerName"):
+                        names[int(pid)] = pl["playerName"]
+                    quotes[f"{mid}:{oid}:{pid}"] = {"marketId": int(mid), "outcomeId": int(oid), "playerId": int(pid), "price": pl.get("price"),
+                                                    "priceAmerican": None, "active": pl.get("active", True), "marketActive": True}
+    return out, names
 
 
 def flip_name(name):
@@ -172,31 +212,30 @@ def should_run():
 
 def main():
     global _KEY
-    _KEY = os.environ.get("ODDSPAPI_KEY", "").strip()
-    print(f"[prop odds] starting (v5 API). key present: {bool(_KEY)} (length {len(_KEY)}), force: {os.environ.get('ODDS_FORCE')!r}")
+    _KEY = (os.environ.get("RAPIDAPI_KEY", "") or os.environ.get("ODDSPAPI_KEY", "")).strip()
+    print(f"[prop odds] starting. via {'RapidAPI ' + RAPID_HOST if USE_RAPID else 'oddspapi.io direct'}. key present: {bool(_KEY)} (length {len(_KEY)}), force: {os.environ.get('ODDS_FORCE')!r}")
     if not _KEY:
-        write_status("no key", "ODDSPAPI_KEY is empty in the workflow. Add it as a repository secret (Settings, Secrets and variables, Actions) and make sure the NEW daily_refresh.yml is in .github/workflows/ so it is passed to the step.")
+        write_status("no key", "No key reached the workflow. Add RAPIDAPI_KEY as a repository secret (Settings, Secrets and variables, Actions, Repository secrets) and make sure the NEW daily_refresh.yml is in .github/workflows/ so it is passed to the step.")
         return 0
     if not should_run():
         return 0
 
+    # American football is sport 14 and the NFL is tournament 31 in OddsPapi. Look them up when the API offers it, else use those.
+    sport_id, tournament_id = 14, 31
     try:
         sports = api_get("sports")
+        sport_id = next((s["sportId"] for s in sports if "american football" in str(s.get("sportName", "")).lower()), sport_id)
+        tournaments = api_get("tournaments", sportId=sport_id)
+        nfl = [t for t in tournaments if str(t.get("tournamentName", "")).strip().lower() == "nfl"] or \
+              [t for t in tournaments if "nfl" in str(t.get("tournamentSlug", "")).lower() and "ncaa" not in str(t.get("tournamentSlug", "")).lower()]
+        if nfl:
+            tournament_id = nfl[0]["tournamentId"]
     except requests.HTTPError as e:
-        write_status("api error", f"/sports -> {e}. 401/403: the key is wrong or is a v4 key (v5 keys come from your oddspapi.io account). 429: request limit used up.", calls=calls_used)
-        return 1
-    sport_id = next((s["sportId"] for s in sports if "american football" in str(s.get("sportName", "")).lower()), None)
-    if sport_id is None:
-        write_status("no sport", "American Football not in /sports. Returned: " + ", ".join(str(s.get("sportName")) for s in sports[:25]), calls=calls_used)
-        return 1
-
-    tournaments = api_get("tournaments", sportId=sport_id)
-    nfl = [t for t in tournaments if str(t.get("tournamentName", "")).strip().lower() == "nfl"] or \
-          [t for t in tournaments if "nfl" in str(t.get("tournamentSlug", "")).lower() and "ncaa" not in str(t.get("tournamentSlug", "")).lower()]
-    if not nfl:
-        write_status("no tournament", "No NFL tournament under American Football. Found: " + "; ".join(f"{t.get('tournamentId')}={t.get('tournamentName')}" for t in tournaments[:25]), calls=calls_used)
-        return 1
-    tournament_id = nfl[0]["tournamentId"]
+        if e.response is not None and e.response.status_code in (401, 403, 429):
+            write_status("api error", f"{e}. 401/403: the key was rejected (check it is the RapidAPI key for this API and that you are subscribed). 429: request limit used up.", calls=calls_used)
+            return 1
+        print(f"[prop odds] sport/tournament lookup unavailable ({e}); using sport 14, tournament 31")
+    print(f"[prop odds] sport {sport_id}, tournament {tournament_id}")
 
     # Only ask for books that actually publish player props.
     books = []
@@ -214,32 +253,61 @@ def main():
     book_param = ",".join(books)
 
     now = int(time.time())
-    fixtures = api_get("fixtures", tournamentId=tournament_id, startTimeFrom=now - 3600, startTimeTo=now + DAYS_AHEAD * 86400)
-    games = [f for f in fixtures if (f.get("status") or {}).get("statusId", 0) in (0, 1)]
+    iso_from, iso_to = date.today().isoformat(), (date.today() + timedelta(days=DAYS_AHEAD + 1)).isoformat()
+    fixtures = None
+    for attempt in ({"startTimeFrom": now - 3600, "startTimeTo": now + DAYS_AHEAD * 86400},   # epoch-seconds style
+                    {"from": iso_from, "to": iso_to},                                          # date style
+                    {}):                                                                       # no window; filter below
+        try:
+            fixtures = api_get("fixtures", sportId=sport_id, tournamentId=tournament_id, **attempt)
+            break
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code in (401, 403, 429):
+                write_status("api error", f"/fixtures -> {e}", calls=calls_used)
+                return 1
+            print(f"[prop odds] /fixtures rejected {list(attempt)} ({e}); trying the next style")
+    if fixtures is None:
+        write_status("api error", "/fixtures was rejected with every parameter style. Send me the endpoint's code snippet from RapidAPI.", calls=calls_used)
+        return 1
+    window_end = now + DAYS_AHEAD * 86400
+    games = []
+    for f in fixtures:
+        ts = start_epoch(f.get("startTime"))
+        st = (f.get("status") or {}).get("statusId", 0)
+        if st not in (0, 1):
+            continue
+        if ts and not (now - 3600 <= ts <= window_end):
+            continue
+        games.append(f)
     print(f"{len(games)} NFL fixtures in the next {DAYS_AHEAD} days")
     if not games:
-        write_status("no games", f"{len(fixtures)} fixtures came back for the NFL (tournament {tournament_id}) in the next {DAYS_AHEAD} days, none upcoming.", games=0, calls=calls_used)
+        write_status("no games", f"{len(fixtures)} fixtures came back for the NFL (tournament {tournament_id}), none upcoming in the next {DAYS_AHEAD} days.", games=0, calls=calls_used)
         return 0
 
     fixture_odds = []
+    players = {}   # playerId -> name, filled from the odds when they carry names, else from /players
     for g in games:
         parts = g.get("participants") or {}
         label = f"{parts.get('participant1Name')} vs {parts.get('participant2Name')}"
-        kickoff = datetime.fromtimestamp(g["startTime"], timezone.utc).strftime("%Y-%m-%dT%H:%MZ") if g.get("startTime") else ""
+        ts = start_epoch(g.get("startTime"))
+        kickoff = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%MZ") if ts else ""
         try:
             data = api_get("fixtures/odds", fixtureId=g["fixtureId"], bookmakers=book_param)
         except requests.HTTPError as e:
             print(f"  skipped {label} ({e})")
             continue
-        fixture_odds.append((label, kickoff, data.get("odds") or {}))
+        odds, names = normalize_odds(data)
+        players.update(names)
+        fixture_odds.append((label, kickoff, odds))
 
     mk = api_get("markets", sportId=sport_id)
     markets = {m["marketId"]: m for m in mk}
 
     needed = sorted({q.get("playerId") for _, _, o in fixture_odds for qs in o.values() for q in qs.values() if q.get("playerId")})
-    players = {}
     for i in range(0, len(needed), 150):
-        chunk = needed[i:i + 150]
+        chunk = [n for n in needed[i:i + 150] if n not in players]
+        if not chunk:
+            continue
         try:
             for pl in api_get("players", playerIds=",".join(map(str, chunk))):
                 players[pl["playerId"]] = pl.get("playerName")
