@@ -1232,9 +1232,9 @@ function propStatusHtml(){
 function renderPropPrices(){
   if(!propHasData()){
     return `<div class="panel"><div class="panel-title">Prop Prices</div>
-      <div class="panel-note">No prop prices loaded yet. They come from your OddsPapi script (<code>17_prop_odds.py</code>), which the daily refresh runs on
-      Thursdays and Sundays so the free 250 requests a month last. Set up once: (1) add your key as a GitHub secret named <b>ODDSPAPI_KEY</b>
-      (Settings, Secrets and variables, Actions) and never put it in a file, (2) upload the new <code>17_prop_odds.py</code>, <code>run_daily.py</code> and
+      <div class="panel-note">No prop prices loaded yet. They come from <code>17_prop_odds.py</code>, which the workflow runs on
+      Thursdays and Sundays to save requests. Set up once: (1) add your key as a GitHub secret named <b>RAPIDAPI_KEY</b>
+      (Settings, Secrets and variables, Actions) and never put it in a file, (2) upload <code>17_prop_odds.py</code> and
       <code>daily_refresh.yml</code>, (3) run the workflow from the Actions tab (a manual run always fetches). Props often post late in the week, so an early run can come back empty.</div>${propStatusHtml()}</div>`;
   }
   return `<div class="panel"><div class="panel-title">Prop Prices</div>
@@ -1244,6 +1244,7 @@ function renderPropPrices(){
       <label class="ctl-label">Stat <select id="pp-stat"><option value="">All</option></select></label>
       <label class="ctl-label">Game <select id="pp-game"><option value="">All</option></select></label>
       <label class="ctl-label">Player <input type="text" id="pp-player" placeholder="search" style="width:150px;"></label>
+      <label class="ctl-label"><input type="checkbox" id="pp-main" checked> main lines only (hide alternate lines)</label>
       <label class="ctl-label"><input type="checkbox" id="pp-est"> only lines the dashboard can estimate</label>
     </div>
     <div id="pp-table"></div></div>`;
@@ -1294,6 +1295,17 @@ function mountPropPrices(){
       // Few games behind an estimate say little, so the gap is pulled toward the book's price: weight n against 4 games of the book's view.
       gap: est !== null && implied !== null ? (n * est + 4 * implied) / (n + 4) - implied : ''};
   });
+  // Main line per player + stat: the line where the best over and best under are closest to even money (alternate lines
+  // are lopsided). A line with both sides posted always beats a one-sided ladder rung. Alternates stay in the data, so slip matching still sees them.
+  const byPS = new Map();
+  rows.forEach(r => { const k = [slipNorm(r.player), r.stat].join('|'); if(!byPS.has(k)) byPS.set(k, []); byPS.get(k).push(r); });
+  byPS.forEach(list => {
+    if(list.length === 1){ list[0].main = true; return; }
+    const score = r => (r.over !== '' && r.under !== '') ? Math.abs(1 / r.over - 1 / r.under) : 1 + Math.abs((r.over !== '' ? r.over : r.under) - 1.91);
+    let best = list[0];
+    list.forEach(r => { if(score(r) < score(best)) best = r; });
+    list.forEach(r => { r.main = (r === best); });
+  });
   const statSel = $('#pp-stat'), gameSel = $('#pp-game');
   [...new Set(rows.map(r => r.stat))].sort().forEach(x => statSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
   [...new Set(rows.map(r => r.game))].sort().forEach(x => gameSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
@@ -1307,13 +1319,13 @@ function mountPropPrices(){
     {key:'game', label:'Game'},
   ];
   function draw(){
-    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#pp-player').value), onlyEst = $('#pp-est').checked;
-    const list = rows.filter(r => (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyEst || r.est !== ''));
+    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#pp-player').value), onlyEst = $('#pp-est').checked, mainOnly = $('#pp-main').checked;
+    const list = rows.filter(r => (!mainOnly || r.main) && (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyEst || r.est !== ''));
     $('#pp-table').innerHTML = '';
     if(!list.length){ $('#pp-table').innerHTML = '<div class="empty">No lines match.</div>'; return; }
     buildTable($('#pp-table'), cols, list, {defaultSort:'player', defaultDir:'asc', limit:500});
   }
-  [statSel, gameSel, $('#pp-est')].forEach(el => el.addEventListener('change', draw));
+  [statSel, gameSel, $('#pp-est'), $('#pp-main')].forEach(el => el.addEventListener('change', draw));
   $('#pp-player').addEventListener('input', draw);
   draw();
 }
