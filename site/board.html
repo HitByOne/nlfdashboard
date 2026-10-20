@@ -620,6 +620,25 @@
     .gb-cols,.gb-top{grid-template-columns:1fr;}
     .gb-prop{grid-template-columns:1fr 1fr;} .gb-prop-name{grid-column:1 / -1;}
   }
+  .gb-lines{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;margin:2px 0 4px;}
+  .gb-lines th:first-child,.gb-lines td:first-child{width:70px;}
+  .gb-units{width:auto;}
+  .gb-lines th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--chalk-dim);font-weight:400;text-align:left;padding:4px 10px;border-bottom:1px solid var(--panel-border);}
+  .gb-lines td{padding:8px 10px;border-bottom:1px solid var(--panel-border);vertical-align:top;white-space:normal;overflow-wrap:anywhere;}
+  .gb-lines .gb-tm{font-weight:700;font-size:15px;width:64px;}
+  .gb-lines .gb-our td{color:var(--chalk);background:var(--field-deep);} .gb-lines .gb-our td:first-child{color:var(--chalk-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+  .gb-lines .gb-edgerow td{background:var(--field-deep);} .gb-lines .gb-edgerow td:first-child{color:var(--chalk-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+  .gb-px{color:var(--chalk-dim);font-size:11.5px;}
+  .gb-hit{box-shadow:inset 3px 0 0 var(--chalk-dim);background:rgba(255,255,255,0.03);}
+  .gb-hit.g-A{box-shadow:inset 3px 0 0 var(--mint);} .gb-hit.g-B{box-shadow:inset 3px 0 0 #4aa8ff;} .gb-hit.g-C{box-shadow:inset 3px 0 0 #e3a93b;}
+  .gb-edge .gb-sub{font-size:11.5px;}
+  .gb-edge span{font-size:11.5px;}
+  .gb-grade{display:inline-block;min-width:20px;text-align:center;padding:1px 6px;border-radius:4px;font-weight:700;font-size:12px;color:#0b0f19;background:var(--chalk-dim);}
+  .gb-grade.g-A{background:var(--mint);} .gb-grade.g-B{background:#4aa8ff;} .gb-grade.g-C{background:#e3a93b;} .gb-grade.g-none{background:transparent;color:var(--chalk-dim);border:1px solid var(--panel-border);}
+  .gb-det{margin-top:12px;} .gb-det summary{cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--chalk-dim);padding:4px 0;}
+  .gb-pe{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(230px,1.6fr) minmax(190px,1.3fr) minmax(140px,1fr) 56px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--panel-border);font-size:13px;}
+  .gb-props-title + .gb-pe{border-top:none;}
+  @media (max-width:900px){ .gb-pe{grid-template-columns:1fr 1fr;} .gb-pe-name,.gb-pe-bet{grid-column:1 / -1;} }
 </style>
 </head>
 <body>
@@ -8546,46 +8565,94 @@ function gbRatings(){
   });
   return done({team, ranks, avgPts});
 }
-// Winner and total for one game. Pick = 60% market, 40% model (a few games of EPA is thin next to the market); the value flag
-// compares the MODEL ALONE with the market's no-margin price, which is where a disagreement actually shows.
+// ---- Vegas-style betting layer ----
+// Everything is measured against the line the book set. "Our line" = the market pulled toward this app's ratings by the trust setting
+// (default 30%): a few games of EPA is thin next to the betting market, so only part of any disagreement is treated as real.
+// A bet shows up only when that adjusted number beats the price: spread and total at -110 (assumed, the data has no juice), moneyline at the posted price.
+const GB_MW_KEY = 'nfl_dashboard_gb_modelweight';
+const GB_TOTAL_SD = 13, GB_SPREAD_DEC = 1.909;
+function gbModelW(){ try { const v = parseFloat(localStorage.getItem(GB_MW_KEY)); return isFinite(v) && v >= 0 && v <= 1 ? v : 0.3; } catch(e){ return 0.3; } }
+function gbMlDec(v){
+  const n = parseFloat(String(v === undefined || v === null ? '' : v).replace(/[^\d+\-.]/g, ''));
+  if(!isFinite(n) || n === 0) return null;
+  return n < 0 ? 1 + 100 / (-n) : 1 + n / 100;
+}
+function gbMinGrade(a, b){ const o = {A: 3, B: 2, C: 1}; return o[a] <= o[b] ? a : b; }
+function gbGradeOf(ev){ return ev >= 0.08 ? 'A' : ev >= 0.05 ? 'B' : ev >= 0.03 ? 'C' : null; }
+function gbLineTxt(v){ return v === 0 ? 'PK' : (v > 0 ? '+' : '') + v; }
+function gbFairAm(p){ if(!(p > 0 && p < 1)) return ''; return p >= 0.5 ? String(Math.round(-100 * p / (1 - p))) : '+' + Math.round(100 * (1 - p) / p); }
+function gbEvTxt(ev){ return (ev >= 0 ? '+' : '') + (ev * 100).toFixed(1) + '%'; }
+function gbPct(p){ return Math.round(p * 100) + '%'; }
 function gbModel(away, home, spreadText, ouText, mlAway, mlHome){
-  const R = gbRatings(), W = gbDefW();
+  const R = gbRatings(), W = gbDefW(), w = gbModelW();
   const hasSpread = String(spreadText || '').trim() !== '';
   const homeSpread = hasSpread ? bpSpreadFor(home, spreadText) : null;
   const mktMargin = homeSpread === null ? null : -homeSpread;
-  const out = {away, home, W, mktMargin, R: !!(R && R.team[away] && R.team[home])};
+  const out = {away, home, W, w, homeSpread, mktMargin, R: !!(R && R.team[away] && R.team[home]), mlAway, mlHome, bets: []};
   const pa = gbMlProb(mlAway), ph = gbMlProb(mlHome);
   out.pMkt = (pa && ph) ? ph / (pa + ph) : (mktMargin !== null ? gbCdf(mktMargin / GB_SD) : null);
   const ouN = parseFloat(ouText); out.mkTotal = isFinite(ouN) ? ouN : null;
-  out.mlAway = mlAway; out.mlHome = mlHome;
   if(out.R){
     const a = R.team[away], h = R.team[home];
     out.rat = {away: a, home: h};
     out.modelMargin = (h.off + W * h.def) - (a.off + W * a.def) + GB_HFA;
-    out.pModel = gbCdf(out.modelMargin / GB_SD);
     out.ptsHome = R.avgPts + h.off - W * a.def + GB_HFA / 2;
     out.ptsAway = R.avgPts + a.off - W * h.def - GB_HFA / 2;
     out.modelTotal = out.ptsHome + out.ptsAway;
   }
-  let margin = null;
-  if(out.modelMargin !== undefined && mktMargin !== null) margin = GB_MODEL_W * out.modelMargin + (1 - GB_MODEL_W) * mktMargin;
-  else if(out.modelMargin !== undefined) margin = out.modelMargin; else margin = mktMargin;
-  if(margin === null){ out.pick = null; return out; }
-  out.pHome = gbCdf(margin / GB_SD);
-  out.pick = out.pHome >= 0.5 ? home : away;
-  out.pickProb = Math.max(out.pHome, 1 - out.pHome);
-  if(out.pModel !== undefined && out.pMkt !== null){
-    const gap = out.pModel - out.pMkt;
-    if(Math.abs(gap) >= 0.07){
-      const homeSide = gap > 0;
-      out.value = {team: homeSide ? home : away, gap: Math.abs(gap), modelP: homeSide ? out.pModel : 1 - out.pModel, mktP: homeSide ? out.pMkt : 1 - out.pMkt, ml: homeSide ? mlHome : mlAway};
-    }
+  let our = null;
+  if(out.modelMargin !== undefined && mktMargin !== null) our = w * out.modelMargin + (1 - w) * mktMargin;
+  else if(out.modelMargin !== undefined) our = out.modelMargin; else our = mktMargin;
+  out.ourMargin = our;
+  if(our !== null){
+    // Shift the market's own win probability by what the adjustment is worth, so moneyline edges are not an artifact of the normal curve.
+    let p = gbCdf(our / GB_SD);
+    if(mktMargin !== null && out.pMkt !== null) p = Math.min(0.98, Math.max(0.02, out.pMkt + (p - gbCdf(mktMargin / GB_SD))));
+    out.pHome = p; out.pick = p >= 0.5 ? home : away; out.pickProb = Math.max(p, 1 - p);
   }
+  // Spread
+  if(mktMargin !== null && out.modelMargin !== undefined){
+    const edge = our - mktMargin, homeSide = edge > 0, p = gbCdf(Math.abs(edge) / GB_SD), ev = p * GB_SPREAD_DEC - 1;
+    const team = homeSide ? home : away, line = homeSide ? homeSpread : -homeSpread;
+    const keys = [3, 7, 10].filter(k => Math.sign(our) === Math.sign(mktMargin) && Math.min(Math.abs(our), Math.abs(mktMargin)) < k && k < Math.max(Math.abs(our), Math.abs(mktMargin)));
+    out.spreadBet = {type: 'spread', team, line, dec: GB_SPREAD_DEC, p, ev, edge: Math.abs(edge), grade: gbGradeOf(ev), label: `${team} ${gbLineTxt(line)}`, keys};
+  }
+  // Total
   if(out.modelTotal !== undefined && out.mkTotal !== null){
-    const g = (out.modelTotal - out.mkTotal) * 0.5;   // pulled halfway toward the market
-    if(Math.abs(g) >= 2) out.totalLean = {side: g < 0 ? 'Under' : 'Over', gap: Math.abs(g)};
+    const ourT = out.mkTotal + w * (out.modelTotal - out.mkTotal), edge = ourT - out.mkTotal;
+    const p = gbCdf(Math.abs(edge) / GB_TOTAL_SD), ev = p * GB_SPREAD_DEC - 1, side = edge < 0 ? 'Under' : 'Over';
+    out.ourTotal = ourT;
+    out.totalBet = {type: 'total', side, line: out.mkTotal, dec: GB_SPREAD_DEC, p, ev, edge: Math.abs(edge), grade: gbGradeOf(ev), label: `${side} ${out.mkTotal}`};
   }
+  // Moneyline: whichever side pays best against our probability
+  const da = gbMlDec(mlAway), dh = gbMlDec(mlHome);
+  if(out.pHome !== undefined && da && dh){
+    const c = [{team: away, p: 1 - out.pHome, dec: da, ml: mlAway}, {team: home, p: out.pHome, dec: dh, ml: mlHome}].map(x => ({...x, ev: x.p * x.dec - 1})).sort((x, y) => y.ev - x.ev)[0];
+    out.mlBet = {type: 'ml', team: c.team, line: String(c.ml), dec: c.dec, p: c.p, ev: c.ev, edge: c.p - 1 / c.dec, grade: gbGradeOf(c.ev), label: `${c.team} ML ${c.ml}`};
+  }
+  // Early in the season a grade is capped by how many games sit behind the ratings: B until 8 games, C until 5; moneylines (big payouts magnify small errors) top out at B, long shots at C.
+  const gp = out.rat ? Math.min(out.rat.away.gp, out.rat.home.gp) : 0;
+  out.gp = gp;
+  const capG = gp >= 8 ? 'A' : gp >= 5 ? 'B' : 'C';
+  [out.spreadBet, out.totalBet, out.mlBet].forEach(b => {
+    if(!b || !b.grade) return;
+    const c = b.type === 'ml' ? gbMinGrade(capG, b.dec > 3.5 ? 'C' : 'B') : capG, g2 = gbMinGrade(b.grade, c);
+    if(g2 !== b.grade){ b.capped = b.grade; b.grade = g2; }
+  });
+  out.bets = [out.spreadBet, out.totalBet, out.mlBet].filter(b => b && b.grade);
   return out;
+}
+// A prop priced by the book, from the Book Lines rows: our chance (pulled toward the book's price when few games sit behind it) against the best price on that side.
+function gbPropBet(r){
+  if(!r.lean || r.implied === '' || r.est === '' || !(r.n >= 3) || !(r.leanDec > 1)) return null;
+  // More cautious than the Book Lines gap: n games weigh against 8 games of the book's view, and the shift is capped at 10 points.
+  const shift = Math.max(-0.10, Math.min(0.10, r.n * (r.est - r.implied) / (r.n + 8)));
+  const pOver = r.implied + shift, p = r.lean === 'Over' ? pOver : 1 - pOver, ev = p * r.leanDec - 1;
+  let grade = gbGradeOf(ev), capped = null;
+  if(grade){ const c = r.n >= 8 ? 'A' : r.n >= 5 ? 'B' : 'C', g2 = gbMinGrade(grade, c); if(g2 !== grade){ capped = grade; grade = g2; } }
+  const pr = blProjection(r.player, r.stat);
+  return {type: 'prop', player: r.player, team: r.team, opp: r.opp, stat: r.stat, side: r.lean, line: r.line, dec: r.leanDec, px: r.leanTxt, p, ev,
+    edge: Math.abs(shift), grade, capped, pos: pr ? pr.position : '', matchup: pr && pr.pj ? pr.pj.matchup : null, proj: r.proj, n: r.n, label: `${r.player} ${r.lean} ${r.line}`};
 }
 // How one offense lines up against the other team's defense: league ranks, and who has the edge.
 function gbMatchRows(offTeam, defTeam){
@@ -8626,52 +8693,80 @@ function gbSlate(){
     if(!games.has(gid)) games.set(gid, {gid, date: r.Date, sides: {}});
     games.get(gid).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r;
   });
+  const propRows = propHasData() ? blComputeRows() : [];
   return [...games.values()].filter(g => g.sides.home && g.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date)).map(g => {
     const away = g.sides.away.Team, home = g.sides.home.Team, week = g.sides.away.Week;
     const sp = g.sides.away.Spread || g.sides.home.Spread || '', ou = g.sides.away['Over/Under'] || g.sides.home['Over/Under'] || '';
     const m = gbModel(away, home, sp, ou, g.sides.away['Team Moneyline'], g.sides.home['Team Moneyline']);
     const picks = [...bpPicksForGame(away, home, bpMode(), bpSpreadFor(away, sp)).picks, ...bpPicksForGame(home, away, bpMode(), bpSpreadFor(home, sp)).picks]
       .sort((x, y) => y.score - x.score || y.edge - x.edge).map(p => ({...p, week}));
-    return {gid: g.gid, date: g.date, win: bpWindow(g.date), away, home, week, spread: sp, ou, m, picks, final: gbFinal(g.gid, away, home)};
+    const props = propRows.filter(r => r.team === away || r.team === home).map(gbPropBet).filter(b => b && b.grade).sort((x, y) => ({A: 3, B: 2, C: 1}[y.grade] - {A: 3, B: 2, C: 1}[x.grade]) || y.ev - x.ev);
+    return {gid: g.gid, date: g.date, win: bpWindow(g.date), away, home, week, spread: sp, ou, m, picks, props, final: gbFinal(g.gid, away, home)};
   });
 }
 function gbHistGet(){ try { return JSON.parse(localStorage.getItem(GB_HIST_KEY) || '{}'); } catch(e){ return {}; } }
-// Saved the first time a game is seen before kickoff, so the record is never graded with hindsight.
+// Each game's bets are saved the first time they are seen before kickoff (line and price as posted), so the record never uses hindsight.
 function gbSnapshot(slate){
   const h = gbHistGet(); let ch = false; const now = Date.now();
   slate.forEach(s => {
     const k = `${s.week}|${s.away}|${s.home}`, m = s.m;
-    if(h[k] || !m.pick) return;
     const t = new Date(s.date).getTime(); if(isFinite(t) && t <= now) return;
-    h[k] = {week: String(s.week), gid: s.gid, away: s.away, home: s.home, pick: m.pick, prob: Math.round(m.pickProb * 1000) / 1000,
-      fav: m.pMkt !== null ? (m.pMkt >= 0.5 ? s.home : s.away) : null, value: m.value ? m.value.team : null,
-      tl: m.totalLean ? m.totalLean.side : null, mkTotal: m.mkTotal};
-    ch = true;
+    const e = h[k];
+    if(e && e.bets) return;
+    if(!e && !m.pick && !s.props.length) return;
+    const base = e || {week: String(s.week), gid: s.gid, away: s.away, home: s.home, pick: m.pick || null, prob: m.pick ? Math.round(m.pickProb * 1000) / 1000 : null,
+      fav: m.pMkt !== null ? (m.pMkt >= 0.5 ? s.home : s.away) : null};
+    base.bets = m.bets.map(b => ({type: b.type, team: b.team || null, side: b.side || null, line: b.line, dec: b.dec, grade: b.grade, ev: Math.round(b.ev * 1000) / 1000}));
+    base.props = s.props.map(b => ({player: b.player, stat: b.stat, side: b.side, line: b.line, dec: b.dec, grade: b.grade, ev: Math.round(b.ev * 1000) / 1000}));
+    h[k] = base; ch = true;
   });
   if(ch){ try { localStorage.setItem(GB_HIST_KEY, JSON.stringify(h)); } catch(e){} }
   return h;
 }
+function gbGradeGameBet(b, f, home, away){
+  const margin = f.home - f.away;
+  if(b.type === 'total'){ const t = f.home + f.away; return t === b.line ? 'P' : ((t > b.line) === (b.side === 'Over') ? 'W' : 'L'); }
+  if(b.type === 'spread'){ const v = (b.team === home ? margin : -margin) + b.line; return v === 0 ? 'P' : v > 0 ? 'W' : 'L'; }
+  if(margin === 0) return 'P';
+  return (margin > 0 ? home : away) === b.team ? 'W' : 'L';
+}
+function gbGradeProp(b, week){
+  const row = (DATA.playerGame || []).find(r => r.Player === b.player && String(r.Week) === String(week));
+  if(!row) return null;
+  const a = getStatValue(row, b.stat);
+  return a === b.line ? 'P' : ((a > b.line) === (b.side === 'Over') ? 'W' : 'L');
+}
 function gbRecordHtml(){
-  const h = gbHistGet(), r = {pick: {w: 0, l: 0}, fav: {w: 0, l: 0}, val: {w: 0, l: 0}, tot: {w: 0, l: 0, p: 0}}; let open = 0;
+  const h = gbHistGet();
+  const mk = () => ({w: 0, l: 0, p: 0, u: 0});
+  const by = {spread: mk(), total: mk(), ml: mk(), prop: mk()}, byG = {A: mk(), B: mk(), C: mk()}, all = mk();
+  const su = {pick: {w: 0, l: 0}, fav: {w: 0, l: 0}}; let open = 0;
+  const add = (o, res, dec) => { if(res === 'W'){ o.w++; o.u += dec - 1; } else if(res === 'L'){ o.l++; o.u -= 1; } else o.p++; };
   Object.values(h).forEach(e => {
     const f = gbFinal(e.gid, e.away, e.home);
-    if(!f){ open++; return; }
-    const winner = f.home > f.away ? e.home : f.away > f.home ? e.away : null;
-    if(winner){
-      (winner === e.pick ? r.pick.w++ : r.pick.l++);
-      if(e.fav) (winner === e.fav ? r.fav.w++ : r.fav.l++);
-      if(e.value) (winner === e.value ? r.val.w++ : r.val.l++);
-    }
-    if(e.tl && e.mkTotal !== null && e.mkTotal !== undefined){
-      const tot = f.home + f.away;
-      if(tot === e.mkTotal) r.tot.p++; else ((tot > e.mkTotal) === (e.tl === 'Over') ? r.tot.w++ : r.tot.l++);
-    }
+    if(f){
+      const winner = f.home > f.away ? e.home : f.away > f.home ? e.away : null;
+      if(winner && e.pick){ (winner === e.pick ? su.pick.w++ : su.pick.l++); if(e.fav) (winner === e.fav ? su.fav.w++ : su.fav.l++); }
+      (e.bets || []).forEach(b => {
+        const res = gbGradeGameBet(b, f, e.home, e.away);
+        add(by[b.type], res, b.dec); add(byG[b.grade], res, b.dec); add(all, res, b.dec);
+      });
+    } else if((e.bets || []).length) open += e.bets.length;
+    (e.props || []).forEach(b => {
+      const res = gbGradeProp(b, e.week);
+      if(res){ add(by.prop, res, b.dec); add(byG[b.grade], res, b.dec); add(all, res, b.dec); } else open++;
+    });
   });
-  const row = (label, o, note) => `<tr><td>${label}</td><td class="num" style="color:var(--mint);">${o.w}</td><td class="num" style="color:var(--red);">${o.l}${o.p ? ' <span style="color:var(--chalk-dim);">(' + o.p + ' push)</span>' : ''}</td><td class="num">${o.w + o.l ? Math.round(o.w / (o.w + o.l) * 100) + '%' : '--'}</td><td style="color:var(--chalk-dim);">${note}</td></tr>`;
-  if(!Object.keys(h).length) return '<div class="empty" style="padding:8px 0;">Nothing saved yet. Each game is saved the first time it shows here before kickoff, then graded from the final score.</div>';
-  return `<div class="table-scroll"><table><thead><tr><th>What</th><th class="num">Right</th><th class="num">Wrong</th><th class="num">Rate</th><th></th></tr></thead><tbody>
-    ${row('Winner picks', r.pick, 'straight up')}${row('Just pick the market favorite', r.fav, 'the bar to beat, same games')}${row('Value flags (model-only side)', r.val, 'moneyline side won')}${row('Total leans', r.tot, "against the market's total")}</tbody></table></div>
-    <div class="line-note">${open} saved game${open === 1 ? '' : 's'} not final yet. If winner picks do not beat "just pick the favorite" over a good number of games, the model is adding nothing yet. Saved in this browser only.</div>`;
+  if(!Object.keys(h).length) return '<div class="empty" style="padding:8px 0;">Nothing saved yet. Each bet is saved the first time it shows here before kickoff, then graded against the line it was posted at.</div>';
+  const row = (label, o, bold) => { const d = o.w + o.l; return `<tr${bold ? ' style="font-weight:700;"' : ''}><td>${label}</td><td class="num" style="color:var(--mint);">${o.w}</td><td class="num" style="color:var(--red);">${o.l}</td><td class="num">${o.p || ''}</td><td class="num">${d ? Math.round(o.w / d * 100) + '%' : '--'}</td><td class="num" style="color:${o.u > 0 ? 'var(--mint)' : o.u < 0 ? 'var(--red)' : 'var(--chalk-dim)'};">${d || o.p ? (o.u >= 0 ? '+' : '') + o.u.toFixed(2) + 'u' : '--'}</td></tr>`; };
+  const suRow = (label, o) => `<tr><td>${label}</td><td class="num" style="color:var(--mint);">${o.w}</td><td class="num" style="color:var(--red);">${o.l}</td><td></td><td class="num">${o.w + o.l ? Math.round(o.w / (o.w + o.l) * 100) + '%' : '--'}</td><td></td></tr>`;
+  return `<div class="table-scroll"><table data-no-enhance><thead><tr><th>Bets vs the line</th><th class="num">W</th><th class="num">L</th><th class="num">Push</th><th class="num">Win %</th><th class="num" title="One unit per bet, at the price posted">Units</th></tr></thead><tbody>
+    ${row('All bets', all, true)}${row('Spread', by.spread)}${row('Total', by.total)}${row('Moneyline', by.ml)}${row('Props (vs book line)', by.prop)}
+    <tr><td colspan="6" style="padding-top:10px;color:var(--chalk-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;">By grade</td></tr>
+    ${row('A bets', byG.A)}${row('B bets', byG.B)}${row('C bets', byG.C)}
+    <tr><td colspan="6" style="padding-top:10px;color:var(--chalk-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;">Straight up (for reference)</td></tr>
+    ${suRow('Winner picks', su.pick)}${suRow('Just pick the market favorite', su.fav)}</tbody></table></div>
+    <div class="line-note">${open} saved bet${open === 1 ? '' : 's'} not final yet. At -110 a bet needs 52.4% to break even. Spreads and totals are graded at -110 because the data has no juice; props and moneylines use the posted price. If the A and B rows are not clearly ahead of C and of break-even after a good number of bets, treat the grades as noise. Saved in this browser only.</div>`;
 }
 function gbMargin(m, home, away){ return m === null || m === undefined ? '--' : (Math.abs(m) < 0.05 ? 'Even' : `${m > 0 ? home : away} -${Math.abs(m).toFixed(1)}`); }
 function gbPtsTag(v){ return `<span style="color:${v >= 0.5 ? 'var(--mint)' : v <= -0.5 ? 'var(--red)' : 'var(--chalk-dim)'};">${v >= 0 ? '+' : ''}${v.toFixed(1)}</span>`; }
@@ -8688,90 +8783,113 @@ function gbPropRow(p){
     <div><button class="save-pick-btn gb-add" ${saved ? 'disabled' : ''} data-player="${frEsc(p.player)}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${frEsc(p.stat)}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${frEsc(p.stat)} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.proj)}">${saved ? '&#10003;' : '+ Add'}</button></div>
   </div>`;
 }
+function gbBetMark(b, s){
+  if(!s.final || !b) return '';
+  const r = gbGradeGameBet(b, s.final, s.home, s.away);
+  return r === 'W' ? ' <b class="gb-ok">&#10003; won</b>' : r === 'L' ? ' <b class="gb-bad">&#10007; lost</b>' : ' <span class="gb-dim">push</span>';
+}
+function gbGradePill(g, capped){ return g ? `<span class="gb-grade g-${g}"${capped ? ` title="Would grade ${capped} on the numbers, capped to ${g} because of the small sample so far"` : ''}>${g}</span>` : '<span class="gb-grade g-none">&ndash;</span>'; }
+function gbEdgeCell(b, s, kind){
+  if(!b) return '<td class="gb-dim gb-edge">no line</td>';
+  if(!b.grade){
+    const e = kind === 'ml' ? Math.round(b.edge * 100) + ' pts of win chance' : b.edge.toFixed(1) + ' pts';
+    return `<td class="gb-edge gb-dim">Pass <span>(only ${e} toward ${frEsc(b.team || b.side)}, not enough to beat the price)</span></td>`;
+  }
+  const keys = b.keys && b.keys.length ? ` <span class="gb-chip gb-chip-val" style="margin:0;padding:1px 5px;">crosses ${b.keys.join(' &amp; ')}</span>` : '';
+  const e = kind === 'ml' ? '' : ` &middot; ${b.edge.toFixed(1)} pts`;
+  return `<td class="gb-edge">${gbGradePill(b.grade, b.capped)} <b>${frEsc(b.label)}</b>${gbBetMark(b, s)}<div class="gb-sub" style="margin-top:3px;">our ${gbPct(b.p)} vs ${gbPct(1 / b.dec)} needed &middot; EV ${gbEvTxt(b.ev)}${e}${keys}</div></td>`;
+}
+function gbPropEdgeRow(b, s){
+  const res = s.final ? gbGradeProp(b, s.week) : null;
+  const mark = res === 'W' ? ' <b class="gb-ok">&#10003; won</b>' : res === 'L' ? ' <b class="gb-bad">&#10007; lost</b>' : res === 'P' ? ' <span class="gb-dim">push</span>' : '';
+  const d = b.matchup !== null && b.matchup !== undefined ? Math.round((b.matchup - 1) * 100) : null;
+  const saved = isPickSaved({source: 'Game Board', player: b.player, stat: b.stat, week: s.week, threshold: b.line});
+  return `<div class="gb-pe">
+    <div class="gb-pe-name"><b>${frEsc(b.player)}</b> <span class="gb-dim">${frEsc(b.pos)} ${frEsc(b.team)}</span></div>
+    <div class="gb-pe-bet">${gbGradePill(b.grade, b.capped)} <b>${b.side} ${b.line}</b> <span class="gb-px">${frEsc(b.px)}</span> <span class="gb-dim">${frEsc(b.stat)}</span>${mark}</div>
+    <div class="gb-pe-num">our ${gbPct(b.p)} vs ${gbPct(1 / b.dec)} needed &middot; EV ${gbEvTxt(b.ev)} <span class="gb-dim">&middot; ${b.n} games</span></div>
+    <div class="gb-pe-def gb-dim">${d !== null ? `${frEsc(b.opp)} D <span style="color:${(b.side === 'Over') === (d >= 0) ? 'var(--mint)' : 'var(--red)'};">${d >= 0 ? '+' : ''}${d}%</span> &middot; ` : ''}proj ${b.proj === '' ? '--' : fmt(b.proj)}</div>
+    <div><button class="save-pick-btn gb-add-prop" ${saved ? 'disabled' : ''} data-player="${frEsc(b.player)}" data-position="${frEsc(b.pos)}" data-team="${frEsc(b.team)}" data-opponent="${frEsc(b.opp)}" data-stat="${frEsc(b.stat)}" data-week="${s.week}" data-line="${b.line}" data-side="${b.side}" data-summary="${frEsc(b.side + ' ' + b.line + ' ' + b.stat)} vs ${frEsc(b.opp)} (Wk ${s.week}) at ${frEsc(b.px)}">${saved ? '&#10003;' : '+ Add'}</button></div>
+  </div>`;
+}
 function gbCardHtml(s){
   const {away, home, m, win} = s;
   const when = win && win.day ? `${win.day.slice(0, 3)} ${win.time}` : '';
-  const meta = [when, s.spread ? 'Spread ' + frEsc(s.spread) : '', s.ou ? 'O/U ' + frEsc(s.ou) : ''].filter(Boolean).join(' &middot; ');
-  const winner = s.final ? (s.final.home === s.final.away ? null : s.final.home > s.final.away ? home : away) : null;
-  const res = !s.final ? '' : (winner === null ? '' : winner === m.pick ? ' <b class="gb-ok">&#10003; won</b>' : ' <b class="gb-bad">&#10007; lost</b>');
-  let winBlock;
-  if(!m.pick) winBlock = '<div class="gb-sub">No spread or ratings for this game yet.</div>';
-  else {
-    const awayP = Math.round((1 - m.pHome) * 100), homeP = 100 - awayP;
-    const rat = m.rat ? `<table class="gb-units"><thead><tr><th></th><th>Offense</th><th>Defense</th></tr></thead><tbody>
-        <tr><td>${away}</td><td>${gbPtsTag(m.rat.away.off)}</td><td>${gbPtsTag(m.rat.away.def)}</td></tr>
-        <tr><td>${home}</td><td>${gbPtsTag(m.rat.home.off)}</td><td>${gbPtsTag(m.rat.home.def)}</td></tr></tbody></table>
-        <div class="gb-dim" style="font-size:10.5px;">points per game vs an average team (defense counts ${m.W === 1 ? 'the same as' : m.W + 'x'} offense)</div>` : '';
-    const val = m.value ? `<div class="gb-chip gb-chip-val" title="The model on its own gives ${frEsc(m.value.team)} ${Math.round(m.value.modelP * 100)}%; the market's price (margin removed) is ${Math.round(m.value.mktP * 100)}%. A question to check, not a signal.">Model likes <b>${frEsc(m.value.team)}</b> more than the market: ${Math.round(m.value.modelP * 100)}% vs ${Math.round(m.value.mktP * 100)}%${m.value.ml ? ' &middot; ML ' + frEsc(m.value.ml) : ''}</div>` : '';
-    winBlock = `<div class="gb-pick"><b>${frEsc(teamName(m.pick))}</b> <span>${Math.round(m.pickProb * 100)}%</span>${res}</div>
-      <div class="gb-bar"><i class="a" style="width:${awayP}%"></i><i class="h" style="width:${homeP}%"></i></div>
-      <div class="gb-bar-l"><span>${away} ${awayP}%</span><span>${homeP}% ${home}</span></div>
-      <div class="gb-sub">Model ${gbMargin(m.modelMargin, home, away)} &middot; Market ${gbMargin(m.mktMargin, home, away)}</div>${val}${rat}`;
-  }
-  let totBlock;
-  if(m.modelTotal !== undefined){
-    const tot = s.final ? s.final.home + s.final.away : null;
-    const lean = m.totalLean ? `<div class="gb-chip gb-chip-tot"><b>${m.totalLean.side} lean</b> &middot; about ${m.totalLean.gap.toFixed(1)} ${m.totalLean.side === 'Under' ? 'below' : 'above'} the market after pulling the model halfway toward it</div>` : '<div class="gb-sub">No lean (model within about 4 points of the market).</div>';
-    totBlock = `<div class="gb-pick"><b>${m.modelTotal.toFixed(1)}</b> <span>${m.mkTotal !== null ? 'vs market ' + m.mkTotal : 'model total'}</span>${tot !== null && m.mkTotal !== null ? ` <span class="gb-dim">final ${tot}</span>` : ''}</div>
-      <div class="gb-sub">${away} ${m.ptsAway.toFixed(0)} &ndash; ${home} ${m.ptsHome.toFixed(0)}</div>${lean}
-      <div class="gb-dim" style="font-size:10.5px;margin-top:4px;">A strong defense on either side pulls this down.</div>`;
-  } else totBlock = '<div class="gb-sub">No ratings loaded yet, so no total.</div>';
+  const hs = m.homeSpread, as = hs === null ? null : -hs;
+  const flag = (b, cond) => (b && b.grade && cond) ? ` gb-hit g-${b.grade}` : '';
+  const spr = t => t === null ? '<span class="gb-dim">--</span>' : `<b>${gbLineTxt(t)}</b> <span class="gb-px">-110</span>`;
+  const ou = side => m.mkTotal === null ? '<span class="gb-dim">--</span>' : `<b>${side} ${m.mkTotal}</b> <span class="gb-px">-110</span>`;
+  const ml = v => v ? `<b>${frEsc(v)}</b>` : '<span class="gb-dim">--</span>';
+  const sb = m.spreadBet, tb = m.totalBet, mb = m.mlBet;
+  const ourSpread = m.ourMargin === null || m.ourMargin === undefined ? '--' : (Math.abs(m.ourMargin) < 0.05 ? 'PK' : `${m.ourMargin > 0 ? home : away} -${Math.abs(m.ourMargin).toFixed(1)}`);
+  const ourMl = m.pick ? `${m.pick} ${gbPct(m.pickProb)} <span class="gb-dim">fair ${gbFairAm(m.pickProb)}</span>` : '--';
+  const lines = `<table class="gb-lines" data-no-enhance><thead><tr><th></th><th>Spread</th><th>Total</th><th>Moneyline</th></tr></thead><tbody>
+    <tr><td class="gb-tm">${away}</td><td class="${flag(sb, sb && sb.team === away)}">${spr(as)}</td><td class="${flag(tb, tb && tb.side === 'Over')}">${ou('O')}</td><td class="${flag(mb, mb && mb.team === away)}">${ml(m.mlAway)}</td></tr>
+    <tr><td class="gb-tm">${home}</td><td class="${flag(sb, sb && sb.team === home)}">${spr(hs)}</td><td class="${flag(tb, tb && tb.side === 'Under')}">${ou('U')}</td><td class="${flag(mb, mb && mb.team === home)}">${ml(m.mlHome)}</td></tr>
+    <tr class="gb-our"><td>Our line</td><td>${ourSpread}</td><td>${m.ourTotal !== undefined ? m.ourTotal.toFixed(1) : '--'}</td><td>${ourMl}</td></tr>
+    <tr class="gb-edgerow"><td>Edge</td>${gbEdgeCell(sb, s, 'spread')}${gbEdgeCell(tb, s, 'total')}${gbEdgeCell(mb, s, 'ml')}</tr></tbody></table>`;
+  const rat = m.rat ? `<table class="gb-units" data-no-enhance><thead><tr><th>Units (points vs average team)</th><th>Offense</th><th>Defense</th></tr></thead><tbody>
+      <tr><td>${away}</td><td>${gbPtsTag(m.rat.away.off)}</td><td>${gbPtsTag(m.rat.away.def)}</td></tr>
+      <tr><td>${home}</td><td>${gbPtsTag(m.rat.home.off)}</td><td>${gbPtsTag(m.rat.home.def)}</td></tr></tbody></table>` : '';
   const mr1 = gbMatchRows(away, home), mr2 = gbMatchRows(home, away);
   const cell = r => !r ? '<td class="gb-dim">--</td>' : `<td><span class="gb-dim">Off</span> #${r.offRank} <span class="gb-dim">v Def</span> #${r.defRank} <b class="gb-e-${r.edge}">${r.edge === 'defense' ? 'Defense' : r.edge === 'offense' ? 'Offense' : 'Even'}</b></td>`;
   const labels = [...new Set([...mr1, ...mr2].map(r => r.label))];
-  const defTable = labels.length ? `<div class="table-scroll"><table class="gb-match"><thead><tr><th>Matchup</th><th>${away} offense vs ${home} defense</th><th>${home} offense vs ${away} defense</th></tr></thead><tbody>
+  const defTable = labels.length ? `<div class="table-scroll"><table class="gb-match" data-no-enhance><thead><tr><th>Matchup (league rank, 1 = best)</th><th>${away} offense vs ${home} defense</th><th>${home} offense vs ${away} defense</th></tr></thead><tbody>
       ${labels.map(l => `<tr><td>${l}</td>${cell(mr1.find(r => r.label === l))}${cell(mr2.find(r => r.label === l))}</tr>`).join('')}</tbody></table></div>` : '<div class="gb-sub">Defense matchup data is not loaded yet.</div>';
-  const fa = gbInjuryFlags(away), fh = gbInjuryFlags(home);
-  const flags = [];
+  const fa = gbInjuryFlags(away), fh = gbInjuryFlags(home), flags = [];
   [[away, fa], [home, fh]].forEach(([t, f]) => {
-    if(f.qb.length) flags.push(`<span class="gb-chip gb-chip-warn">${t} QB listed out/doubtful: ${f.qb.map(frEsc).join(', ')}. Ratings do not adjust for this.</span>`);
+    if(f.qb.length) flags.push(`<span class="gb-chip gb-chip-warn">${t} QB listed out/doubtful: ${f.qb.map(frEsc).join(', ')}. Ratings do not adjust for this, so be careful with the lines above.</span>`);
     if(f.def.length) flags.push(`<span class="gb-chip">${t} defense out/doubtful: ${f.def.slice(0, 4).map(frEsc).join(', ')}${f.def.length > 4 ? ' +' + (f.def.length - 4) : ''}</span>`);
   });
-  const top = s.picks.slice(0, 4), rest = s.picks.slice(4);
-  const props = s.picks.length ? `<div class="gb-props-title">Props <span class="gb-dim">&middot; floors both the player and ${frEsc(away)}/${frEsc(home)} defenses agree on, graded against the book's line</span></div>
-      ${top.map(gbPropRow).join('')}${rest.length ? `<details class="gb-more"><summary>+${rest.length} more</summary>${rest.map(gbPropRow).join('')}</details>` : ''}`
-    : '<div class="gb-sub">No prop clears both bars for this game.</div>';
+  const props = s.props.length ? `<div class="gb-props-title">Props with an edge against the book's line</div>${s.props.slice(0, 5).map(b => gbPropEdgeRow(b, s)).join('')}${s.props.length > 5 ? `<details class="gb-more"><summary>+${s.props.length - 5} more</summary>${s.props.slice(5).map(b => gbPropEdgeRow(b, s)).join('')}</details>` : ''}`
+    : `<div class="gb-sub">${propHasData() ? 'No player prop has a 3%+ edge against the book for this game.' : 'No prop prices loaded yet.'}</div>`;
+  const floors = s.picks.length ? `<details class="gb-more"><summary>Floor picks (the player and the defense both clear them): ${s.picks.length}</summary>${s.picks.map(gbPropRow).join('')}</details>` : '';
+  const nb = m.bets.length + s.props.length;
   return `<div class="gb-card">
     <div class="gb-head"><div class="gb-teams">${frEsc(teamName(away))} <span class="at">@</span> ${frEsc(teamName(home))}</div>
-      <div class="gb-meta">${meta}${s.final ? ` &middot; <b>FINAL ${away} ${s.final.away}, ${home} ${s.final.home}</b>` : ''}</div></div>
-    <div class="gb-cols"><div class="gb-block"><div class="gb-label">Winner</div>${winBlock}</div><div class="gb-block"><div class="gb-label">Total points</div>${totBlock}</div></div>
-    <div class="gb-label" style="margin:10px 0 4px;">Offense vs defense <span class="gb-dim" style="text-transform:none;letter-spacing:0;">(league rank, 1 = best)</span></div>
-    ${defTable}
-    ${flags.length ? `<div class="gb-flags">${flags.join('')}</div>` : ''}
-    <div class="gb-props">${props}</div>
+      <div class="gb-meta">${when}${s.final ? ` &middot; <b>FINAL ${away} ${s.final.away}, ${home} ${s.final.home}</b>` : ''}${nb ? ` &middot; <b style="color:var(--chalk);">${nb} bet${nb === 1 ? '' : 's'}</b>` : ' &middot; no bets'}</div></div>
+    <div class="table-scroll">${lines}</div>
+    ${m.mkTotal === null && hs === null ? '<div class="gb-sub">No lines posted for this game yet.</div>' : ''}
+    <details class="gb-det" open><summary>Offense vs defense</summary>${rat}${defTable}${flags.length ? `<div class="gb-flags">${flags.join('')}</div>` : ''}</details>
+    <div class="gb-props">${props}${floors}</div>
   </div>`;
 }
 function renderBoard(){
   const wk = (DATA.week2 || [])[0];
   return `
   <div class="home-hero"><div class="home-title">Game Board${wk ? ' &middot; Week ' + frEsc(wk.Week) : ''}</div>
-    <div class="home-sub">Every game on one card: who wins, the total, how each offense matches up against the other team's defense, and the best props.</div></div>
+    <div class="home-sub">The lines the books set, our number next to each, and the bets where we think the line is off.</div></div>
   <div class="panel" id="gb-top"></div>
   <div class="panel">
-    <div class="panel-title">The slate</div>
+    <div class="panel-title">Lines by game</div>
     <div class="panel-note">
-      <b>Winner</b> blends the market (60%) with this app's own ratings (40%), because a few games of data is thin next to the betting line. The ratings put <b>offense and defense on equal footing</b>,
-      each in points per game against an average team, from EPA per play (blend of season and last three games, pulled toward average early in the year).
-      A strong defense helps its team win and also pulls the <b>total</b> down. The <b>defense table</b> shows each offense against the other team's pass defense, run defense, pass rush and run front.
-      Props are the Best Picks floors (a player and the opposing defense both clear it), graded against the book's line. Home field counts for ${GB_HFA} points. Injuries are flagged, not adjusted for.
-      <b>The market is hard to beat:</b> read a value flag or total lean as a question to check, and judge the winner picks against the "just pick the favorite" line in the record below.
+      Each game shows the market spread, total and moneyline, then <b>Our line</b> and the <b>Edge</b>. A bet is marked only when our number beats the price: <b>A</b> = expected value of 8% or more per unit,
+      <b>B</b> = 5%+, <b>C</b> = 3%+. Grades are capped while the sample is small: nothing above B until teams have 8 games (props: until the player has 8), nothing above C before 5, and moneylines top out at B. Spreads and totals are priced at -110 (the data has no juice, so the real price may differ); moneylines and props use the posted price.
+      Our line is the market pulled toward this app's ratings by the <b>trust</b> setting, because a few games of data is thin next to the market: most of the market's number is treated as right.
+      The ratings count <b>offense and defense equally</b> (points per game against an average team, from EPA per play), and a strong defense lowers the total.
+      Props use the book's own line and our estimate from the player's hit rate and the opposing defense, pulled toward the book when few games sit behind it.
+      Home field counts for ${GB_HFA} points. Injuries are flagged, not adjusted for. <b>The market is hard to beat. Judge this by the record below, not by the grades alone.</b>
     </div>
     <div class="controls">
       <div class="pill-group" id="gb-win-pills"></div>
-      <label class="ctl-label">Defense weight <select id="gb-defw">
-        <option value="0.75">Lighter (0.75x)</option><option value="1">Same as offense (1x)</option><option value="1.25">Heavier (1.25x)</option><option value="1.5">Much heavier (1.5x)</option></select></label>
+      <label class="ctl-label"><input type="checkbox" id="gb-onlybets"> only games with a bet</label>
+    </div>
+    <div class="controls">
+      <label class="ctl-label">Trust in our ratings <select id="gb-mw"><option value="0.15">Low (15%)</option><option value="0.3">Normal (30%)</option><option value="0.5">High (50%)</option></select></label>
+      <label class="ctl-label">Defense weight <select id="gb-defw"><option value="0.75">Lighter (0.75x)</option><option value="1">Same as offense (1x)</option><option value="1.25">Heavier (1.25x)</option><option value="1.5">Much heavier (1.5x)</option></select></label>
       <button class="save-pick-btn" id="gb-live">Refresh live grading</button>
     </div>
     <div id="gb-cards"></div>
   </div>
-  <div class="panel"><div class="panel-title">Game pick record</div><div id="gb-record"></div></div>`;
+  <div class="panel"><div class="panel-title">Record against the line</div><div id="gb-record"></div></div>`;
 }
 function mountBoard(){
   const slate = gbSlate();
   const cards = $('#gb-cards');
   if(!slate.length){ cards.innerHTML = '<div class="empty">No upcoming games loaded yet.</div>'; $('#gb-top').innerHTML = ''; return; }
-  const sel = $('#gb-defw'); sel.value = String(gbDefW());
-  if(sel.value !== String(gbDefW())) sel.value = '1';
+  const setSel = (id, v, key) => { const el = $(id); el.value = String(v); if(el.value !== String(v)) el.value = el.options[1].value; return el; };
+  const mwSel = setSel('#gb-mw', gbModelW()), dwSel = setSel('#gb-defw', gbDefW());
+  [[mwSel, GB_MW_KEY], [dwSel, GB_DEF_KEY]].forEach(([el, key]) => el.addEventListener('change', () => { try { localStorage.setItem(key, el.value); } catch(e){} showTab('board'); }));
   let winFilter = '';
   const wins = new Map();
   slate.forEach(s => { const w = wins.get(s.win.key) || {key: s.win.key, label: s.win.label, order: s.win.order, n: 0}; w.n++; w.order = Math.min(w.order, s.win.order); wins.set(s.win.key, w); });
@@ -8780,40 +8898,43 @@ function mountBoard(){
   $$('#gb-win-pills .pill').forEach(pl => pl.addEventListener('click', () => {
     $$('#gb-win-pills .pill').forEach(x => x.classList.remove('active')); pl.classList.add('active'); winFilter = pl.dataset.win; draw();
   }));
-  let cur = slate;
-  function drawTop(){
-    const open = cur.filter(s => !s.final);
-    const winners = open.filter(s => s.m.pick).sort((a, b) => b.m.pickProb - a.m.pickProb).slice(0, 4);
-    const spots = [];
-    open.forEach(s => {
-      if(s.m.value) spots.push({gap: s.m.value.gap * 40, html: `<b>${frEsc(s.m.value.team)}</b> to win: model ${Math.round(s.m.value.modelP * 100)}% vs market ${Math.round(s.m.value.mktP * 100)}% <span class="gb-dim">${frEsc(s.away)} @ ${frEsc(s.home)}</span>`});
-      if(s.m.totalLean) spots.push({gap: s.m.totalLean.gap, html: `<b>${s.m.totalLean.side} ${s.m.mkTotal}</b>: model ${s.m.modelTotal.toFixed(1)} <span class="gb-dim">${frEsc(s.away)} @ ${frEsc(s.home)}</span>`});
+  $('#gb-onlybets').addEventListener('change', () => draw());
+  function drawTop(cur){
+    const items = [];
+    cur.filter(s => !s.final).forEach(s => {
+      const g = `${s.away} @ ${s.home}`, when = s.win && s.win.day ? `${s.win.day.slice(0, 3)} ${s.win.time}` : '';
+      s.m.bets.forEach(b => items.push({b, ev: b.ev, bet: b.label, px: b.type === 'ml' ? b.line : '-110', kind: b.type === 'ml' ? 'Moneyline' : b.type === 'spread' ? 'Spread' : 'Total', g, when}));
+      s.props.forEach(b => items.push({b, ev: b.ev, bet: `${b.player} ${b.side} ${b.line}`, px: b.px, kind: b.stat, g, when, prop: b, s}));
     });
-    spots.sort((a, b) => b.gap - a.gap);
-    const seen = new Set(), props = [];
-    homeUpcomingPicks().forEach(p => { if(props.length < 5 && !seen.has(p.player) && (!winFilter || p.win.key === winFilter)){ seen.add(p.player); props.push(p); } });
-    $('#gb-top').innerHTML = `<div class="panel-title">Top of the board</div><div class="gb-top">
-      <div><div class="gb-label">Most confident winners</div>${winners.length ? winners.map(s => `<div class="gb-toprow"><b>${frEsc(s.m.pick)}</b> <span>${Math.round(s.m.pickProb * 100)}%</span> <span class="gb-dim">${s.m.pick === s.home ? 'vs ' + frEsc(s.away) : '@ ' + frEsc(s.home)}${s.spread ? ' &middot; ' + frEsc(s.spread) : ''}</span></div>`).join('') : '<div class="gb-sub">Nothing open.</div>'}</div>
-      <div><div class="gb-label">Where the model disagrees with the market</div>${spots.length ? spots.slice(0, 5).map(x => `<div class="gb-toprow">${x.html}</div>`).join('') : '<div class="gb-sub">No game is 7+ points of win chance (or 4+ points of total) away from the market.</div>'}</div>
-      <div><div class="gb-label">Top props</div>${props.length ? props.map(p => `<div class="gb-toprow"><b>${frEsc(p.player)}</b> ${p.floor}+ ${BP_STAT_SHORT[p.stat] || frEsc(p.stat)} <span class="gb-dim">vs ${frEsc(p.opponent)}</span> ${bpPriceCell(p, p.week)}</div>`).join('') : '<div class="gb-sub">Nothing open.</div>'}</div>
-    </div>`;
+    const gr = {A: 3, B: 2, C: 1};
+    items.sort((x, y) => gr[y.b.grade] - gr[x.b.grade] || y.ev - x.ev);
+    const cnt = {A: 0, B: 0, C: 0}; items.forEach(i => cnt[i.b.grade]++);
+    const rows = items.slice(0, 12).map(i => `<tr><td>${gbGradePill(i.b.grade, i.b.capped)}</td><td><b>${frEsc(i.bet)}</b> <span class="gb-dim">${frEsc(i.kind)}</span></td><td class="num">${frEsc(i.px)}</td>
+      <td class="num">${gbPct(i.b.p)}</td><td class="num gb-dim">${gbPct(1 / i.b.dec)}</td><td class="num" style="font-weight:700;color:var(--mint);">${gbEvTxt(i.b.ev)}</td><td class="gb-dim">${frEsc(i.g)} &middot; ${frEsc(i.when)}</td></tr>`).join('');
+    $('#gb-top').innerHTML = `<div class="panel-title">Best bets against the line</div>
+      <div class="panel-note">${items.length ? `${items.length} bet${items.length === 1 ? '' : 's'} on the board: ${cnt.A} A, ${cnt.B} B, ${cnt.C} C. ` : ''}Ranked by grade, then expected value per unit. "Needed" is the win chance a bet must have to break even at that price; "Our" is what this app thinks after pulling its number toward the market.
+        Props are graded against the book's line; spread and total bets are at -110.</div>
+      ${items.length ? `<div class="table-scroll"><table class="bp-t" data-no-enhance><thead><tr><th>Grade</th><th>Bet</th><th class="num">Price</th><th class="num">Our</th><th class="num">Needed</th><th class="num">EV</th><th>Game</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : '<div class="empty" style="padding:8px 0;">No bet clears the bar right now. That is normal: most games have no edge against the market. Passing is a bet too.</div>'}`;
   }
   function draw(){
-    cur = winFilter ? slate.filter(s => s.win.key === winFilter) : slate;
-    drawTop();
-    cards.innerHTML = cur.map(gbCardHtml).join('') || '<div class="empty">No games in this window.</div>';
+    const only = $('#gb-onlybets').checked;
+    const cur = slate.filter(s => (!winFilter || s.win.key === winFilter) && (!only || s.m.bets.length || s.props.length));
+    drawTop(cur);
+    cards.innerHTML = cur.map(gbCardHtml).join('') || '<div class="empty">No games match.</div>';
     $$('.gb-add', cards).forEach(btn => btn.addEventListener('click', () => {
       addToMyPicks({source: 'Best Picks', player: btn.dataset.player, position: btn.dataset.position, team: btn.dataset.team, opponent: btn.dataset.opponent,
         stat: btn.dataset.stat, week: btn.dataset.week, threshold: parseFloat(btn.dataset.floor), summary: btn.dataset.summary});
       btn.disabled = true; btn.innerHTML = '&#10003;';
     }));
+    $$('.gb-add-prop', cards).forEach(btn => btn.addEventListener('click', () => {
+      addToMyPicks({source: 'Game Board', player: btn.dataset.player, position: btn.dataset.position, team: btn.dataset.team, opponent: btn.dataset.opponent,
+        stat: btn.dataset.stat, week: btn.dataset.week, threshold: parseFloat(btn.dataset.line), direction: btn.dataset.side === 'Under' ? 'under' : 'over', summary: btn.dataset.summary});
+      btn.disabled = true; btn.innerHTML = '&#10003;';
+    }));
     gbSnapshot(slate);
     $('#gb-record').innerHTML = gbRecordHtml();
   }
-  sel.addEventListener('change', () => {
-    try { localStorage.setItem(GB_DEF_KEY, sel.value); } catch(e){}
-    showTab('board');   // ratings feed every card, so rebuild the page with the new weight
-  });
   $('#gb-live').addEventListener('click', async () => { await refreshLivePicks(); showTab('board'); });
   draw();
   if(window.__gbTimer) clearInterval(window.__gbTimer);
