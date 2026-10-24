@@ -6,7 +6,7 @@
 <title>Gridiron Ledger — NFL 2026 Stats</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="config.js"></script>
@@ -550,6 +550,185 @@
   canvas{max-width:100%;}
   .empty{color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center;}
   footer{text-align:center;padding:30px 0 10px;font-family:var(--mono);font-size:11px;color:var(--hash);}
+  .bp-t th, .bp-t td{padding:5px 8px;font-size:12.5px;}
+  .bp-t th{white-space:nowrap;}
+  /* Prop Prices: sportsbook-style board */
+  .pp-board{display:flex;flex-direction:column;gap:16px;}
+  .pp-game{border:1px solid var(--panel-border);border-radius:8px;overflow:hidden;background:var(--panel);}
+  .pp-game-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 14px;background:var(--field-deep);border-bottom:1px solid var(--panel-border);}
+  .pp-game-title{font-weight:700;font-size:15px;color:var(--chalk);}
+  .pp-game-time{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);}
+  .pp-cols{display:grid;grid-template-columns:minmax(140px,1.3fr) 1fr 1fr;gap:10px;padding:6px 14px;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--chalk-dim);border-bottom:1px solid var(--panel-border);}
+  .pp-row{display:grid;grid-template-columns:minmax(140px,1.3fr) 1fr 1fr;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--panel-border);}
+  .pp-cols + .pp-row{border-top:none;}
+  .pp-name{font-weight:700;font-size:14px;color:var(--chalk);line-height:1.25;}
+  .pp-sub{font-size:11px;color:var(--chalk-dim);font-weight:400;}
+  .pp-alt-tag{font-size:10px;color:var(--chalk-dim);border:1px solid var(--panel-border);border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:middle;}
+  .pp-btns{display:flex;gap:6px;}
+  .pp-btn{flex:1;min-width:64px;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 6px 6px;background:var(--field-deep);border:1px solid var(--panel-border);border-radius:6px;line-height:1.15;}
+  .pp-btn i{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.8px;}
+  .pp-btn i.fd{color:#4aa8ff;} .pp-btn i.dk{color:#53d337;} .pp-btn i.ot{color:var(--chalk-dim);}
+  .pp-btn em{font-style:normal;font-size:11px;color:var(--chalk-dim);}
+  .pp-btn b{font-size:15px;color:var(--chalk);font-variant-numeric:tabular-nums;}
+  .pp-btn.best{border-color:var(--gold);background:rgba(227,169,59,0.10);}
+  .pp-btn.best b{color:var(--gold);}
+  .pp-btn.off{opacity:.35;}
+  .pp-ana{grid-column:1 / -1;font-family:var(--mono);font-size:11px;color:var(--chalk-dim);padding-top:2px;}
+  .pp-ana b{color:var(--chalk);}
+  @media (max-width:700px){
+    .pp-cols{display:none;}
+    .pp-row{grid-template-columns:1fr 1fr;}
+    .pp-name{grid-column:1 / -1;}
+  }
+  /* ===================== Tonight layout: new look (dark + light) ===================== */
+  .layout-pick{display:inline-flex;align-items:center;gap:8px;align-self:center;}
+  .layout-pick .lp{display:inline-flex;border:1px solid var(--panel-border);border-radius:999px;overflow:hidden;padding:3px;gap:2px;background:var(--panel);}
+  .layout-pick .lp button{background:transparent;border:none;color:var(--chalk-dim);font-family:var(--mono);font-size:12px;padding:6px 14px;cursor:pointer;border-radius:999px;}
+  .layout-pick .lp button.on{background:var(--gold);color:var(--field);font-weight:700;}
+  .theme-btn{display:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--panel-border);background:var(--panel);color:var(--chalk);cursor:pointer;font-size:15px;line-height:1;}
+  body.layout-tonight .theme-btn{display:inline-flex;align-items:center;justify-content:center;}
+
+  body.layout-tonight{
+    --t-bg:radial-gradient(1100px 560px at 85% -8%,rgba(255,46,136,.16),transparent 60%),radial-gradient(1000px 600px at -12% 22%,rgba(255,122,47,.12),transparent 60%),#07080F;
+    --t-text:#F2F4FA; --t-dim:rgba(242,244,250,.56); --t-faint:rgba(255,255,255,.07); --t-line:rgba(255,255,255,.11);
+    --t-card:rgba(255,255,255,.045); --t-card2:rgba(255,255,255,.075); --t-shadow:0 10px 36px rgba(0,0,0,.35); --t-blur:blur(18px);
+    --t-over:#2EE6A0; --t-under:#FF4D6D; --t-pass:rgba(242,244,250,.42); --t-nol:rgba(242,244,250,.0);
+    --t-accent:linear-gradient(90deg,#FF7A2F,#FF2E88); --t-accent-1:#FF6A3D; --t-on-accent:#fff;
+    --t-court:rgba(255,255,255,.022); --t-rim:#FF7A2F; --t-me:#F2F4FA;
+    --t-font:'Inter',system-ui,sans-serif; --t-num:'Space Grotesk','Inter',sans-serif;
+    /* the classic screens opened from this layout pick up the same skin through the shared variables */
+    --field:#07080F; --field-deep:rgba(0,0,0,.28); --panel:var(--t-card); --panel-border:var(--t-faint); --chalk:var(--t-text); --chalk-dim:var(--t-dim);
+    --hash:var(--t-line); --hash-line:var(--t-faint); --gold:var(--t-accent-1); --gold-deep:#E5482F; --mint:var(--t-over); --red:var(--t-under);
+    --mono:var(--t-font); --cond:var(--t-font); --display:var(--t-num);
+    --cv-floor:var(--t-court); --cv-line:var(--t-line); --cv-paint:rgba(255,122,47,.05);
+    background:var(--t-bg) fixed; color:var(--t-text); font-family:var(--t-font); -webkit-font-smoothing:antialiased;
+  }
+  body.layout-tonight[data-theme="light"]{
+    --t-bg:radial-gradient(1100px 560px at 85% -8%,rgba(255,46,136,.08),transparent 60%),radial-gradient(1000px 600px at -12% 22%,rgba(255,122,47,.07),transparent 60%),#F3F4F7;
+    --t-text:#0D0F14; --t-dim:#6B7280; --t-faint:#ECEEF2; --t-line:#E1E4EA;
+    --t-card:#FFFFFF; --t-card2:#FFFFFF; --t-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.07); --t-blur:none;
+    --t-over:#0EA868; --t-under:#E3294F; --t-pass:#9CA3AF; --t-court:#FAFAFB; --t-me:#0D0F14;
+    --field:#F3F4F7; --field-deep:#F7F8FA;
+  }
+  body.layout-tonight header.hero{background:transparent;border-bottom:none;padding:22px 0 10px;margin-bottom:6px;}
+  body.layout-tonight .hero-title{font-family:var(--t-font);font-weight:800;letter-spacing:-.5px;font-size:24px;}
+  body.layout-tonight .hero-title span{background:var(--t-accent);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  body.layout-tonight .hero-sub{font-family:var(--t-font);font-size:12px;margin-top:4px;}
+  body.layout-tonight .hero-meta,body.layout-tonight .ticker-side{display:none;}
+  body.layout-tonight .hero-inner{align-items:center;}
+  body.layout-tonight .layout-pick .lp{background:var(--t-card);border-color:var(--t-faint);box-shadow:var(--t-shadow);}
+  body.layout-tonight .layout-pick .lp button{font-family:var(--t-font);font-weight:600;}
+  body.layout-tonight .layout-pick .lp button.on{background:var(--t-accent);color:var(--t-on-accent);}
+  body.layout-tonight .theme-btn{background:var(--t-card);border-color:var(--t-faint);box-shadow:var(--t-shadow);color:var(--t-text);}
+  body.layout-tonight .main-layout{display:block;}
+  body.layout-tonight nav.tabs{flex-direction:row;flex-wrap:nowrap;overflow-x:auto;position:static;max-height:none;border:none;padding:4px;margin:0 0 22px;gap:2px;
+    background:var(--t-card);border-radius:999px;box-shadow:var(--t-shadow);backdrop-filter:var(--t-blur);width:max-content;max-width:100%;}
+  body.layout-tonight nav.tabs > button{border:none;border-radius:999px;padding:8px 16px;font-family:var(--t-font);font-size:14px;font-weight:600;color:var(--t-dim);}
+  body.layout-tonight nav.tabs > button.active{background:var(--t-accent);color:var(--t-on-accent);border:none;}
+  body.layout-tonight nav.tabs > button:hover:not(.active){color:var(--t-text);background:transparent;}
+  body.layout-tonight .panel{border:none;border-radius:18px;box-shadow:var(--t-shadow);backdrop-filter:var(--t-blur);}
+  body.layout-tonight .subtab{border:none;border-radius:999px;background:var(--t-card);color:var(--t-dim);font-family:var(--t-font);font-size:13px;box-shadow:var(--t-shadow);}
+  body.layout-tonight .subtab.active{background:var(--t-accent);color:var(--t-on-accent);}
+  body.layout-tonight footer{color:var(--t-dim);border:none;}
+  body.layout-tonight select,body.layout-tonight input{background:var(--t-card2);color:var(--t-text);border:1px solid var(--t-faint);border-radius:10px;font-family:var(--t-font);}
+
+  /* ---- Tonight screen ---- */
+  .tn-wrap{display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;align-items:start;font-family:var(--t-font);color:var(--t-text);}
+  .tn-side{position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;}
+  .tn-day{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--t-dim);margin:8px 6px 4px;}
+  .tn-day:first-child{margin-top:0;}
+  .tn-all{background:none;border:none;color:var(--t-dim);font-family:var(--t-font);font-size:11px;font-weight:600;cursor:pointer;padding:0;}
+  .tn-all:hover{color:var(--t-text);}
+  .tn-g{display:flex;justify-content:space-between;align-items:center;width:100%;background:transparent;border:none;border-radius:12px;padding:10px 12px;
+    font-family:var(--t-font);font-size:14px;font-weight:600;color:var(--t-dim);cursor:pointer;text-align:left;}
+  .tn-g i{font-style:normal;opacity:.6;font-weight:500;} .tn-g small{font-size:11px;font-weight:500;}
+  .tn-g:hover{color:var(--t-text);}
+  .tn-g.on{background:var(--t-card);color:var(--t-text);box-shadow:var(--t-shadow);backdrop-filter:var(--t-blur);}
+  .tn-opts{display:flex;flex-direction:column;gap:2px;margin-top:14px;padding-top:12px;border-top:1px solid var(--t-faint);}
+  .tn-sw{display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--t-dim);font-family:var(--t-font);font-size:13px;font-weight:500;padding:7px 6px;cursor:pointer;text-align:left;}
+  .tn-sw .knob{position:relative;width:30px;height:18px;border-radius:999px;background:var(--t-faint);flex:none;transition:background .15s;}
+  .tn-sw .knob::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--t-dim);transition:all .15s;}
+  .tn-sw.on{color:var(--t-text);} .tn-sw.on .knob{background:var(--t-accent);} .tn-sw.on .knob::after{left:14px;background:#fff;}
+  .tn-main{min-width:0;container-type:inline-size;}
+  .tn-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}
+  .tn-title{font-family:var(--t-font) !important;font-size:30px !important;font-weight:800 !important;letter-spacing:-.6px;margin:0 !important;color:var(--t-text) !important;}
+  .tn-sub{font-size:14px;color:var(--t-dim);margin-top:4px;}
+  .tn-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px;}
+  .tn-sort{margin-left:auto;}
+  .tn-seg{display:inline-flex;gap:2px;background:var(--t-faint);padding:3px;border-radius:999px;}
+  .tn-seg button{background:none;border:none;border-radius:999px;padding:6px 12px;font-family:var(--t-font);font-size:13px;font-weight:600;color:var(--t-dim);cursor:pointer;}
+  .tn-seg button:hover{color:var(--t-text);}
+  .tn-seg button.on{background:var(--t-card2);color:var(--t-text);box-shadow:var(--t-shadow);}
+  .tn-card{background:var(--t-card);border-radius:18px;margin-bottom:10px;box-shadow:var(--t-shadow);backdrop-filter:var(--t-blur);transition:background .15s;}
+  .tn-card:hover,.tn-card.open{background:var(--t-card2);}
+  .tn-row{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr) 112px 100px;gap:20px;align-items:center;padding:16px 20px;cursor:pointer;}
+  .tn-who{display:flex;gap:12px;align-items:center;min-width:0;}
+  .tn-pos{width:36px;height:36px;border-radius:50%;background:var(--t-faint);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--t-dim);flex:none;}
+  .tn-nm{font-size:16px;font-weight:700;letter-spacing:-.2px;line-height:1.15;}
+  .tn-mt{font-size:12px;color:var(--t-dim);margin-top:2px;}
+  .tn-inj{color:var(--t-accent-1);font-weight:600;}
+  .tn-pair{display:flex;align-items:flex-end;gap:16px;margin-bottom:10px;}
+  .tn-pair .big{display:block;font-family:var(--t-num);font-size:26px;font-weight:700;letter-spacing:-.5px;line-height:1;font-variant-numeric:tabular-nums;}
+  .tn-main .lab{display:block;font-size:11px;color:var(--t-dim);margin-top:4px;font-weight:500;}
+  .tn-diff{font-family:var(--t-num);font-size:13px;font-weight:700;padding-bottom:17px;min-width:34px;}
+  .tn-track{position:relative;height:4px;border-radius:2px;background:var(--t-faint);}
+  .tn-track .fill{position:absolute;top:0;height:4px;border-radius:2px;opacity:.5;}
+  .tn-track .d{position:absolute;top:-4px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);}
+  .tn-track .d.me{background:var(--t-me);}
+  .tn-track .d.dv{box-shadow:0 0 12px currentColor;}
+  .tn-track .ln{position:absolute;top:-7px;width:2px;height:18px;border-radius:1px;background:var(--t-rim);transform:translateX(-50%);}
+  .tn-dots{display:flex;gap:4px;} .tn-dots i{width:13px;height:13px;border-radius:50%;}
+  .tn-call{text-align:right;} .tn-call .cl{font-size:12px;font-weight:800;letter-spacing:.7px;color:var(--c);}
+  .tn-call .cv{font-family:var(--t-num);font-size:26px;font-weight:700;letter-spacing:-.5px;line-height:1.05;}
+  .tn-call.none .cl{color:var(--t-dim);font-size:10px;} .tn-call.none .cv{color:var(--t-dim);}
+  .tn-more{padding:0 20px 18px;}
+  .tn-bk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding-top:14px;border-top:1px solid var(--t-faint);}
+  .tn-bk:not(.wide){grid-template-columns:minmax(0,1fr);gap:14px;border-top:none;padding-top:4px;}
+  .tn-bk > div{min-width:0;} .tn-drawer{min-width:0;overflow:hidden;}
+  .tn-h{font-size:12px;font-weight:600;color:var(--t-dim);margin-bottom:8px;}
+  .tn-bars{position:relative;display:flex;gap:6px;align-items:flex-end;height:104px;}
+  .tn-bars .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;}
+  .tn-bars .v{font-family:var(--t-num);font-size:12px;font-weight:700;margin-bottom:3px;}
+  .tn-bars i{display:block;width:100%;border-radius:5px 5px 2px 2px;}
+  .tn-bars span{height:20px;line-height:20px;font-size:10px;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .tn-ref{position:absolute;left:0;right:0;height:0;border-top:1.5px dashed var(--t-rim);opacity:.9;pointer-events:none;}
+  .tn-ref b{position:absolute;left:-2px;top:-8px;font-size:10px;line-height:14px;padding:0 4px;border-radius:6px;color:var(--t-rim);background:var(--t-card2);font-family:var(--t-num);transform:translateX(-100%);}
+  .tn-bars{margin-left:30px;width:calc(100% - 30px);}
+  .tn-why p{font-size:13px;line-height:1.5;color:var(--t-dim);margin:0 0 8px;} .tn-why b{color:var(--t-text);}
+  .tn-empty{color:var(--t-dim);font-size:13px;text-align:center;}
+  .tn-note{color:var(--t-dim);font-size:12px;margin-top:10px;}
+    box-shadow:0 0 18px var(--c);border:2px solid var(--c);}
+  .tn-drawer{background:var(--t-card);border-radius:18px;padding:18px;box-shadow:var(--t-shadow);backdrop-filter:var(--t-blur);}
+  .tn-tag{font-size:11px;font-weight:800;letter-spacing:.7px;margin-bottom:4px;} .tn-tag span{color:var(--t-dim);font-weight:600;letter-spacing:0;}
+  .tn-dnm{font-size:20px;font-weight:800;letter-spacing:-.3px;}
+  .tn-proj{display:flex;align-items:flex-end;gap:10px;margin:12px 0;}
+  .tn-proj .k{font-family:var(--t-num);font-size:36px;font-weight:700;letter-spacing:-.8px;line-height:1;}
+  .tn-proj .lab{margin:0 0 4px;}
+  .tn-kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+  .tn-kv div{background:var(--t-faint);border-radius:12px;padding:10px;}
+  .tn-kv b{display:block;font-family:var(--t-num);font-size:20px;} .tn-kv span{font-size:11px;color:var(--t-dim);}
+  @container (max-width:760px){
+    .tn-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who call" "cmp cmp" "form form";row-gap:12px;}
+    .tn-who{grid-area:who;} .tn-cmp{grid-area:cmp;} .tn-form{grid-area:form;display:flex;align-items:center;gap:10px;} .tn-form .lab{margin:0;} .tn-call{grid-area:call;}
+    .tn-bk.wide{grid-template-columns:1fr;}
+    .tn-sort{margin-left:0;}
+  }
+  @container (max-width:480px){
+    .tn-title{font-size:24px !important;}
+  }
+  @media (max-width:900px){
+    .tn-wrap{grid-template-columns:1fr;gap:12px;}
+    .tn-side{position:static;flex-direction:row;flex-wrap:wrap;gap:4px;}
+    .tn-day{flex-basis:100%;margin:6px 4px 2px;} .tn-g{width:auto;gap:10px;padding:8px 12px;font-size:13px;}
+    .tn-opts{flex-direction:row;flex-wrap:wrap;flex-basis:100%;margin-top:6px;padding-top:6px;}
+    body.layout-tonight nav.tabs{width:auto;}
+  }
+
+  body.layout-tonight #tn-more{border:none;border-radius:999px;background:transparent;color:var(--t-dim);font-family:var(--t-font);font-size:14px;font-weight:600;padding:8px 10px;cursor:pointer;}
+  body.layout-tonight #tn-more:hover{color:var(--t-text);}
+  body.layout-tonight .layout-switch{display:none;}
+  body.layout-tonight .tn-side .tn-opts .tn-sw{white-space:normal;}
+  .layout-pick .lp button.on{color:#0B0F19;}
 </style>
 </head>
 <body>
@@ -560,6 +739,7 @@
       <h1 class="hero-title">GRIDIRON <span>LEDGER</span></h1>
       <div class="hero-sub" id="hero-sub"></div>
     </div>
+    <div class="layout-pick" id="layout-pick"><div class="lp" title="Classic: every tool. Tonight: one screen per slate, player vs defense vs the book line"><button type="button" data-layout="classic">Classic</button><button type="button" data-layout="tonight">Tonight</button></div><button type="button" class="theme-btn" id="theme-btn" title="Dark / light">&#9790;</button></div>
     <div class="hero-meta" id="hero-meta">
     </div>
   </div>
@@ -614,6 +794,7 @@
         <button data-tab="anytimetd">Anytime TD Props</button>
       </div>
       <a class="layout-switch" href="index.html">&larr; Classic layout</a>
+      <a class="layout-switch" href="board.html">Try the Game Board &rarr;</a>
     </nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
@@ -851,6 +1032,35 @@ function propIndex(){
   return map;
 }
 function propHasData(){ return !!(DATA.propOdds && DATA.propOdds.length); }
+// The line the book itself sets for a player + stat (same rule as the Book Lines tab: both sides posted beats one-sided,
+// then the over and under priced closest to even). thr is the smallest result that beats it: Over 54.5 -> 55, Over 55 -> 56.
+let _propMain = {src:null, val:null};
+function propMainIndex(){
+  if(_propMain.src === DATA.propOdds && _propMain.val) return _propMain.val;
+  const groups = new Map();
+  (DATA.propOdds || []).forEach(r => {
+    if(!r.stat || !r.ou || r.stat === 'Any TD') return;
+    if(String(r.active).toLowerCase() === 'false') return;
+    const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
+    const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
+    if(line === null || !isFinite(line)) return;
+    const ps = slipNorm(r.player) + '|' + r.stat, k = ps + '|' + line;
+    if(!groups.has(k)) groups.set(k, {ps, line, over:[], under:[]});
+    (r.ou === 'under' ? groups.get(k).under : groups.get(k).over).push({dec, book:r.book});
+  });
+  const best = a => a.length ? a.reduce((x, y) => y.dec > x.dec ? y : x) : null;
+  const byPS = new Map();
+  groups.forEach(g => { if(!byPS.has(g.ps)) byPS.set(g.ps, []); byPS.get(g.ps).push({line:g.line, bo:best(g.over), bu:best(g.under)}); });
+  const out = new Map();
+  byPS.forEach((list, ps) => {
+    const score = c => (c.bo && c.bu) ? Math.abs(1 / c.bo.dec - 1 / c.bu.dec) : 1 + Math.abs(((c.bo || c.bu).dec) - 1.91);
+    const m = list.reduce((a, b) => score(b) < score(a) ? b : a);
+    out.set(ps, {line:m.line, thr:Math.floor(m.line) + 1, bo:m.bo, bu:m.bu});
+  });
+  _propMain = {src:DATA.propOdds, val:out};
+  return out;
+}
+function propMainFor(player, stat){ return propHasData() ? (propMainIndex().get(slipNorm(player) + '|' + stat) || null) : null; }
 const PROP_BOOK_SHORT = {fanduel:'FD', draftkings:'DK', caesars:'CZR', betrivers:'BR', thescore:'theScore', hardrockbet:'HR'};
 function propAmerican(dec){ return dec >= 2 ? '+' + Math.round((dec - 1) * 100) : String(Math.round(-100 / (dec - 1))); }
 function propWanted(pick){
@@ -1280,12 +1490,12 @@ function renderPropPrices(){
   return `<div class="panel"><div class="panel-title">Prop Prices</div>
     <div class="panel-note" id="pp-note"></div>
     ${propStatusHtml()}
+    <div class="controls"><div class="pill-group" id="pp-stat-pills"></div></div>
     <div class="controls">
-      <label class="ctl-label">Stat <select id="pp-stat"><option value="">All</option></select></label>
-      <label class="ctl-label">Game <select id="pp-game"><option value="">All</option></select></label>
+      <label class="ctl-label">Game <select id="pp-game"><option value="">All games</option></select></label>
       <label class="ctl-label">Player <input type="text" id="pp-player" placeholder="search" style="width:150px;"></label>
-      <label class="ctl-label"><input type="checkbox" id="pp-main" checked> main lines only (hide alternate lines)</label>
-      <label class="ctl-label"><input type="checkbox" id="pp-est"> only lines the dashboard can estimate</label>
+      <label class="ctl-label"><input type="checkbox" id="pp-alt"> alternate lines</label>
+      <label class="ctl-label"><input type="checkbox" id="pp-ana"> show the app's read</label>
     </div>
     <div id="pp-table"></div></div>`;
 }
@@ -1296,8 +1506,8 @@ function mountPropPrices(){
   const fetched = all.map(r => r.fetched).filter(Boolean).sort().pop() || '';
   const unmapped = [...new Set(all.filter(r => !r.stat).map(r => r.market))];
   $('#pp-note').innerHTML = `${all.length.toLocaleString()} prices from ${books.map(b => PROP_BOOK_SHORT[b] || b).join(', ')}${fetched ? `, fetched ${fetched.replace('T', ' ').replace('Z', ' UTC')}` : ''}.
-    "Dashboard" is this app's own estimate for the Over (or Yes) from the player's season hit rate and the opponent's history, and "Gap" is that estimate minus the book's no-margin
-    price, pulled toward zero when only a few games sit behind the estimate (3 games count for less than half). <b>Read a gap as a question, not a signal:</b> books know about injuries, weather and game plans this app does not, so a big gap is more often the app being wrong than a bargain,
+    Gold = best price between the books. Turn on <b>show the app's read</b> to see this app's own estimate for the Over (or Yes), from the player's season hit rate and the opponent's history, and the gap to the book's no-margin
+    price, pulled toward zero when only a few games sit behind it. <b>Read a gap as a question, not a signal:</b> books know about injuries, weather and game plans this app does not, so a big gap is more often the app being wrong than a bargain,
     and a handful of games behind an estimate is thin. ${unmapped.length ? `<span style="color:var(--chalk-dim);">${unmapped.length} market types are not mapped to a stat and are ignored: ${unmapped.slice(0, 8).join('; ')}${unmapped.length > 8 ? '...' : ''}.</span>` : ''}`;
   const groups = new Map();
   all.forEach(r => {
@@ -1306,9 +1516,11 @@ function mountPropPrices(){
     const dec = parseFloat(r.decimal_odds); if(!(dec > 1)) return;
     const line = r.line === '' || r.line === undefined ? null : parseFloat(r.line);
     const k = [slipNorm(r.player), r.stat, line, r.game].join('|');
-    if(!groups.has(k)) groups.set(k, {player: r.player, stat: r.stat, line, game: r.game, over: [], under: []});
+    if(!groups.has(k)) groups.set(k, {player: r.player, stat: r.stat, line, game: r.game, kickoff: r.kickoff, over: [], under: [], ob: {}, ub: {}});
     const g = groups.get(k);
     (r.ou === 'under' ? g.under : g.over).push({dec, book: r.book});
+    const bm = r.ou === 'under' ? g.ub : g.ob;
+    if(!bm[r.book] || dec > bm[r.book]) bm[r.book] = dec;
   });
   const lastRow = {};
   (DATA.playerGame || []).forEach(r => { const k = slipNorm(r.Player); if(!lastRow[k] || num(r.Week) >= num(lastRow[k].Week)) lastRow[k] = r; });
@@ -1329,7 +1541,7 @@ function mountPropPrices(){
     let nv = null;
     if(bo && bu){ const bk = g.over.find(o => g.under.some(u => u.book === o.book)); if(bk){ const u = g.under.find(x => x.book === bk.book); nv = (1 / bk.dec) / (1 / bk.dec + 1 / u.dec); } }
     const implied = bo ? (nv !== null ? nv : 1 / bo.dec) : null;
-    return {player:g.player, game:g.game, stat:g.stat, lineNum: g.line === null ? -1 : g.line, line: g.line === null ? 'Yes' : g.line,
+    return {player:g.player, game:g.game, kickoff:g.kickoff, ob:g.ob, ub:g.ub, team: lr ? lr.Team : '', pos: lr ? lr.Position : '', stat:g.stat, lineNum: g.line === null ? -1 : g.line, line: g.line === null ? 'Yes' : g.line,
       over: bo ? bo.dec : '', overTxt: bo ? `${propAmerican(bo.dec)} ${PROP_BOOK_SHORT[bo.book] || bo.book}` : '--', under: bu ? bu.dec : '', underTxt: bu ? `${propAmerican(bu.dec)} ${PROP_BOOK_SHORT[bu.book] || bu.book}` : '--',
       implied: implied === null ? '' : implied, est: est === null ? '' : est, n: n === null ? '' : n,
       // Few games behind an estimate say little, so the gap is pulled toward the book's price: weight n against 4 games of the book's view.
@@ -1346,26 +1558,61 @@ function mountPropPrices(){
     list.forEach(r => { if(score(r) < score(best)) best = r; });
     list.forEach(r => { r.main = (r === best); });
   });
-  const statSel = $('#pp-stat'), gameSel = $('#pp-game');
-  [...new Set(rows.map(r => r.stat))].sort().forEach(x => statSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
+  const statOrder = ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
+  const statRank = s => { const i = statOrder.indexOf(s); return s === 'Any TD' ? 99 : (i < 0 ? 50 : i); };
+  const stats = [...new Set(rows.map(r => r.stat))].sort((a, b) => statRank(a) - statRank(b) || a.localeCompare(b));
+  const statLabel = s => ({'Pass Yards':'Passing Yds', 'Pass + Rush Yards':'Pass + Rush Yds', 'Rush Yards':'Rushing Yds', 'Receiving Yards':'Receiving Yds', 'Receptions':'Receptions', 'Any TD':'Anytime TD'})[s] || s;
+  let curStat = stats[0] || '';
+  const statPills = $('#pp-stat-pills'), gameSel = $('#pp-game');
+  statPills.innerHTML = stats.map(s => `<span class="pill ${s === curStat ? 'active' : ''}" data-stat="${frEsc(s)}">${frEsc(statLabel(s))}</span>`).join('');
+  $$('#pp-stat-pills .pill').forEach(pl => pl.addEventListener('click', () => {
+    $$('#pp-stat-pills .pill').forEach(x => x.classList.remove('active'));
+    pl.classList.add('active'); curStat = pl.dataset.stat; draw();
+  }));
   [...new Set(rows.map(r => r.game))].sort().forEach(x => gameSel.insertAdjacentHTML('beforeend', `<option>${frEsc(x)}</option>`));
-  const cols = [
-    {key:'player', label:'Player'}, {key:'stat', label:'Stat'}, {key:'lineNum', label:'Line', numeric:true, render:(v, r) => String(r.line)},
-    {key:'over', label:'Best over / yes', numeric:true, render:(v, r) => r.overTxt}, {key:'under', label:'Best under', numeric:true, render:(v, r) => r.underTxt},
-    {key:'implied', label:'Book %', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
-    {key:'est', label:'Dashboard', numeric:true, render:v => v === '' ? '--' : Math.round(v * 100) + '%'},
-    {key:'n', label:'Games', numeric:true, render:v => v === '' ? '--' : v},
-    {key:'gap', label:'Gap (thin samples shrunk)', numeric:true, render:v => v === '' ? '--' : `<span style="color:var(--chalk-dim);">${v >= 0 ? '+' : ''}${Math.round(v * 100)} pts</span>`},
-    {key:'game', label:'Game'},
-  ];
+  // Book columns: FanDuel and DraftKings first, then anything else that appears.
+  const bookOrder = ['fanduel', 'draftkings'];
+  const bookCols = [...new Set([...bookOrder, ...books])].filter(b => books.includes(b) || bookOrder.includes(b));
+  const bookTag = b => `<i class="${b === 'fanduel' ? 'fd' : b === 'draftkings' ? 'dk' : 'ot'}">${frEsc((PROP_BOOK_SHORT[b] || b).toUpperCase())}</i>`;
+  const btn = (map, book, label, bestDec) => {
+    const dec = map && map[book];
+    if(!dec) return `<span class="pp-btn off">${bookTag(book)}<em>${label}</em><b>--</b></span>`;
+    return `<span class="pp-btn ${dec === bestDec ? 'best' : ''}">${bookTag(book)}<em>${label}</em><b>${propAmerican(dec)}</b></span>`;
+  };
+  const side = (map, label) => {
+    const px = bookCols.map(b => (map && map[b]) || 0).filter(Boolean);
+    const best = px.length > 1 && Math.max(...px) > Math.min(...px) ? Math.max(...px) : 0;   // gold only when the books differ
+    return `<div class="pp-btns">${bookCols.map(b => btn(map, b, label, best)).join('')}</div>`;
+  };
   function draw(){
-    const st = statSel.value, gm = gameSel.value, q = slipNorm($('#pp-player').value), onlyEst = $('#pp-est').checked, mainOnly = $('#pp-main').checked;
-    const list = rows.filter(r => (!mainOnly || r.main) && (!st || r.stat === st) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)) && (!onlyEst || r.est !== ''));
-    $('#pp-table').innerHTML = '';
-    if(!list.length){ $('#pp-table').innerHTML = '<div class="empty">No lines match.</div>'; return; }
-    buildTable($('#pp-table'), cols, list, {defaultSort:'player', defaultDir:'asc', limit:500});
+    const gm = gameSel.value, q = slipNorm($('#pp-player').value), alt = $('#pp-alt').checked, ana = $('#pp-ana').checked;
+    const list = rows.filter(r => r.stat === curStat && (alt || r.main) && (!gm || r.game === gm) && (!q || slipNorm(r.player).includes(q)));
+    const out = $('#pp-table'); out.innerHTML = '';
+    if(!list.length){ out.innerHTML = '<div class="empty">No lines match.</div>'; return; }
+    const byGame = new Map();
+    list.forEach(r => { if(!byGame.has(r.game)) byGame.set(r.game, {game:r.game, kickoff:r.kickoff, rows:[]}); byGame.get(r.game).rows.push(r); });
+    const games = [...byGame.values()].sort((a, b) => (new Date(a.kickoff).getTime() || 9e15) - (new Date(b.kickoff).getTime() || 9e15) || a.game.localeCompare(b.game));
+    const isTD = curStat === 'Any TD';
+    out.innerHTML = `<div class="pp-board">${games.map(g => {
+      const w = bpWindow(g.kickoff);
+      const when = w && w.day ? `${w.day.slice(0, 3)} ${w.time}` : '';
+      g.rows.sort((a, b) => b.lineNum - a.lineNum || a.player.localeCompare(b.player) || (b.main ? 1 : 0) - (a.main ? 1 : 0));
+      // With alternates on, keep each player's lines together (main line first), players ordered by their main line.
+      if(alt){
+        const mainLine = {}; g.rows.forEach(r => { if(r.main) mainLine[slipNorm(r.player)] = r.lineNum; });
+        g.rows.sort((a, b) => (mainLine[slipNorm(b.player)] || 0) - (mainLine[slipNorm(a.player)] || 0) || a.player.localeCompare(b.player) || a.lineNum - b.lineNum);
+      }
+      return `<div class="pp-game"><div class="pp-game-head"><span class="pp-game-title">${frEsc(g.game)}</span><span class="pp-game-time">${frEsc(when)}</span></div>
+        <div class="pp-cols"><span>Player</span><span>${isTD ? 'Yes' : 'Over'}</span><span>${isTD ? '' : 'Under'}</span></div>
+        ${g.rows.map(r => {
+          const lab = isTD ? 'YES' : 'O ' + r.line, labU = 'U ' + r.line;
+          const anaHtml = ana ? `<div class="pp-ana">${r.implied !== '' ? `Book ${isTD ? 'yes' : 'over'} <b>${Math.round(r.implied * 100)}%</b>` : ''}${r.est !== '' ? ` &middot; Dashboard <b>${Math.round(r.est * 100)}%</b> (${r.n} games) &middot; gap <b>${r.gap >= 0 ? '+' : ''}${Math.round(r.gap * 100)} pts</b>` : ' &middot; no estimate'}</div>` : '';
+          return `<div class="pp-row"><div class="pp-name">${frEsc(r.player)}${r.team ? ` <span class="pp-sub">${frEsc(r.pos)} &middot; ${frEsc(r.team)}</span>` : ''}${alt && !r.main && !isTD ? '<span class="pp-alt-tag">ALT</span>' : ''}</div>
+            ${side(r.ob, lab)}${isTD ? '<div></div>' : side(r.ub, labU)}${anaHtml}</div>`;
+        }).join('')}</div>`;
+    }).join('')}</div>`;
   }
-  [statSel, gameSel, $('#pp-est'), $('#pp-main')].forEach(el => el.addEventListener('change', draw));
+  [gameSel, $('#pp-alt'), $('#pp-ana')].forEach(el => el.addEventListener('change', draw));
   $('#pp-player').addEventListener('input', draw);
   draw();
 }
@@ -4884,11 +5131,27 @@ function bpPicksForGame(offense, defense, startersOnly, spread){
 // live from ESPN while the games are on, then from the final box score. That is what keeps
 // the previous weeks' picks, and their results, after the page moves on to the next slate.
 const BP_HISTORY_KEY = 'nfl_dashboard_bestpicks_history';
-function bpHistGet(){ try { return JSON.parse(localStorage.getItem(BP_HISTORY_KEY) || '{}'); } catch(e){ return {}; } }
-function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} if(window.syncSchedule) syncSchedule(); }
+const BP_STAT_SHORT = {'Pass Yards':'pass yds', 'Rush Yards':'rush yds', 'Receiving Yards':'rec yds', 'Receptions':'rec', 'Pass + Rush Yards':'pass+rush yds'};
+let _bpHC = {raw:null, val:{}};
+function bpHistGet(){ try { const raw = localStorage.getItem(BP_HISTORY_KEY) || '{}'; if(raw === _bpHC.raw) return _bpHC.val; const v = JSON.parse(raw); _bpHC = {raw, val:v}; return v; } catch(e){ return {}; } }
+function bpHistSave(h){ try { localStorage.setItem(BP_HISTORY_KEY, JSON.stringify(h)); } catch(e){} _bpHC = {raw:null, val:{}}; if(window.syncSchedule) syncSchedule(); }
 function bpPickKey(p, week){ return `${week}|${p.team}|${p.player}|${p.stat}|${p.floor}`; }
+// Week of the slate on the page: book lines in the prop file belong to these games.
+function bpCurWeek(){ const r = (DATA.week2 || [])[0]; return r ? String(r.Week) : ''; }
+// What a pick is graded against. The book's own line when there is one (a pick HITS when the player goes over it), saved with the
+// pick so it stays put once the game starts; otherwise the floor, as before.
+function bpLine(p, week){
+  const e = bpHistGet()[bpPickKey(p, week)];
+  if(e && typeof e.bookThr === 'number') return {thr:e.bookThr, line:e.bookLine, book:true, over: typeof e.bookOver === 'number' ? {dec:e.bookOver, book:e.bookBook} : null};
+  if(String(week) === bpCurWeek()){
+    const m = propMainFor(p.player, p.stat);
+    if(m) return {thr:m.thr, line:m.line, book:true, over: m.bo ? {dec:m.bo.dec, book:m.bo.book} : null};
+  }
+  return {thr:p.floor, line:null, book:false, over:null};
+}
+function bpLineLabel(p, week){ const L = bpLine(p, week); return L.book ? 'o' + L.line : p.floor + '+'; }
 function bpGrade(p, week){
-  return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:p.floor, finalStat:p.finalStat, finalActual:p.finalActual});
+  return gradeMyPick({player:p.player, team:p.team, stat:p.stat, week, threshold:bpLine(p, week).thr, finalStat:p.finalStat, finalActual:p.finalActual});
 }
 // Save this week's picks the first time they are seen; graded results are written back too.
 function bpSnapshot(allPicks){
@@ -4906,18 +5169,25 @@ function bpSnapshot(allPicks){
     const e = h[k];
     if(typeof e.finalActual === 'number') return;
     const g = bpGrade(e, e.week);
-    if(g && g.final && g.persist && typeof g.actual === 'number'){ e.finalActual = g.actual; e.finalStat = e.stat; changed = true; }
+    // Save the book's line with the pick: it follows the book until kickoff, then stays fixed.
+    const m = String(e.week) === bpCurWeek() ? propMainFor(e.player, e.stat) : null;
+    if(m && (typeof e.bookThr !== 'number' || (g && g.status === 'PENDING' && m.thr !== e.bookThr))){
+      e.bookThr = m.thr; e.bookLine = m.line;
+      if(m.bo){ e.bookOver = m.bo.dec; e.bookBook = m.bo.book; } else { delete e.bookOver; delete e.bookBook; }
+      changed = true;
+    }
+    const g2 = bpGrade(e, e.week);
+    if(g2 && g2.final && g2.persist && typeof g2.actual === 'number'){ e.finalActual = g2.actual; e.finalStat = e.stat; changed = true; }
   });
   if(changed) bpHistSave(h);
   return h;
 }
-function bpResultHtml(g, floor, proj){
+function bpResultHtml(g, label){
   if(!g || g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Not started</span>';
-  const proj_ = proj !== undefined ? ` <span style="color:var(--chalk-dim);">(proj ${fmt(proj)})</span>` : '';
-  if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${floor}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
+  if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${label}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
   const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
   const tag = g.live ? ' <span style="color:var(--chalk-dim);">live</span>' : (g.fromLive && !g.persist ? ' <span style="color:var(--chalk-dim);" title="ESPN lists only players who recorded a stat, so this is counted as 0 until the daily data confirms it">not in box</span>' : '');
-  return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b>${tag}${proj_}`;
+  return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b> <span style="color:var(--chalk-dim);">vs ${label}</span>${tag}`;
 }
 
 // Kickoff window for Best Picks: converts the UTC kickoff to US Eastern and buckets it.
@@ -4944,12 +5214,15 @@ function bpWindow(dateStr){
   return {key, label, order:d.getTime(), time, day};
 }
 
-// Book price for a Best Picks row: the floor "60+ yards" is Over 59.5 at the book. Hidden once the game is decided.
+// Book line for a Best Picks row: the line the book sets for this player and stat, with the best over price. The pick is graded
+// against it (Over 54.5 hits at 55 or more). Grey "no line" = nothing posted yet, so the floor is used.
 function bpPriceCell(p, week){
   if(!propHasData()) return '<span style="color:var(--chalk-dim);">--</span>';
-  const g = bpGrade(p, week);
-  if(g && (g.final || g.status === 'HIT' || g.status === 'MISS')) return '<span style="color:var(--chalk-dim);">--</span>';
-  return propChipHtml({player:p.player, position:p.position, team:p.team, opponent:p.opponent, stat:p.stat, threshold:p.floor, week});
+  const L = bpLine(p, week);
+  if(!L.book) return `<span style="color:var(--chalk-dim);" title="No book line posted for this player yet. Graded against the floor (${p.floor}+).">no line</span>`;
+  const o = L.over, bk = o ? (PROP_BOOK_SHORT[o.book] || o.book) : '';
+  const tip = `The book's line for this stat is ${L.line}. This pick is graded as Over ${L.line} (${L.thr}+)${L.thr === p.floor ? ', the same as the floor' : ', the floor is ' + p.floor + '+'}.${o ? ' Best over price ' + propAmerican(o.dec) + ' at ' + bk + '.' : ''}`;
+  return `<b title="${tip}">o${L.line}</b>${o ? ` <span style="color:var(--chalk-dim);">${propAmerican(o.dec)} ${bk}</span>` : ''}`;
 }
 
 function renderPicks(){
@@ -4964,9 +5237,10 @@ function renderPicks(){
       passes both, so it's the real overlap, not an easy number. Next to it is a <b>projection</b>, how many the
       player should get: his season and last-3 average, scaled by how this defense treats starters compared with the league
       (shrunk toward neutral until the defense has 6 games, and capped), plus a small game-script nudge from the spread
-      (favorites run more, underdogs throw more). The likely range is the middle half of outcomes, and the
-      book-style line is the projection rounded to a half. Hover a projection to see the factors. It is an estimate
-      built from this season's box scores, not a real sportsbook line. Touchdowns are on the Anytime TD tab. Out / Doubtful
+      (favorites run more, underdogs throw more). The likely range is the middle half of outcomes. Hover a projection to see the factors.
+      <b>Book line</b> is the line the sportsbook sets for that player and stat, with the best over price, and
+      <b>each pick is graded against that line</b>: it hits when the player goes over it. If no book line is posted yet,
+      the floor is used instead. The line locks once the game starts. Touchdowns are on the Anytime TD tab. Out / Doubtful
       players are skipped, and the next starter moves up. Starters are ranked by usage this season, so
       treat early weeks with care. The buttons switch who is checked: <b>Starters</b>, the <b>Top 5 at position</b> (only the five busiest players in the whole league at QB, RB, WR and TE, ranked by usage per game; they are compared with what the defense gave up to starters, since a defense faces too few of the league's top five to judge), or <b>Everyone</b>. Click a row for the player's game log.
     </div>
@@ -4991,7 +5265,7 @@ function renderPicks(){
   <div class="panel">
     <div class="panel-title">Best Picks Record</div>
     <div class="panel-note">
-      Every pick this page shows is saved the first time it appears, then graded: live from ESPN's box scores while games are on
+      Every pick this page shows is saved the first time it appears, then graded against the book's line (the floor when no line was posted): live from ESPN's box scores while games are on
       (an at-least line that has already cleared shows HIT), and from the final box score after. Past weeks stay here with their
       results. Saved in this browser only. Picks are saved only while Starters is selected, so the record is one consistent
       definition.
@@ -5046,26 +5320,23 @@ function mountPicks(){
     const scoreColor = p.score >= 0.8 ? 'var(--mint)' : 'var(--gold)';
     const row = `<tr class="pick-row" data-pick-key="${key}" style="cursor:pointer;">
         <td class="num" style="color:var(--chalk-dim);">${open ? '&#9662;' : '&#9656;'}</td>
-        <td><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
-        <td>${teamChip(p.team)}</td><td>${teamChip(p.opponent)}</td>
-        <td style="font-weight:700;color:var(--gold);">${p.floor}+ ${p.stat}</td>
-        <td class="num" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
-        <td class="num">${p.pj.line.toFixed(1)}</td>
+        <td style="white-space:nowrap;"><span class="player-preview-pos">${p.slot}</span> ${p.player}</td>
+        <td style="white-space:nowrap;" title="${teamName(p.team)} vs ${teamName(p.opponent)}"><b>${p.team}</b> <span style="color:var(--chalk-dim);">vs</span> ${p.opponent}</td>
+        <td style="font-weight:700;color:var(--gold);white-space:nowrap;" title="${p.floor}+ ${p.stat}">${p.floor}+ ${BP_STAT_SHORT[p.stat] || p.stat}</td>
         <td style="white-space:nowrap;">${bpPriceCell(p, week)}</td>
-        <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), p.floor, p.pj.proj)}</td>
-        <td class="num">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">(${pct(p.pr)})</span></td>
-        <td class="num">${p.dh}/${p.dt} <span style="color:var(--chalk-dim);">(${pct(p.dr)})</span></td>
-        <td class="num">${fmt(p.avg)} <span style="color:var(--chalk-dim);">L3 ${fmt(p.l3avg)}</span></td>
-        <td class="num">${fmt(p.allowed)} <span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}%</span></td>
+        <td class="num" style="white-space:nowrap;" title="Season/last-3 blend x opponent factor ${fmt(p.pj.matchup, 2)}x x game script ${fmt(p.pj.script, 2)}x. Cushion over the floor: ${fmt(p.pj.proj - p.floor)}"><b>${fmt(p.pj.proj)}</b> <span style="color:var(--chalk-dim);">(${Math.round(p.pj.lo)}-${Math.round(p.pj.hi)})</span></td>
+        <td class="num" style="white-space:nowrap;" title="Games cleared: his own ${p.ph}/${p.pt} (${pct(p.pr)}), then starters against ${p.opponent} ${p.dh}/${p.dt} (${pct(p.dr)})">${p.ph}/${p.pt} <span style="color:var(--chalk-dim);">&middot;</span> ${p.dh}/${p.dt}</td>
         <td class="num" style="font-weight:700;color:${scoreColor};">${pct(p.score)}</td>
+        <td style="white-space:nowrap;">${bpResultHtml(bpGrade(p, week), bpLineLabel(p, week))}</td>
         <td><button class="save-pick-btn" ${saved ? 'disabled' : ''} data-player="${p.player}" data-position="${p.position}" data-team="${p.team}" data-opponent="${p.opponent}" data-stat="${p.stat}" data-week="${week}" data-floor="${p.floor}" data-summary="${p.floor}+ ${p.stat} vs ${p.opponent} (Wk ${week}) - cleared ${p.ph}/${p.pt} own games, ${p.dh}/${p.dt} starter games vs ${p.opponent}; projected ${fmt(p.pj.proj)}">${saved ? '&#10003; Saved' : '+ Add'}</button></td>
       </tr>`;
-    const detail = open ? `<tr class="def-detail-row"><td colspan="15" style="background:var(--field-deep);padding:10px 16px;">
+    const detail = open ? `<tr class="def-detail-row"><td colspan="10" style="background:var(--field-deep);padding:10px 16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">Own avg <b>${fmt(p.avg)}</b> (last 3 ${fmt(p.l3avg)}) &middot; ${p.opponent} gives starters <b>${fmt(p.allowed)}</b> (<span style="color:${edge >= 0 ? 'var(--mint)' : 'var(--red)'};">${edge >= 0 ? '+' : ''}${edge}% vs league</span>) &middot; cleared ${p.floor}+ in ${p.ph}/${p.pt} own games (${pct(p.pr)}) and ${p.dh}/${p.dt} starter games vs ${p.opponent} (${pct(p.dr)})</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-bottom:6px;">${p.player} -- ${p.position} game log:</div>
         ${playerGameLogHtml(p.player, p.position)}</td></tr>` : '';
     return row + detail;
   }
-  const head = `<thead><tr><th></th><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (likely range)</th><th>Book-style line</th><th title="Best price across your books for this pick's floor (over floor minus a half). Grey = that exact line is not posted, nearest line shown.">Book price</th><th>Live / result</th><th>Own games cleared</th><th>Opp starter-games cleared</th><th>Own avg</th><th>Opp gives (vs league)</th><th>Score</th><th></th></tr></thead>`;
+  const head = `<thead><tr><th></th><th>Player</th><th>Matchup</th><th title="The floor both the player and the defense agree on">Floor</th><th title="The line the book sets, with the best over price. The pick is graded against this line. Grey = no line posted yet, graded against the floor.">Book line</th><th>Projection (range)</th><th title="Games cleared: the player's own, then starters against this defense">Cleared</th><th>Score</th><th>Result vs line</th><th></th></tr></thead>`;
 
   let histWeek = null;
   function renderRecord(allShown){
@@ -5108,7 +5379,7 @@ function mountPicks(){
     };
     const statOrder = ['Pass Yards', 'Pass + Rush Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
     const statRows = Object.keys(byStat).sort((a, b) => (statOrder.indexOf(a) + 99) % 99 - (statOrder.indexOf(b) + 99) % 99).map(k => recRow(k, byStat[k], false)).join('');
-    const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks cleared their floor (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
+    const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks beat their line (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
       <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${recRow('All stats', tot, true)}${statRows}</tbody></table></div>
       <div class="line-note">Hit rate counts graded picks only (open = not played yet). A projection miss is in the stat's own unit (yards or catches).</div></div>`;
     let H = 0, M = 0;
@@ -5120,14 +5391,14 @@ function mountPicks(){
     const detail = rows.filter(r => (parseInt(r.e.week, 10) || 0) === sel)
       .sort((a, b) => (a.g && a.g.status === 'HIT' ? 0 : 1) - (b.g && b.g.status === 'HIT' ? 0 : 1) || a.e.player.localeCompare(b.e.player));
     recEl.innerHTML = totalHtml + `
-      <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks cleared their floor (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
+      <div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Record by week${H + M ? ` -- ${H} of ${H + M} picks beat their line (${Math.round(H / (H + M) * 100)}%)` : ''}</div>
         <div class="table-scroll"><table><thead><tr><th class="num">Week</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>
       <div class="controls"><div class="pill-group" id="bp-hist-pills">${weeks.map(w => `<span class="pill ${w === sel ? 'active' : ''}" data-w="${w}">Week ${w || '--'}</span>`).join('')}</div></div>
       <div class="table-scroll"><table><thead><tr><th>Player</th><th>Team</th><th>Opp</th><th>Floor pick</th><th>Projection (range)</th><th>Result</th></tr></thead><tbody>${detail.map(({e, g}) => `<tr>
         <td><span class="player-preview-pos">${e.slot}</span> ${e.player}</td><td>${teamChip(e.team)}</td><td>${teamChip(e.opponent)}</td>
         <td style="font-weight:700;color:var(--gold);">${e.floor}+ ${e.stat}</td>
         <td class="num"><b>${fmt(e.proj)}</b> <span style="color:var(--chalk-dim);">(${e.lo}-${e.hi})</span></td>
-        <td style="white-space:nowrap;">${bpResultHtml(g, e.floor)}</td></tr>`).join('')}</tbody></table></div>`;
+        <td style="white-space:nowrap;">${bpResultHtml(g, bpLineLabel(e, e.week))}</td></tr>`).join('')}</tbody></table></div>`;
     $$('#bp-hist-pills .pill').forEach(pl => pl.addEventListener('click', () => { histWeek = parseInt(pl.dataset.w, 10); renderRecord(allShown); }));
   }
 
@@ -5167,7 +5438,7 @@ function mountPicks(){
         const none = a.noLine + h.noLine;
         return `<div class="log-pos-group" style="margin-bottom:20px;">
         <div class="log-pos-label" style="font-size:14px;">${teamName(away)} <span class="at">@</span> ${teamName(home)}${spread ? ` <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${spread}</span>` : ''} <span style="color:var(--chalk-dim);font-weight:400;">&middot; ${g.win.day.slice(0, 3)} ${g.win.time}</span></div>
-        ${picks.length ? `<div class="table-scroll"><table>${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
+        ${picks.length ? `<div class="table-scroll"><table class="bp-t">${head}<tbody>${picks.map(p => rowHtml(p, week)).join('')}</tbody></table></div>`
           : '<div class="empty" style="padding:8px 0;">No line where both sides agree for this game yet.</div>'}
         ${none && !posFilter ? `<div class="line-note">${none} starter${none === 1 ? '' : 's'} had no floor that both they and the defense clear.</div>` : ''}
       </div>`;
@@ -5178,14 +5449,14 @@ function mountPicks(){
       winHtml.push(`<div class="bp-window" style="margin-bottom:34px;">
         <div class="panel-title" style="margin:0 0 4px;padding:8px 12px;border-left:4px solid var(--gold);background:var(--field-deep);">${w.label} <span style="font-family:var(--mono);font-size:11px;color:var(--chalk-dim);font-weight:400;">&middot; ${times} &middot; ${w.games.length} game${w.games.length === 1 ? '' : 's'} &middot; ${wAll.length} pick${wAll.length === 1 ? '' : 's'}</span></div>
         ${wAll.length ? `<div class="log-pos-group" style="margin:10px 0 18px;"><div class="log-pos-label" style="font-size:13px;">Best in this window</div>
-          <div class="table-scroll"><table>${head}<tbody>${wAll.slice(0, 3).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : ''}
+          <div class="table-scroll"><table class="bp-t">${head}<tbody>${wAll.slice(0, 3).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : ''}
         ${sections.join('')}
       </div>`);
     });
     all.sort((x, y) => y.score - x.score || y.edge - x.edge);
     renderRecord(all);
     topEl.innerHTML = all.length ? `<div class="log-pos-group" style="margin-bottom:24px;"><div class="log-pos-label" style="font-size:14px;">Top picks across ${winFilter ? 'this window' : 'the slate'}</div>
-        <div class="table-scroll"><table>${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
+        <div class="table-scroll"><table class="bp-t">${head}<tbody>${all.slice(0, 10).map(p => rowHtml(p, p.week)).join('')}</tbody></table></div></div>` : '';
     container.innerHTML = winHtml.join('') || '<div class="empty">No picks yet.</div>';
     if(!all.length) topEl.innerHTML = '<div class="empty">No pick clears both bars yet this week. That is normal early in the season: wait for more games, or widen the group with Everyone.</div>';
 
@@ -8332,7 +8603,239 @@ function mountLines(){
 }
 
 // ---------- ROUTER ----------
+// ================= Layouts: Classic / Tonight =================
+// Classic keeps every screen and the menu this file already had. Tonight is one screen for a slate: pick the games, and every
+// player is lined up as  "he gets"  vs  "this defense allows to his position"  vs  the book's line, with a call (OVER / UNDER / PASS).
+// The choice is remembered; ?layout=tonight or ?layout=classic in the address opens one directly.
+const LAYOUT_KEY = 'nfl_dashboard_layout', THEME_KEY = 'nfl_dashboard_theme';
+const TN_NAV = [['tonight', 'Tonight'], ['board', 'Game Board'], ['propprices', 'Prop Prices'], ['picks', 'Best Picks'], ['players', 'Players'], ['backtest', 'Record']];
+let CLASSIC_NAV_HTML = null, CLASSIC_TAB = 'board';
+function getTheme(){
+  const q = new URLSearchParams(location.search).get('theme');
+  if(q === 'light' || q === 'dark') return q;
+  let v = null; try { v = localStorage.getItem(THEME_KEY); } catch(e){}
+  if(v === 'light' || v === 'dark') return v;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+function applyTheme(t, remember){
+  document.body.dataset.theme = t;
+  if(remember){ try { localStorage.setItem(THEME_KEY, t); } catch(e){} }
+  const b = $('#theme-btn'); if(b){ b.innerHTML = t === 'light' ? '&#9790;' : '&#9728;'; b.title = t === 'light' ? 'Switch to dark' : 'Switch to light'; }
+}
+function getLayout(){
+  const q = new URLSearchParams(location.search).get('layout');
+  if(q === 'classic' || q === 'tonight'){ try { localStorage.setItem(LAYOUT_KEY, q); } catch(e){} return q; }
+  let v = null; try { v = localStorage.getItem(LAYOUT_KEY); } catch(e){}
+  return v === 'tonight' ? 'tonight' : 'classic';
+}
+function tnMoreOptions(){
+  const src = CLASSIC_NAV_HTML; if(!src) return '';
+  const box = document.createElement('div'); box.innerHTML = src;
+  const shown = new Set(TN_NAV.filter(x => renderers[x[0]]).map(x => x[0]));
+  const seen = new Set(), out = [];
+  box.querySelectorAll('button[data-tab]').forEach(b => { const t = b.dataset.tab; if(shown.has(t) || seen.has(t)) return; seen.add(t); out.push(`<option value="${t}">${b.textContent.trim()}</option>`); });
+  return out.join('');
+}
+function applyLayout(name, firstTab){
+  if(name !== 'tonight') name = 'classic';
+  try { localStorage.setItem(LAYOUT_KEY, name); } catch(e){}
+  document.body.classList.toggle('layout-tonight', name === 'tonight');
+  const nav = $('#tabs');
+  if(name === 'tonight'){
+    nav.innerHTML = TN_NAV.filter(x => renderers[x[0]]).map(([id, label]) => `<button data-tab="${id}">${label}</button>`).join('') +
+      `<select id="tn-more" title="Every other screen"><option value="">More&hellip;</option>${tnMoreOptions()}</select>`;
+  } else { nav.innerHTML = CLASSIC_NAV_HTML; }
+  $$('#layout-pick .lp button').forEach(b => b.classList.toggle('on', b.dataset.layout === name));
+  applyTheme(getTheme());
+  showTab(firstTab || (name === 'tonight' ? 'tonight' : CLASSIC_TAB));
+}
+
+// ---- Tonight screen ----
+const TN_STATS = [['all', 'All'], ['Pass Yards', 'Passing'], ['Rush Yards', 'Rushing'], ['Receiving Yards', 'Rec yds'], ['Receptions', 'Catches']];
+const TN_POS = [['all', 'All'], ['QB', 'QB'], ['RB', 'RB'], ['WR', 'WR'], ['TE', 'TE']];
+const TN_SORT = [['edge', 'Biggest edge'], ['soft', 'Softest defense'], ['time', 'Kickoff']];
+const TN_LEAN = 0.08;            // the projection has to sit this far (as a share of the line) from the book's line before it calls a side
+const TN_NAME = {'Pass Yards':'Pass yds', 'Rush Yards':'Rush yds', 'Receiving Yards':'Rec yds', 'Receptions':'Catches'};
+const tnState = {sel: null, stat: 'all', pos: 'all', sort: 'edge', open: null, lineOnly: false, limit: 40};
+let _tnDef = {src: null, mode: null, val: {}};
+function tnGames(){
+  const g = new Map();
+  (DATA.week2 || []).forEach(r => {
+    const id = r['Game ID']; if(!id) return;
+    if(!g.has(id)) g.set(id, {gid: id, date: r.Date, sides: {}});
+    g.get(id).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r;
+  });
+  return [...g.values()].filter(x => x.sides.home && x.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date)).map(x => ({
+    gid: x.gid, date: x.date, win: bpWindow(x.date), away: x.sides.away.Team, home: x.sides.home.Team, week: x.sides.away.Week,
+    spread: x.sides.away.Spread || x.sides.home.Spread || '', ou: x.sides.away['Over/Under'] || x.sides.home['Over/Under'] || ''}));
+}
+// What each defense has given up per game to a position (starters or everyone, as the Best Picks setting says), and where it ranks. 1 = gives up the most.
+function tnDefRank(defense, pos, stat){
+  const mode = bpDefMode(bpMode());
+  if(_tnDef.src !== DATA.playerGame || _tnDef.mode !== mode) _tnDef = {src: DATA.playerGame, mode, val: {}};
+  const key = pos + '|' + stat;
+  if(!_tnDef.val[key]){
+    const teams = [...new Set((DATA.playerGame || []).map(r => r.Opponent).filter(Boolean))];
+    const arr = teams.map(t => { const rows = bpDefenseSamples(t, pos, mode, ''); const byGame = new Set(rows.map(r => r.Week)).size;
+      return {t, n: rows.length, avg: rows.length ? rows.reduce((a, r) => a + getStatValue(r, stat), 0) / rows.length : null}; }).filter(x => x.avg !== null);
+    arr.sort((a, b) => b.avg - a.avg);
+    const m = {}; arr.forEach((x, i) => { m[x.t] = {rank: i + 1, avg: x.avg, n: x.n}; });
+    _tnDef.val[key] = {m, of: arr.length};
+  }
+  const e = _tnDef.val[key], d = e.m[defense];
+  return d ? {rank: d.rank, of: e.of, avg: d.avg, n: d.n} : null;
+}
+function tnRows(){
+  const games = tnGames();
+  const sel = tnState.sel || new Set();
+  const hurt = {}; (DATA.injuries || []).forEach(r => { if(r.Player && /questionable|doubtful|out|day/i.test(r.Status || '')) hurt[r.Player] = r.Status; });
+  const rows = [];
+  games.filter(g => sel.has(g.gid)).forEach(g => {
+    [[g.away, g.home], [g.home, g.away]].forEach(([off, def]) => {
+      const spr = bpSpreadFor(off, g.spread) || 0;
+      bpTeamPlayers(off, bpMode()).forEach(p => {
+        if(tnState.pos !== 'all' && p.Position !== tnState.pos) return;
+        const games_ = p.games.slice().sort((a, b) => num(a.Week) - num(b.Week));
+        if(games_.length < BP_MIN_PLAYER_GAMES) return;
+        (BP_STATS[p.Position] || []).forEach(stat => {
+          if(stat === 'Pass + Rush Yards') return;
+          if(tnState.stat !== 'all' && tnState.stat !== stat) return;
+          const vals = games_.map(r => getStatValue(r, stat));
+          const avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+          if(avg <= 0) return;
+          const l3 = vals.slice(-3), l3avg = l3.reduce((a, v) => a + v, 0) / l3.length;
+          const dr = tnDefRank(def, p.Position, stat);
+          const defRows = bpDefenseSamples(def, p.Position, bpMode(), off);
+          let pj = null;
+          if(defRows.length >= BP_MIN_DEF_SAMPLES){
+            const allowed = defRows.reduce((a, r) => a + getStatValue(r, stat), 0) / defRows.length;
+            const defGames = new Set((DATA.playerGame || []).filter(r => r.Opponent === def).map(r => r.Week)).size;
+            pj = bpProject(vals, l3avg, allowed, bpLeagueAvg(p.Position, stat, bpMode()), defGames, stat, spr);
+          }
+          const proj = pj ? pj.proj : avg * 0.6 + l3avg * 0.4;
+          const bk = propHasData() ? propMainFor(p.Player, stat) : null;
+          const line = bk ? bk.line : null;
+          const pct = line ? (proj - line) / line : null;
+          let call = 'none';
+          if(line !== null) call = (vals.length >= 3 && Math.abs(pct) >= TN_LEAN) ? (pct > 0 ? 'over' : 'under') : 'pass';
+          const px = call === 'over' ? bk.bo : call === 'under' ? bk.bu : null;
+          rows.push({player: p.Player, pos: p.Position, slot: p.slot, off, def, stat, game: g, vals, weeks: games_.map(r => r.Week), proj, pj, avg, l3avg, dr, defRows, line, pct,
+            call, px, bk, hurt: hurt[p.Player] || '', key: g.gid + '|' + p.Player + '|' + stat});
+        });
+      });
+    });
+  });
+  if(tnState.lineOnly) { const w = rows.filter(r => r.line !== null); if(w.length) return tnSort(w); }
+  return tnSort(rows);
+}
+function tnSort(rows){
+  const by = tnState.sort;
+  const edge = r => r.pct === null ? -1 : Math.abs(r.pct);
+  if(by === 'soft') rows.sort((a, b) => (a.dr ? a.dr.rank : 99) - (b.dr ? b.dr.rank : 99) || edge(b) - edge(a));
+  else if(by === 'time') rows.sort((a, b) => new Date(a.game.date) - new Date(b.game.date) || edge(b) - edge(a));
+  else rows.sort((a, b) => edge(b) - edge(a) || (a.dr ? a.dr.rank : 99) - (b.dr ? b.dr.rank : 99));
+  return rows;
+}
+function tnSideHtml(games){
+  const days = []; games.forEach(g => { let d = days.find(x => x.label === g.win.day); if(!d){ d = {label: g.win.day || 'TBD', games: []}; days.push(d); } d.games.push(g); });
+  return days.map(d => `<div class="tn-day"><span>${d.label}</span><button class="tn-all" data-act="day" data-day="${d.label}">${d.games.every(g => tnState.sel.has(g.gid)) ? 'none' : 'all'}</button></div>` +
+    d.games.map(g => `<button class="tn-g${tnState.sel.has(g.gid) ? ' on' : ''}" data-act="game" data-gid="${g.gid}">${g.away} <i>@</i> ${g.home}<small>${g.win.time.replace(' ET', '')}</small></button>`).join('')).join('') +
+    `<div class="tn-opts"><button class="tn-sw${tnState.lineOnly ? ' on' : ''}" data-act="lineonly"><span class="knob"></span>Only players with a book line</button></div>`;
+}
+function tnTrack(r){
+  const pts = [r.proj, r.dr ? r.dr.avg : r.avg].concat(r.line !== null ? [r.line] : []);
+  const lo = Math.min(...pts) * 0.7, hi = Math.max(...pts) * 1.18 || 1;
+  const pos = v => Math.max(2, Math.min(98, (v - lo) / (hi - lo) * 100));
+  const col = r.call === 'over' ? 'var(--t-over)' : r.call === 'under' ? 'var(--t-under)' : 'var(--t-pass)';
+  const a = pos(r.proj), b = pos(r.dr ? r.dr.avg : r.avg);
+  return `<div class="tn-track"><span class="fill" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%;background:${col}"></span>` +
+    (r.line !== null ? `<span class="ln" style="left:${pos(r.line)}%" title="Book line ${r.line}"></span>` : '') +
+    `<span class="d dv" style="left:${b}%;background:${col};color:${col}" title="Defense allows ${fmt(r.dr ? r.dr.avg : r.avg)}"></span><span class="d me" style="left:${a}%" title="He gets ${fmt(r.proj)}"></span></div>`;
+}
+function tnRowHtml(r){
+  const open = tnState.open === r.key;
+  const ref = r.line !== null ? r.line : r.proj;
+  const dots = r.vals.slice(-5).map(v => `<i style="background:${r.line === null ? 'var(--t-faint)' : v > r.line ? 'var(--t-over)' : 'var(--t-under)'}" title="${fmt(v)}"></i>`).join('');
+  const hit = r.line !== null ? r.vals.filter(v => v > r.line).length : null;
+  const diffTxt = r.line !== null ? (r.proj - r.line >= 0 ? '+' : '') + fmt(r.proj - r.line) : '';
+  const col = r.call === 'over' ? 'var(--t-over)' : r.call === 'under' ? 'var(--t-under)' : 'var(--t-dim)';
+  const callHtml = r.call === 'none' ? `<div class="tn-call none"><div class="cl">NO LINE</div><div class="cv">${fmt(r.proj)}</div></div>` :
+    `<div class="tn-call" style="--c:${col}"><div class="cl">${r.call === 'pass' ? 'PASS' : r.call.toUpperCase()}</div><div class="cv" style="color:${col}">${r.line}</div>` +
+    `${r.px ? `<div class="lab" style="color:${col}">${propAmerican(r.px.dec)} ${PROP_BOOK_SHORT[r.px.book] || r.px.book}</div>` : ''}</div>`;
+  const dtxt = r.dr ? `#${r.dr.rank} of ${r.dr.of}` : 'few games';
+  return `<div class="tn-card${open ? ' open' : ''}"><div class="tn-row" data-act="open" data-key="${r.key}">
+    <div class="tn-who"><div class="tn-pos">${r.pos}</div><div><div class="tn-nm">${r.player}</div>
+      <div class="tn-mt">${r.off} vs ${r.def} &middot; ${TN_NAME[r.stat]}${r.hurt ? ` &middot; <span class="tn-inj">${r.hurt}</span>` : ''}</div></div></div>
+    <div class="tn-cmp"><div class="tn-pair"><div><span class="big">${fmt(r.proj)}</span><span class="lab">he gets</span></div>
+      <div><span class="big" style="color:var(--t-dim)">${r.dr ? fmt(r.dr.avg) : '--'}</span><span class="lab">defense allows (${dtxt})</span></div>
+      ${r.line !== null ? `<div class="tn-diff" style="color:${col}">${diffTxt}</div>` : ''}</div>${tnTrack(r)}</div>
+    <div class="tn-form"><div class="tn-dots">${dots}</div><span class="lab">${hit !== null ? `over ${r.line}: ${hit}/${r.vals.length}` : 'last ' + Math.min(5, r.vals.length)}</span></div>
+    ${callHtml}</div>${open ? `<div class="tn-more">${tnBreakdownHtml(r)}</div>` : ''}</div>`;
+}
+function tnBarsHtml(items, line){
+  if(!items.length) return '<div class="tn-empty">No games yet</div>';
+  const max = Math.max(...items.map(i => i.v), line || 0, 1), H = 60;
+  return `<div class="tn-bars">${line ? `<div class="tn-ref" style="bottom:${20 + line / max * H}px"><b>${line}</b></div>` : ''}` +
+    items.map(i => `<div class="b"><span class="v" style="color:${i.c || 'var(--t-text)'}">${fmt(i.v, 0)}</span><i style="height:${Math.max(2, i.v / max * H)}px;background:${i.c || 'var(--t-dim)'}"></i><span>${i.l}</span></div>`).join('') + '</div>';
+}
+function tnBreakdownHtml(r){
+  const mine = r.vals.slice(-8).map((v, i, a) => ({v, l: 'Wk ' + r.weeks.slice(-8)[i], c: r.line === null ? 'var(--t-dim)' : v > r.line ? 'var(--t-over)' : 'var(--t-under)'}));
+  const theirs = r.defRows.slice().sort((a, b) => num(a.Week) - num(b.Week)).slice(-8).map(x => ({v: getStatValue(x, r.stat), l: String(x.Player).split(' ').slice(-1)[0], c: r.line === null ? 'var(--t-dim)' : getStatValue(x, r.stat) > r.line ? 'var(--t-over)' : 'var(--t-under)'}));
+  const lg = bpLeagueAvg(r.pos, r.stat, bpMode());
+  const why = [];
+  why.push(`<p><b>${r.player}</b> averages <b>${fmt(r.avg)}</b> ${TN_NAME[r.stat].toLowerCase()} over ${r.vals.length} games (<b>${fmt(r.l3avg)}</b> the last three).</p>`);
+  if(r.dr) why.push(`<p><b>${r.def}</b> give up <b>${fmt(r.dr.avg)}</b> a game to ${r.pos}s${lg ? ` against a league average of ${fmt(lg)}` : ''}, <b>#${r.dr.rank} of ${r.dr.of}</b> (1 = softest), from ${r.dr.n} player games.</p>`);
+  else why.push(`<p>${r.def} have not faced enough ${r.pos}s yet, so the defense is not weighed.</p>`);
+  if(r.pj) why.push(`<p>The projection of <b>${fmt(r.proj)}</b> blends his season and recent form, scales it by how that defense treats the position${Math.abs(r.pj.script - 1) > 0.005 ? ' and nudges it for the game script (spread ' + (bpSpreadFor(r.off, r.game.spread) > 0 ? '+' : '') + fmt(bpSpreadFor(r.off, r.game.spread) || 0) + ')' : ''}. Range ${fmt(r.pj.lo, 0)}&ndash;${fmt(r.pj.hi, 0)}.</p>`);
+  if(r.line !== null) why.push(`<p>Book line <b>${r.line}</b>${r.bk && r.bk.bo ? ` (over ${propAmerican(r.bk.bo.dec)} ${PROP_BOOK_SHORT[r.bk.bo.book] || r.bk.bo.book}${r.bk.bu ? ', under ' + propAmerican(r.bk.bu.dec) + ' ' + (PROP_BOOK_SHORT[r.bk.bu.book] || r.bk.bu.book) : ''})` : ''}. ` +
+    (r.call === 'pass' ? `The projection is within ${Math.round(TN_LEAN * 100)}% of the line, which is too close to call.` : r.call === 'none' ? '' : `The projection is ${Math.abs(Math.round(r.pct * 100))}% ${r.pct > 0 ? 'above' : 'below'} it, so the call is the <b>${r.call}</b>.`) + '</p>');
+  else why.push('<p>No book line has been posted for this player yet, so there is no call.</p>');
+  return `<div class="tn-bk wide"><div><div class="tn-h">${r.player}, last games${r.line !== null ? ' vs the line' : ''}</div>${tnBarsHtml(mine, r.line)}</div>
+    <div><div class="tn-h">${r.pos}s against ${r.def}</div>${tnBarsHtml(theirs, r.line)}</div><div class="tn-why">${why.join('')}</div></div>`;
+}
+function tnSeg(id, list, cur){ return `<div class="tn-seg" id="${id}">${list.map(([k, l]) => `<button data-act="${id}" data-k="${k}" class="${cur === k ? 'on' : ''}">${l}</button>`).join('')}</div>`; }
+function renderTonight(){
+  const games = tnGames();
+  if(!games.length) return `<div class="tn-wrap"><div class="tn-main"><h2 class="tn-title">Tonight</h2><div class="tn-empty" style="padding:50px 0;">No upcoming games are loaded yet.</div></div></div>`;
+  if(!tnState.sel){
+    const now = Date.now() - 5 * 3600 * 1000;
+    const first = games.find(g => new Date(g.date).getTime() > now) || games[0];
+    tnState.sel = new Set(games.filter(g => g.win.day === first.win.day).map(g => g.gid));
+  }
+  const rows = tnRows(), shown = rows.slice(0, tnState.limit);
+  const sg = games.filter(g => tnState.sel.has(g.gid));
+  const days = [...new Set(sg.map(g => g.win.day))];
+  const title = sg.length === 1 ? `${sg[0].away} @ ${sg[0].home}` : sg.length ? (days.length === 1 ? days[0] : `${sg.length} games`) : 'Pick a game';
+  const nLines = rows.filter(r => r.line !== null).length, nCalls = rows.filter(r => r.call === 'over' || r.call === 'under').length;
+  const sub = sg.length ? `${sg.length} game${sg.length > 1 ? 's' : ''} &middot; ${rows.length} player lines &middot; ${nCalls} calls${propHasData() ? '' : ' &middot; no book lines loaded yet'}` : 'Choose games on the left';
+  return `<div class="tn-wrap"><div class="tn-side">${tnSideHtml(games)}</div><div class="tn-main">
+    <div class="tn-top"><div><h2 class="tn-title">${title}</h2><div class="tn-sub">${sub}</div></div></div>
+    <div class="tn-bar">${tnSeg('tn-stat', TN_STATS, tnState.stat)}${tnSeg('tn-pos', TN_POS, tnState.pos)}<div class="tn-sort">${tnSeg('tn-sort', TN_SORT, tnState.sort)}</div></div>
+    ${shown.map(tnRowHtml).join('') || '<div class="tn-empty" style="padding:40px 0;">No players match these filters.</div>'}
+    ${rows.length > shown.length ? `<div style="text-align:center;margin:10px 0;"><div class="tn-seg"><button data-act="more">Show ${Math.min(40, rows.length - shown.length)} more</button></div></div>` : ''}
+    <div class="tn-note">He gets = season and last-3 form scaled by how the defense treats his position and the game script. Defense allows = average per game to that position (rank 1 gives up the most). A call needs the projection ${Math.round(TN_LEAN * 100)}% or more away from the book line and at least 3 games of history. Early in the season this is a rough guide, not a lock.</div>
+  </div></div>`;
+}
+function tnRedraw(){ const y = window.scrollY; $('#content').innerHTML = renderTonight(); mountTonight(); window.scrollTo(0, y); }
+function mountTonight(){
+  const w = $('.tn-wrap'); if(!w) return;
+  w.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if(!b) return;
+    const a = b.dataset.act, games = tnGames();
+    if(a === 'game'){ tnState.sel.has(b.dataset.gid) ? tnState.sel.delete(b.dataset.gid) : tnState.sel.add(b.dataset.gid); tnState.open = null; tnState.limit = 40; }
+    else if(a === 'day'){ const ds = games.filter(g => (g.win.day || 'TBD') === b.dataset.day); const all = ds.every(g => tnState.sel.has(g.gid)); ds.forEach(g => all ? tnState.sel.delete(g.gid) : tnState.sel.add(g.gid)); tnState.open = null; }
+    else if(a === 'lineonly') tnState.lineOnly = !tnState.lineOnly;
+    else if(a === 'tn-stat') tnState.stat = b.dataset.k;
+    else if(a === 'tn-pos') tnState.pos = b.dataset.k;
+    else if(a === 'tn-sort') tnState.sort = b.dataset.k;
+    else if(a === 'open') tnState.open = tnState.open === b.dataset.key ? null : b.dataset.key;
+    else if(a === 'more') tnState.limit += 40;
+    tnRedraw();
+  });
+}
+
 const renderers = {
+  tonight: {render: renderTonight, mount: mountTonight},
   home: {render: renderHome, mount: mountHome},
   overview: {render: renderOverview, mount: mountOverview},
   live: {render: renderLiveHub, mount: mountLiveHub},
@@ -8366,6 +8869,7 @@ const renderers = {
 function showTab(tab){
   if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
   $$('#tabs button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  { const sel = $('#tn-more'); if(sel) sel.value = $('#tabs button[data-tab="' + tab + '"]') ? '' : tab; }
   const inMore = $('#nav-more button[data-tab="' + tab + '"]');
   if(inMore && $('#nav-more').hidden){ $('#nav-more').hidden = false; const mb = $('#nav-more-btn'); mb.setAttribute('aria-expanded','true'); mb.innerHTML = 'Fewer tools &#9652;'; }
   const r = renderers[tab];
@@ -8551,20 +9055,23 @@ async function init(){
     : (DATA.playerGame && DATA.playerGame.length ? Math.max(...DATA.playerGame.map(r=>num_(r.Week))) : null);
   PREVIEW_WEEK = DATA.week2 && DATA.week2.length ? num_(DATA.week2[0].Week) : (LATEST_RESULTS_WEEK ? LATEST_RESULTS_WEEK + 1 : null);
 
-  $$('#tabs button[data-tab]').forEach(b=> b.addEventListener('click', ()=> showTab(b.dataset.tab)));
-  const moreBtn = $('#nav-more-btn');
-  if(moreBtn) moreBtn.addEventListener('click', ()=>{
-    const m = $('#nav-more'); m.hidden = !m.hidden;
-    moreBtn.setAttribute('aria-expanded', String(!m.hidden));
-    moreBtn.innerHTML = m.hidden ? 'More tools &#9662;' : 'Fewer tools &#9652;';
+  CLASSIC_NAV_HTML = $('#tabs').innerHTML;
+  $('#tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-tab]'); if(b){ showTab(b.dataset.tab); return; }
+    const mb = e.target.closest('#nav-more-btn');
+    if(mb){ const m = $('#nav-more'); m.hidden = !m.hidden; mb.setAttribute('aria-expanded', String(!m.hidden)); mb.innerHTML = m.hidden ? 'More tools &#9662;' : 'Fewer tools &#9652;'; }
   });
+  $('#tabs').addEventListener('change', e => { if(e.target.id === 'tn-more' && e.target.value) showTab(e.target.value); });
+  $$('#layout-pick .lp button').forEach(b => b.addEventListener('click', () => applyLayout(b.dataset.layout)));
+  $('#theme-btn').addEventListener('click', () => applyTheme(document.body.dataset.theme === 'light' ? 'dark' : 'light', true));
   $('#ticker-track').addEventListener('click', (e)=>{
     const item = e.target.closest('.ticker-item');
     if(item) goToGameDetails(item.dataset.away, item.dataset.home, item.dataset.state);
   });
   renderHero();
   renderTicker();
-  showTab(acctReadInvite() ? 'friends' : 'home');
+  CLASSIC_TAB = 'home';
+  applyLayout(getLayout(), acctReadInvite() ? 'friends' : null);
 }
 init();
 document.addEventListener('DOMContentLoaded', tblWatch);
