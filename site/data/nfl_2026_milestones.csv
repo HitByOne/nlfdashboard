@@ -464,6 +464,7 @@ Justin Herbert,LAC,QB,Pass TD,168,200,32
 Malik Nabers,NYG,WR,Receptions,168,200,32
 Jalen Hurts,PHI,QB,Pass TD,118,150,32
 Gardner Minshew II,ARI,QB,Pass TD,68,100,32
+DeeJay Dallas,MIN,RB,Receptions,68,100,32
 Michael Penix Jr.,ATL,QB,Pass TD,18,50,32
 Kyle Pitts Sr.,ATL,TE,Receiving TD,18,50,32
 Jake Ferguson,DAL,TE,Receiving TD,18,50,32
@@ -696,7 +697,6 @@ Jacory Croskey-Merritt,WSH,RB,Rush TD,10,50,40
 Jayden Daniels,WSH,QB,Rush TD,10,50,40
 Chig Okonkwo,WSH,TE,Receptions,209,250,41
 Dare Ogunbowale,HOU,RB,Receptions,109,150,41
-Matthew Golden,GB,WR,Receptions,59,100,41
 Odell Beckham Jr.,MIN,WR,Receiving TD,59,100,41
 Drake Maye,NE,QB,Pass TD,59,100,41
 Tip Reiman,ARI,TE,Receptions,9,50,41
@@ -772,6 +772,7 @@ Mark Andrews,BAL,TE,Receptions,507,550,43
 Devin Duvernay,ARI,WR,Receptions,107,150,43
 Jerome Ford,ARI,RB,Receptions,107,150,43
 Mark Andrews,BAL,TE,Receiving TD,57,100,43
+Matthew Golden,GB,WR,Receptions,57,100,43
 Zach Ertz,PHI,TE,Receiving TD,57,100,43
 George Kittle,SF,TE,Receiving TD,57,100,43
 Xavier Weaver,ARI,WR,Receptions,7,50,43
@@ -980,7 +981,6 @@ J.J. McCarthy,NYG,QB,Pass Yards,1875,2000,125
 Derrick Henry,BAL,RB,Receiving Yards,1865,2000,135
 Tee Higgins,CIN,WR,Receiving Yards,5864,6000,136
 Nick Westbrook-Ikhine,IND,WR,Receiving Yards,1862,2000,138
-Matthew Golden,GB,WR,Receiving Yards,862,1000,138
 Drew Sample,CIN,TE,Receiving Yards,860,1000,140
 Tyler Huntley,BAL,QB,Rush Yards,859,1000,141
 Jeremy McNichols,WSH,RB,Rush Yards,859,1000,141
@@ -992,6 +992,7 @@ Chris Godwin Jr.,TB,WR,Receiving Yards,7842,8000,158
 Bryce Young,CAR,QB,Pass Yards,9840,10000,160
 Trey McBride,ARI,TE,Receiving Yards,3836,4000,164
 Emari Demercado,DAL,RB,Rush Yards,834,1000,166
+Matthew Golden,GB,WR,Receiving Yards,834,1000,166
 Omarion Hampton,LAC,RB,Rush Yards,834,1000,166
 Cedric Tillman,NO,WR,Receiving Yards,833,1000,167
 Brandin Cooks,SF,WR,Receiving Yards,9831,10000,169
@@ -1144,6 +1145,7 @@ Robert Tonyan,PIT,TE,Receiving Yards,1552,2000,448
 Bijan Robinson,ATL,RB,Rush Yards,4551,5000,449
 Tre' Harris,LAC,WR,Receiving Yards,549,1000,451
 Cooper Kupp,SEA,WR,Receiving Yards,8548,9000,452
+DeeJay Dallas,MIN,RB,Rush Yards,548,1000,452
 Brevin Jordan,HOU,TE,Receiving Yards,544,1000,456
 Jaxson Dart,NYG,QB,Rush Yards,541,1000,459
 Saquon Barkley,PHI,RB,Rush Yards,8538,9000,462
@@ -1206,6 +1208,7 @@ Drake Maye,NE,QB,Pass Yards,8454,9000,546
 Trey Benson,ARI,RB,Rush Yards,451,1000,549
 Nick Mullens,JAX,QB,Pass Yards,6448,7000,552
 Bo Melton,GB,WR,Receiving Yards,446,1000,554
+DeeJay Dallas,MIN,RB,Receiving Yards,441,1000,559
 Drew Lock,SEA,QB,Rush Yards,440,1000,560
 Michael Wilson,ARI,WR,Receiving Yards,2439,3000,561
 Ollie Gordon II,MIA,RB,Rush Yards,435,1000,565
