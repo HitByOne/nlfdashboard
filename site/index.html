@@ -1023,11 +1023,21 @@ function gradeMyPick(pick){
     return {status: verdict(actual) ? 'HIT' : 'MISS', actual, final:true, persist:true};
   }
   // Saved final result from an earlier grading (keeps past weeks graded).
+  // Did not play (inactive / injured): the team's game is in the daily data but the player has no row.
+  // That is a void, not a miss.
+  {
+    const wk = String(pick.week);
+    const pgAll = DATA.playerGame || [];
+    let tm = pick.team;
+    if(!tm){ const any = pgAll.find(r => r.Player === pick.player); tm = any && any.Team; }
+    if(tm && pgAll.some(r => r.Team === tm && String(r.Week) === wk)) return {status:'DNP', actual:null, final:true, persist:false, dnp:true};
+  }
   if(pick.finalStat === pick.stat && typeof pick.finalActual === 'number'){
     return {status: verdict(pick.finalActual) ? 'HIT' : 'MISS', actual: pick.finalActual, final:true, persist:true};
   }
   const live = liveStatFor(pick);
   if(!live) return {status: 'PENDING', actual: null};
+  if(live.state === 'post' && !live.inBox && live.actual === 0 && !under) return {status:'DNP', actual:null, final:true, persist:false, dnp:true, fromLive:true};
   if(live.state === 'post') return {status: verdict(live.actual) ? 'HIT' : 'MISS', actual: live.actual, final:true, persist:live.inBox, fromLive:true, detail:live.detail, inBox:live.inBox};
   // Game still going. An over/at-least that is already met is locked in; an under that has
   // already gone past its line is dead. Anything else is still live.
@@ -1517,8 +1527,10 @@ function americanProfit(stake, odds){
 }
 // Won / lost / still open, in dollars when the wager is known.
 function ticketOutcome(list, meta){
-  const gs = list.map(gradeMyPick);
-  if(!gs.length || gs.some(g => !g)) return {state:'unknown'};
+  const gsAll = list.map(gradeMyPick);
+  if(!gsAll.length || gsAll.some(g => !g)) return {state:'unknown'};
+  const gs = gsAll.filter(g => g.status !== 'DNP');
+  if(!gs.length) return {state:'void', stake: null, net: 0, bonus: !!(meta && meta.bonus)};
   const miss = gs.some(g => g.status === 'MISS');
   const allHit = gs.every(g => g.status === 'HIT');
   const final = gs.every(g => g.status === 'HIT' || g.status === 'MISS') && gs.every(g => g.final || g.status === 'MISS' || (g.status === 'HIT' && g.live) );
@@ -1533,7 +1545,7 @@ function ticketOutcome(list, meta){
     return {state:'won', net: haveStake && ret !== null ? (bonus ? ret : ret - stake) : null, stake: haveStake ? (bonus ? 0 : stake) : null, ret, bonus};
   }
   const pr = haveStake ? americanProfit(stake, meta && meta.odds) : null;
-  return {state:'open', toWin: pr, bonus, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length};
+  return {state:'open', toWin: pr, bonus, stake: haveStake ? stake : null, hitSoFar: gs.filter(g => g.status === 'HIT').length, legs: gs.length, voided: gsAll.length - gs.length};
 }
 
 
@@ -1710,7 +1722,7 @@ function homeRecord(){
   const h = bpHistGet(); let hit = 0, miss = 0, open = 0;
   Object.values(h).forEach(e => {
     const g = bpGrade(e, e.week);
-    if(g && g.status === 'HIT') hit++; else if(g && g.status === 'MISS') miss++; else open++;
+    if(g && g.status === 'HIT') hit++; else if(g && g.status === 'MISS') miss++; else if(!(g && g.status === 'DNP')) open++;
   });
   return {hit, miss, open};
 }
@@ -5285,6 +5297,7 @@ function bpSnapshot(allPicks){
 function bpResultHtml(g, label){
   if(!g || g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Not started</span>';
   if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b><span style="color:var(--chalk-dim);"> / ${label}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
+  if(g.status === 'DNP') return '<span style="color:var(--chalk-dim);font-weight:700;" title="Injured or inactive, so this pick is voided and left out of the hit rate.">DNP</span> <span style="color:var(--chalk-dim);">did not play, voided</span>';
   const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
   const tag = g.live ? ' <span style="color:var(--chalk-dim);">live</span>' : (g.fromLive && !g.persist ? ' <span style="color:var(--chalk-dim);" title="ESPN lists only players who recorded a stat, so this is counted as 0 until the daily data confirms it">not in box</span>' : '');
   return `<span style="color:${color};font-weight:700;">${g.status}</span> <b>${fmt(g.actual)}</b> <span style="color:var(--chalk-dim);">vs ${label}</span>${tag}`;
@@ -5461,7 +5474,7 @@ function mountPicks(){
     rows.forEach(({e, g}) => {
       const w = parseInt(e.week, 10) || 0;
       const o = stat[w] = stat[w] || {hit:0, miss:0, open:0, err:0, errN:0};
-      if(g && g.status === 'HIT') o.hit++; else if(g && g.status === 'MISS') o.miss++; else o.open++;
+      if(g && g.status === 'HIT') o.hit++; else if(g && g.status === 'MISS') o.miss++; else if(g && g.status === 'DNP') o.dnp = (o.dnp||0)+1; else o.open++;
       if(g && g.final && typeof g.actual === 'number'){ o.err += Math.abs(g.actual - e.proj); o.errN++; }
     });
     // Totals, overall and by stat (all weeks).
@@ -5469,7 +5482,7 @@ function mountPicks(){
     rows.forEach(({e, g}) => {
       const o = byStat[e.stat] = byStat[e.stat] || {hit:0, miss:0, open:0, err:0, errN:0};
       [o, tot].forEach(t => {
-        if(g && g.status === 'HIT') t.hit++; else if(g && g.status === 'MISS') t.miss++; else t.open++;
+        if(g && g.status === 'HIT') t.hit++; else if(g && g.status === 'MISS') t.miss++; else if(g && g.status === 'DNP') t.dnp = (t.dnp||0)+1; else t.open++;
         if(g && g.final && typeof g.actual === 'number'){ t.err += Math.abs(g.actual - e.proj); t.errN++; }
       });
     });
@@ -5481,7 +5494,7 @@ function mountPicks(){
     const statRows = Object.keys(byStat).sort((a, b) => (statOrder.indexOf(a) + 99) % 99 - (statOrder.indexOf(b) + 99) % 99).map(k => recRow(k, byStat[k], false)).join('');
     const totalHtml = `<div class="log-pos-group" style="margin-bottom:14px;"><div class="log-pos-label" style="font-size:14px;">Total record${tot.hit + tot.miss ? ` -- ${tot.hit} of ${tot.hit + tot.miss} graded picks beat their line (${Math.round(tot.hit / (tot.hit + tot.miss) * 100)}%)` : ''}</div>
       <div class="table-scroll"><table><thead><tr><th>Stat</th><th class="num">Picks</th><th class="num">Hit</th><th class="num">Missed</th><th class="num">Open</th><th class="num">Hit rate</th><th class="num" title="Average distance between the projection and the actual result, graded picks only">Avg projection miss</th></tr></thead><tbody>${recRow('All stats', tot, true)}${statRows}</tbody></table></div>
-      <div class="line-note">Hit rate counts graded picks only (open = not played yet). A projection miss is in the stat's own unit (yards or catches).</div></div>`;
+      <div class="line-note">Hit rate counts graded picks only (open = not played yet). Players who were injured or inactive (DNP) are voided and left out entirely. A projection miss is in the stat's own unit (yards or catches).</div></div>`;
     let H = 0, M = 0;
     const sumRows = weeks.map(w => {
       const o = stat[w]; H += o.hit; M += o.miss;
@@ -6286,7 +6299,7 @@ function mountSlipImport(opts){
         const pk = (l.include && l.matched && l.week !== '') ? slipLegToPick(l) : null;
         const est = pk ? estimatePickProbability(pk) : null;
         const g = pk ? gradeMyPick(pk) : null;
-        const chip = g && g.status === 'LIVE' ? `<b>LIVE</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)} so far</span>` : g && g.status !== 'PENDING'
+        const chip = g && g.status === 'LIVE' ? `<b>LIVE</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)} so far</span>` : g && g.status === 'DNP' ? '<b style="color:var(--chalk-dim);">DNP</b> <span style="color:var(--chalk-dim);">voided</span>' : g && g.status !== 'PENDING'
           ? `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual)</span>`
           : (est ? `<b>${fmt(est.probability * 100, 0)}%</b> <span style="color:var(--chalk-dim);">${est.playerRate.hits}/${est.playerRate.total}${est.defenseRate ? ` &middot; opp ${est.defenseRate.hits}/${est.defenseRate.total}` : ''}</span>` : '<span style="color:var(--chalk-dim);">--</span>');
         const flag = !l.matched ? '<span style="color:var(--red);">player not found</span>'
@@ -6672,9 +6685,9 @@ function mountMyPicks(){
       const e = byWeek[w] = byWeek[w] || {hit:0, miss:0, open:0, tickets:{}};
       if(g.status === 'HIT' && (g.final || g.live)) e.hit++;
       else if(g.status === 'MISS') e.miss++;
-      else e.open++;
+      else if(g.status !== 'DNP') e.open++;
       const t = e.tickets[p.ticket || 'Ticket A'] = e.tickets[p.ticket || 'Ticket A'] || {legs:0, hit:0};
-      t.legs++; if(g.status === 'HIT' && g.final) t.hit++;
+      if(g.status !== 'DNP') t.legs++; if(g.status === 'HIT' && g.final) t.hit++;
     });
     const weeks = Object.keys(byWeek).map(Number).sort((a, b) => b - a);
     if(!weeks.length) return '';
@@ -6697,6 +6710,7 @@ function mountMyPicks(){
     let res = '';
     if(o.state === 'won') res = `<b style="color:var(--mint);">WON${o.net !== null && o.net !== undefined ? ' +$' + fmt(o.net, 2) : ''}</b>`;
     else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.bonus ? ' (bonus bet, no cost)' : (o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : '')}</b>`;
+    else if(o.state === 'void') res = '<span style="color:var(--chalk-dim);">VOID (no one played)</span>';
     else if(o.state === 'open') res = `<span style="color:var(--chalk-dim);">${o.hitSoFar} of ${o.legs} legs hit so far${o.toWin !== null && o.toWin !== undefined ? ' &middot; to win $' + fmt(o.toWin, 2) : ''}</span>`;
     const inp = (k, label, w, ph) => `<label class="ctl-label">${label} <input type="text" data-k="${k}" value="${(m[k] || '').toString().replace(/"/g, '&quot;')}" placeholder="${ph || ''}" style="width:${w}px;"></label>`;
     return `<div class="controls ticket-meta" data-ticket="${encodeURIComponent(ticket)}" style="margin-top:6px;">
@@ -6884,6 +6898,7 @@ function mountMyPicks(){
           if(g.status === 'PENDING') return '<span style="color:var(--chalk-dim);">Pending</span>';
           const line = ` <span style="color:var(--chalk-dim);">/ ${row.direction === 'under' ? 'under ' : ''}${row.threshold}${g.detail ? ' &middot; ' + g.detail : ''}</span>`;
           if(g.status === 'LIVE') return `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b>${line}`;
+          if(g.status === 'DNP') return '<span style="color:var(--chalk-dim);font-weight:700;">DNP</span> <span style="color:var(--chalk-dim);">(did not play, voided)</span>';
           const color = g.status === 'HIT' ? 'var(--mint)' : 'var(--red)';
           if(g.live) return `<span style="color:${color};font-weight:700;">${g.status}</span> <span style="color:var(--chalk-dim);">(${g.status === 'HIT' ? 'cleared' : 'busted'} at ${fmt(g.actual)}, game live${g.detail ? ' &middot; ' + g.detail : ''})</span>`;
           return `<span style="color:${color};font-weight:700;">${g.status}</span> <span style="color:var(--chalk-dim);">(${fmt(g.actual)} actual${g.fromLive && !g.persist ? ', not in ESPN box score' : ''})</span>`;
@@ -7967,7 +7982,7 @@ function mountFriends(){
     shown.forEach(t => {
       const u = byUser[t.user_id] = byUser[t.user_id] || {legsHit:0, legsMiss:0, open:0, won:0, lost:0, tickets:0, staked:0, net:0, money:false};
       u.tickets++;
-      t.data.picks.map(friendPick).forEach(p => { const g = gradeMyPick(p); if(!g) return; if(g.status === 'HIT') u.legsHit++; else if(g.status === 'MISS') u.legsMiss++; else u.open++; });
+      t.data.picks.map(friendPick).forEach(p => { const g = gradeMyPick(p); if(!g) return; if(g.status === 'HIT') u.legsHit++; else if(g.status === 'MISS') u.legsMiss++; else if(g.status !== 'DNP') u.open++; });
       const o = friendTicketOutcome(t);
       if(o.state === 'won') u.won++; else if(o.state === 'lost') u.lost++;
       if((o.state === 'won' || o.state === 'lost') && (o.stake || o.bonus)){ u.money = true; u.staked += o.stake; u.net += (o.net || 0); }
@@ -8008,11 +8023,13 @@ function mountFriends(){
       let res = '';
       if(o.state === 'won') res = `<b style="color:var(--mint);">WON${o.net !== null && o.net !== undefined ? ' +$' + fmt(o.net, 2) : ''}</b>`;
       else if(o.state === 'lost') res = `<b style="color:var(--red);">LOST${o.bonus ? ' (bonus bet, no cost)' : (o.net !== null && o.net !== undefined ? ' -$' + fmt(-o.net, 2) : '')}</b>`;
+      else if(o.state === 'void') res = '<span style="color:var(--chalk-dim);">VOID</span>';
       else if(o.state === 'open') res = `<span style="color:var(--chalk-dim);">${o.hitSoFar} of ${o.legs} hit so far</span>`;
       const legs = t.data.picks.map((l, li) => {
         const pk = friendPick(l), g = gradeMyPick(pk);
         let cell = '<span style="color:var(--chalk-dim);">Not started</span>';
         if(g && g.status === 'LIVE') cell = `<span class="live-chip live-in">LIVE</span> <b>${fmt(g.actual)}</b>`;
+        else if(g && g.status === 'DNP') cell = '<span style="color:var(--chalk-dim);">DNP (voided)</span>';
         else if(g && (g.status === 'HIT' || g.status === 'MISS')) cell = `<b style="color:${g.status === 'HIT' ? 'var(--mint)' : 'var(--red)'};">${g.status}</b> <span style="color:var(--chalk-dim);">${fmt(g.actual)}</span>`;
         const est = estimatePickProbability(pk);
         return `<tr><td>${frEsc(pk.player)}</td><td>${frEsc(frLegLabel(l))}</td><td>${pk.opponent ? teamChip(pk.opponent) : '--'}</td><td class="num">${frEsc(pk.week)}</td>
@@ -8061,7 +8078,7 @@ function mountFriends(){
       const list = picks.filter(p => (p.ticket || 'Ticket A') === t);
       const m = meta[t], o = ticketOutcome(list, m);
       const state = o.state === 'won' ? '<b style="color:var(--mint);">WON</b>' : o.state === 'lost' ? '<b style="color:var(--red);">LOST</b>' : o.state === 'open' ? `${o.hitSoFar} of ${o.legs} hit so far` : '';
-      const rows = list.map(p => { const g = gradeMyPick(p); const st = !g ? '--' : g.status === 'HIT' ? '<b style="color:var(--mint);">HIT</b>' : g.status === 'MISS' ? '<b style="color:var(--red);">MISS</b>' : g.status === 'LIVE' ? '<b>LIVE</b> ' + fmt(g.actual) : 'Not started';
+      const rows = list.map(p => { const g = gradeMyPick(p); const st = !g ? '--' : g.status === 'HIT' ? '<b style="color:var(--mint);">HIT</b>' : g.status === 'MISS' ? '<b style="color:var(--red);">MISS</b>' : g.status === 'DNP' ? '<span style="color:var(--chalk-dim);">DNP (voided)</span>' : g.status === 'LIVE' ? '<b>LIVE</b> ' + fmt(g.actual) : 'Not started';
         return `<tr><td>${frEsc(p.player)}</td><td>${frEsc(pickLegLabel(p))}</td><td>${frEsc(p.opponent ? teamName(p.opponent) : '')}</td><td>${p.week || '--'}</td><td>${st}</td></tr>`; }).join('');
       return `<div class="player-preview-stats"><b>${frEsc(t)}</b> ${m.book ? '&middot; ' + frEsc(m.book) : ''} ${m.odds ? frEsc(m.odds) : ''} ${m.stake ? '&middot; $' + frEsc(m.stake) + (m.shareStake ? '' : ' (hidden from friends)') : ''} &middot; ${state}
         <button class="save-pick-btn" data-unshare="${frEsc(t)}">Stop sharing</button></div>
