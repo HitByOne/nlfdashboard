@@ -9644,6 +9644,7 @@ function scCardHtml(off, def, sp, ou, opts){
         <div class="sc-h">What ${def} take away</div><ul class="sc-ul">${tough}${recv}${!tough && !recv ? '<li class="sc-flat">No clear strength yet.</li>' : ''}</ul></div>
       <div><div class="sc-h">How ${off} attack</div><div class="sc-p">${offTxt}</div>
         <div class="sc-h">Game script</div><div class="sc-p">${script}</div>
+        ${stBlockHtml(off, def, players)}
         ${watch.length ? `<div class="sc-h">Watch</div><ul class="sc-ul sc-watch">${watch.join('')}</ul>` : ''}</div>
     </div>
     <div class="sc-h" style="margin-top:12px;">${fams.length ? 'Players it points at' : 'Main players to weigh (no soft spot to attack)'}</div>
@@ -9755,6 +9756,12 @@ function scKeys(T, O, sp, ou){
       keys.push({h: `Contain ${w.name}`, t: `${O}'s offense runs through ${w.name} (${Math.round(w.share * 100)}% of the ${w.what}${w.rz !== null ? `, ${Math.round(w.rz * 100)}% in the red zone` : ''}).${own}`});
     }
   }
+  // Scheme fit: how this offense and its key players have done against defenses of this style.
+  { const fb = [], prot = stProtect(T, O);
+    if(prot) fb.push(prot);
+    stTeamFit(T, O).forEach(f => fb.push(f.txt));
+    rows.map(x => ({x, f: x.pos ? stPlayerFit(x.pos, x.player, T, O) : null})).filter(y => y.f).filter((y, i, a) => a.findIndex(z => z.x.player === y.x.player) === i).slice(0, 2).forEach(y => fb.push(`${y.x.player}: ${y.f.txt}.`));
+    if(fb.length) keys.push({h: 'Scheme fit', t: fb.join(' ')}); }
   // Script / pass rush / ball security.
   const spr = bpSpreadFor(T, sp), bits = [];
   if(String(sp || '').trim()){
@@ -9808,6 +9815,143 @@ function scGamePlanHtml(g){
       ${best ? `<div class="sc-pick-s">Best number against the book: <b>${best.label}</b> (grade ${best.grade}, ${best.ev >= 0 ? '+' : ''}${Math.round(best.ev * 100)}% EV)</div>` : ''}
       ${why.length ? `<ul class="sc-why">${why.map(w => `<li>${w}</li>`).join('')}</ul>` : ''}</div>
     <div class="sc-plans">${card(pick, loser, true)}${card(loser, pick, false)}</div></div>`;
+}
+
+// ================= Scheme & style (built from free data) =================
+// Real scheme data (man vs zone, coverage shells, blitz rate, box counts) is paid charting, so this works from what is public:
+// the front each defense plays (from who is on the field), how much nickel, how often they disrupt the quarterback, how well they
+// stop the run, and where the ball hurts them (deep vs short). "Fit" compares how an offense, quarterback or player has done against
+// defenses on the same side of the league median for that style. It only speaks with 3+ games each way and a real gap.
+const ST_FEATS = [
+  {id: 'rush',  vsHi: 'rush the passer hard', vsLo: 'rush the passer lightly', hi: 'heavy pass rush',        lo: 'light pass rush',          unit: 'of dropbacks disrupted (sacks + QB hits)',          pct: true},
+  {id: 'stuff', vsHi: 'stuff the run', vsLo: 'get pushed around on runs', hi: 'run-stuffing front',     lo: 'gets pushed around on runs', unit: 'of runs stopped for no gain or a loss',   pct: true},
+  {id: 'deep',  vsHi: 'get burned deep', vsLo: 'take away the deep ball', hi: 'burned deep',            lo: 'takes away the deep ball', unit: 'EPA per deep pass allowed',         pct: false},
+  {id: 'short', vsHi: 'give up the short game', vsLo: 'play tight underneath', hi: 'gives up the short game', lo: 'tight underneath',        unit: 'EPA per short pass allowed',        pct: false},
+];
+const ST_POS = {QB: ['rush', 'deep', 'short'], RB: ['stuff'], WR: ['deep', 'short', 'rush'], TE: ['short', 'rush']};
+const ST_STAT = {QB: 'Pass Yards', RB: 'Rush Yards', WR: 'Receiving Yards', TE: 'Receiving Yards'};
+let _stCtx = {a: null, b: null, c: null, d: null, val: null};
+function stCtx(){
+  if(_stCtx.val && _stCtx.a === DATA.lineTeam && _stCtx.b === DATA.passLocation && _stCtx.c === DATA.defenseRoster) return _stCtx.val;
+  const ok = v => v !== '' && v !== undefined && v !== null && isFinite(parseFloat(v));
+  const val = {rush: {}, stuff: {}, deep: {}, short: {}}, front = {}, nick = {};
+  (DATA.lineTeam || []).forEach(r => {
+    if(ok(r['DL Disruption Rate'])) val.rush[r.Team] = parseFloat(r['DL Disruption Rate']);
+    if(ok(r['DL Stuff Rate'])) val.stuff[r.Team] = parseFloat(r['DL Stuff Rate']);
+  });
+  const pl = {};
+  (DATA.passLocation || []).filter(r => r.Kind === 'DEF').forEach(r => {
+    const o = pl[r.Team] = pl[r.Team] || {da: 0, de: 0, sa: 0, se: 0};
+    if(r.Length === 'Deep'){ o.da += num(r.Att); o.de += num(r.EPA); } else { o.sa += num(r.Att); o.se += num(r.EPA); }
+  });
+  Object.keys(pl).forEach(t => { if(pl[t].da >= 12) val.deep[t] = pl[t].de / pl[t].da; if(pl[t].sa >= 20) val.short[t] = pl[t].se / pl[t].sa; });
+  const ro = {};
+  (DATA.defenseRoster || []).forEach(r => {
+    const o = ro[r.Team] = ro[r.Team] || {dl: 0, lb: 0};
+    if(r.Role === 'Starter'){ if(r.Group === 'DL') o.dl++; else if(r.Group === 'LB') o.lb++; }
+    if(r.Role === 'Nickel') nick[r.Team] = num(r['Last Game Snap Pct']);
+  });
+  Object.keys(ro).forEach(t => { const o = ro[t]; front[t] = o.dl + o.lb >= 6 ? (o.dl >= 4 ? '4-3' : o.dl === 3 ? '3-4' : null) : null; });
+  const feats = {};
+  ST_FEATS.forEach(f => {
+    const teams = Object.keys(val[f.id]).sort((a, b) => val[f.id][b] - val[f.id][a]);
+    const vs = teams.map(t => val[f.id][t]).sort((a, b) => a - b);
+    feats[f.id] = {rank: Object.fromEntries(teams.map((t, i) => [t, i + 1])), of: teams.length, med: vs.length ? vs[Math.floor(vs.length / 2)] : 0, v: val[f.id],
+      lg: vs.length ? vs.reduce((a, x) => a + x, 0) / vs.length : 0};
+  });
+  const out = {feats, front, nick};
+  _stCtx = {a: DATA.lineTeam, b: DATA.passLocation, c: DATA.defenseRoster, val: out};
+  return out;
+}
+// Which side of the median a defense sits on for a feature: 'hi' or 'lo', or null if unknown.
+function stSide(f, team){ const F = stCtx().feats[f]; return F && F.v[team] !== undefined ? (F.v[team] >= F.med ? 'hi' : 'lo') : null; }
+// The styles a defense is clearly at an end of (top or bottom quarter).
+function stExtremes(team){
+  const S = stCtx(), out = [];
+  ST_FEATS.forEach(f => {
+    const F = S.feats[f.id]; if(!F || F.v[team] === undefined || F.of < 12) return;
+    const rk = F.rank[team], q = Math.ceil(F.of / 4);
+    if(rk <= q) out.push({f, side: 'hi', rank: rk, of: F.of, v: F.v[team]});
+    else if(rk > F.of - q) out.push({f, side: 'lo', rank: rk, of: F.of, v: F.v[team]});
+  });
+  return out;
+}
+function stFmtVal(f, v){ return f.pct ? Math.round(v * 100) + '%' : (v >= 0 ? '+' : '') + v.toFixed(2); }
+function stStyleLines(team){
+  const S = stCtx(), lines = [];
+  const fr = S.front[team], nk = S.nick[team];
+  if(fr || nk !== undefined) lines.push(`${fr ? `Plays a <b>${fr}</b> front` : 'Front unclear'}${nk !== undefined ? `; third corner on the field for ${Math.round(nk * 100)}% of snaps last game${nk >= 0.6 ? ' (nickel-heavy)' : nk < 0.3 ? ' (base-heavy)' : ''}` : ''}.`);
+  stExtremes(team).forEach(x => {
+    lines.push(`<b>${(x.side === 'hi' ? x.f.hi : x.f.lo).replace(/^./, c => c.toUpperCase())}.</b> ${stFmtVal(x.f, x.v)} ${x.f.unit}, #${x.rank} of ${x.of} (1 = most).`);
+  });
+  return lines;
+}
+// Per-game values for a team's offense (or one player) against each opponent.
+function stSplit(games, feat, defTeam, minN){
+  const mySide = stSide(feat, defTeam); if(!mySide) return null;
+  const A = [], B = [];
+  games.forEach(g => { const s = stSide(feat, g.opp); if(!s) return; (s === mySide ? A : B).push(g.v); });
+  if(A.length < minN || B.length < minN) return null;
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  return {side: mySide, a: avg(A), b: avg(B), na: A.length, nb: B.length};
+}
+function stPlayerGames(player, team, stat){
+  return (DATA.playerGame || []).filter(r => r.Player === player && r.Team === team).map(r => ({opp: r.Opponent, v: getStatValue(r, stat)}));
+}
+// How one player's output changes against this kind of defense (needs 3+ games each way and a 20% gap).
+function stPlayerFit(pos, player, team, defTeam){
+  const stat = ST_STAT[pos]; if(!stat) return null;
+  const games = stPlayerGames(player, team, stat);
+  const ex = stExtremes(defTeam).filter(x => (ST_POS[pos] || []).includes(x.f.id));
+  let best = null;
+  ex.forEach(x => {
+    const s = stSplit(games, x.f.id, defTeam, 3); if(!s || !(s.a > 0 || s.b > 0)) return;
+    const ratio = s.b > 0 ? s.a / s.b - 1 : 1;
+    if(Math.abs(ratio) < 0.2) return;
+    if(!best || Math.abs(ratio) > Math.abs(best.ratio)) best = {x, s, ratio};
+  });
+  if(!best) return null;
+  const lab = best.x.side === 'hi' ? best.x.f.vsHi : best.x.f.vsLo;
+  return {txt: `${fmt(best.s.a, 0)} ${TN_NAME[stat].toLowerCase()} a game vs defenses that ${lab} (${best.s.na} games) against ${fmt(best.s.b, 0)} vs the rest (${best.s.nb})`, good: best.ratio > 0, ratio: best.ratio, feat: best.x.f.id, side: best.x.side};
+}
+function stTeamGames(team, col){
+  return (DATA.gameTeamStats || []).filter(r => r.Team === team && r[col] !== '' && r[col] !== undefined).map(r => ({opp: r.Opponent, v: num(r[col])}));
+}
+// The offense as a whole: passing EPA against pass-rush / deep / short styles, rushing EPA against run-stoppers.
+function stTeamFit(off, defTeam){
+  const res = [];
+  const tryF = (col, label, feats) => {
+    const games = stTeamGames(off, col);
+    stExtremes(defTeam).filter(x => feats.includes(x.f.id)).forEach(x => {
+      const s = stSplit(games, x.f.id, defTeam, 3); if(!s || Math.abs(s.a - s.b) < 0.1) return;
+      const lab = x.side === 'hi' ? x.f.vsHi : x.f.vsLo;
+      res.push({good: s.a > s.b, gap: Math.abs(s.a - s.b), txt: `${off}'s ${label} is ${s.a >= 0 ? '+' : ''}${s.a.toFixed(2)} EPA a play vs defenses that ${lab} (${s.na} games) against ${s.b >= 0 ? '+' : ''}${s.b.toFixed(2)} vs the rest (${s.nb}).`});
+    });
+  };
+  tryF('EPA/Pass', 'passing game', ['rush', 'deep', 'short']);
+  tryF('EPA/Rush', 'run game', ['stuff']);
+  return res.sort((a, b) => b.gap - a.gap).slice(0, 2);
+}
+// Pass protection against a heavy rush: no split needed, just how often this line already gives up sacks.
+function stProtect(off, defTeam){
+  const x = stExtremes(defTeam).find(e => e.f.id === 'rush' && e.side === 'hi');
+  if(!x) return null;
+  const sk = scTeamRate(off, ['Sacks Taken']);
+  if(sk.v !== null && sk.lg && sk.v >= sk.lg * 1.15) return `${off} already take ${fmt(sk.v, 1)} sacks a game (league ${fmt(sk.lg, 1)}) and ${defTeam} disrupt ${Math.round(x.v * 100)}% of dropbacks (#${x.rank} of ${x.of}). Pass protection is the pressure point.`;
+  return null;
+}
+function stBlockHtml(T, D, rows){
+  const style = stStyleLines(D);
+  const fits = stTeamFit(T, D);
+  const prot = stProtect(T, D);
+  const pf = (rows || []).map(r => ({r, f: r.stat || r.pos ? stPlayerFit(r.pos, r.player, T, D) : null})).filter(x => x.f).filter((x, i, a) => a.findIndex(y => y.r.player === x.r.player) === i).slice(0, 4);
+  const noFit = !fits.length && !pf.length;
+  return `<div class="sc-h">${D} scheme &amp; style</div><ul class="sc-ul">${style.map(l => `<li class="sc-flat" style="color:var(--chalk);">${l}</li>`).join('') || '<li class="sc-flat">Not enough data on this defense yet.</li>'}</ul>
+    <div class="sc-h">Fit: how ${T} do against this style</div><ul class="sc-ul sc-watch">
+    ${prot ? `<li class="sc-tough"><b>Protection.</b> ${prot}</li>` : ''}
+    ${fits.map(f => `<li class="${f.good ? 'sc-soft' : 'sc-tough'}"><b>${f.good ? 'Fits.' : 'Struggles.'}</b> ${f.txt}</li>`).join('')}
+    ${pf.map(x => `<li class="${x.f.good ? 'sc-soft' : 'sc-tough'}"><b>${x.r.player}.</b> ${x.f.txt}.</li>`).join('')}
+    ${noFit && !prot ? '<li class="sc-flat">Not enough games against this style yet (needs 3 or more each way, with a clear gap).</li>' : ''}</ul>`;
 }
 
 function renderScout(){
