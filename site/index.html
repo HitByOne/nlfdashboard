@@ -788,6 +788,28 @@
   body.layout-tonight .layout-switch{display:none;}
   body.layout-tonight .tn-side .tn-opts .tn-sw{white-space:normal;}
   .layout-pick .lp button.on{color:#0B0F19;}
+  /* ---- Defense Report ---- */
+  .sc-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px;}
+  .sc-h{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--chalk-dim);margin:0 0 6px;}
+  .sc-grid > div > .sc-h:not(:first-child){margin-top:14px;}
+  .sc-ul{list-style:none;margin:0 0 4px;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .sc-ul li{padding:9px 12px;border-radius:8px;font-size:14px;line-height:1.45;border-left:3px solid var(--hash);background:rgba(255,255,255,0.03);}
+  .sc-ul li.sc-soft{border-left-color:var(--mint);} .sc-ul li.sc-tough{border-left-color:var(--red);} .sc-ul li.sc-flat{color:var(--chalk-dim);}
+  .sc-ul li.sc-soft b:first-child{color:var(--mint);} .sc-ul li.sc-tough b:first-child{color:var(--red);}
+  .sc-also{font-size:12px;color:var(--chalk-dim);margin-top:3px;}
+  .sc-thin{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:0 6px;white-space:nowrap;}
+  .sc-p{font-size:14px;line-height:1.5;}
+  .sc-watch li{border-left-color:var(--gold);}
+  .sc-pt td,.sc-pt th{font-size:13px;vertical-align:top;}
+  .sc-games{display:flex;flex-wrap:wrap;gap:6px;}
+  .sc-g{background:transparent;border:1px solid var(--panel-border);border-radius:8px;color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:7px 11px;cursor:pointer;display:flex;gap:6px;align-items:baseline;}
+  .sc-g i{font-style:normal;opacity:.6;} .sc-g small{font-size:11px;opacity:.7;}
+  .sc-g:hover{color:var(--chalk);} .sc-g.on{background:var(--gold);color:#0B0F19;border-color:var(--gold);font-weight:700;}
+  .sc-jump:hover{background:rgba(255,255,255,0.07) !important;}
+  @media (max-width:900px){ .sc-grid{grid-template-columns:1fr;} }
+  body.layout-tonight .sc-g{border-radius:999px;border:none;background:var(--t-card);box-shadow:var(--t-shadow);font-family:var(--t-font);font-weight:600;}
+  body.layout-tonight .sc-g.on{background:var(--t-accent);color:var(--t-on-accent);}
+  body.layout-tonight .sc-ul li{background:var(--t-card);}
 </style>
 </head>
 <body>
@@ -816,6 +838,7 @@
       <button data-tab="picks">Best Picks</button>
       <button data-tab="propprices">Prop Prices</button>
       <button data-tab="anytimetd">Anytime TD</button>
+      <button data-tab="scout">Defense Report</button>
       <button data-tab="booklines">Book Lines</button>
       <button data-tab="mypicks">My Tickets</button>
       <button data-tab="friends">Friends</button>
@@ -9199,7 +9222,7 @@ function mountBoard(){
 // player is lined up as  "he gets"  vs  "this defense allows to his position"  vs  the book's line, with a call (OVER / UNDER / PASS).
 // The choice is remembered; ?layout=gameday or ?layout=classic in the address opens one directly.
 const LAYOUT_KEY = 'nfl_dashboard_layout', THEME_KEY = 'nfl_dashboard_theme';
-const TN_NAV = [['tonight', 'Gameday'], ['board', 'Game Board'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['picks', 'Best Picks'], ['players', 'Players'], ['backtest', 'Record']];
+const TN_NAV = [['tonight', 'Gameday'], ['board', 'Game Board'], ['scout', 'Defense Report'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['picks', 'Best Picks'], ['players', 'Players'], ['backtest', 'Record']];
 let CLASSIC_NAV_HTML = null, CLASSIC_TAB = 'board';
 function getTheme(){
   const q = new URLSearchParams(location.search).get('theme');
@@ -9426,7 +9449,309 @@ function mountTonight(){
   });
 }
 
+// ================= Defense Report =================
+// What each defense gives up and what it takes away, turned into plain-English scouting notes for the game on the board,
+// plus the players on the other side who benefit. Every claim carries the number behind it and how many games it rests on.
+// Rank 1 = the softest defense in the league at that thing. Everything comes from this season's box scores (all QB/RB/WR/TE
+// who faced the defense), so early in the year the notes are directional, not proof; thin samples are labelled.
+const SC_FAM = {run:'The run', pass:'The pass', wr:'Wide receivers', te:'Tight ends', rb:'Backs as receivers', rush:'Pass rush'};
+const SC_M = [
+  {id:'run',   fam:'run',  unit:'rush yds',  dp:0, soft:"can't stop the run",              tough:'stout against the run',        get:G => G.rush},
+  {id:'rtd', evNone:'nobody ran one in', evTd:'someone ran one in',   fam:'run',  unit:'rush TD',   dp:1, td:true, soft:'gives up rushing touchdowns', tough:'rarely gives up a rushing TD', get:G => G.rtd},
+  {id:'pass',  fam:'pass', unit:'pass yds',  dp:0, soft:"can't stop the pass",             tough:'tight against the pass',       get:G => G.pass},
+  {id:'ptd', evNone:'no passing TD', evTd:'a QB threw one',   fam:'pass', unit:'pass TD',   dp:1, td:true, soft:'gives up passing touchdowns', tough:'rarely gives up a passing TD', get:G => G.ptd},
+  {id:'wr',    fam:'wr',   unit:'WR yds',    dp:0, soft:'gives up yards to receivers',     tough:'shuts down wide receivers',    get:G => G.wr},
+  {id:'wrtd', evNone:'no WR scored', evTd:'a WR scored',  fam:'wr',   unit:'WR TD',     dp:1, td:true, soft:'wide receivers score on them', tough:'wide receivers rarely score', get:G => G.wrtd},
+  {id:'te',    fam:'te',   unit:'TE yds',    dp:0, soft:'tight ends get yards',            tough:'takes tight ends away',        get:G => G.te},
+  {id:'terec', fam:'te',   unit:'TE catches',dp:1, soft:'tight ends catch plenty',         tough:'tight ends see few catches',   get:G => G.terec},
+  {id:'tetd', evNone:'no TE scored', evTd:'a TE scored',  fam:'te',   unit:'TE TD',     dp:1, td:true, soft:'tight ends score on them', tough:'tight ends rarely score',     get:G => G.tetd},
+  {id:'rbrec', fam:'rb',   unit:'RB rec yds',dp:0, soft:'running backs catch it freely',   tough:'covers running backs well',    get:G => G.rbrec},
+  {id:'sacks', fam:'rush', unit:'sacks',     dp:1, inv:true, ext:true, soft:'little pass rush', tough:'gets to the quarterback',   get:G => G.sacks},
+];
+let _scCtx = {a: null, b: null, val: null};
+function scCtx(){
+  if(_scCtx.val && _scCtx.a === DATA.playerGame && _scCtx.b === DATA.gameTeamStats) return _scCtx.val;
+  const games = {};
+  const mk = () => ({rush: 0, rtd: 0, pass: 0, ptd: 0, wr: 0, wrtd: 0, te: 0, terec: 0, tetd: 0, rbrec: 0, sacks: 0, pts: 0});
+  (DATA.playerGame || []).forEach(r => {
+    if(!BP_STATS[r.Position]) return;
+    const d = r.Opponent, w = num(r.Week); if(!d) return;
+    const G = ((games[d] = games[d] || {})[w] = games[d][w] || mk());
+    G.rush += num(r['Rush Yards']); G.rtd += num(r['Rush TD']); G.pass += num(r['Pass Yards']); G.ptd += num(r['Pass TD']);
+    if(r.Position === 'WR'){ G.wr += num(r['Receiving Yards']); G.wrtd += num(r['Receiving TD']); }
+    if(r.Position === 'TE'){ G.te += num(r['Receiving Yards']); G.terec += num(r.Receptions); G.tetd += num(r['Receiving TD']) + num(r['Rush TD']); }
+    if(r.Position === 'RB') G.rbrec += num(r['Receiving Yards']);
+  });
+  let haveGts = false;
+  (DATA.gameTeamStats || []).forEach(r => {
+    const d = r.Opponent, w = num(r.Week); if(!d || !games[d] || !games[d][w] || r['Sacks Taken'] === undefined || r['Sacks Taken'] === '') return;
+    games[d][w].sacks += num(r['Sacks Taken']); games[d][w].pts += num(r['Final Score']); haveGts = true;
+  });
+  const teams = Object.keys(games);
+  const metrics = SC_M.filter(m => !m.ext || haveGts);
+  const out = {teams, metrics, def: {}};
+  teams.forEach(t => { out.def[t] = {g: Object.keys(games[t]).length, m: {}, weeks: Object.keys(games[t]).map(Number).sort((a, b) => a - b), G: games[t]}; });
+  metrics.forEach(m => {
+    const avg = {};
+    teams.forEach(t => { const vals = out.def[t].weeks.map(w => m.get(games[t][w])); avg[t] = vals.reduce((a, v) => a + v, 0) / Math.max(1, vals.length); out.def[t].m[m.id] = {vals, val: avg[t]}; });
+    const lg = teams.reduce((a, t) => a + avg[t], 0) / Math.max(1, teams.length);
+    const order = teams.slice().sort((a, b) => m.inv ? avg[a] - avg[b] : avg[b] - avg[a]);
+    teams.forEach(t => {
+      const e = out.def[t].m[m.id], g = out.def[t].g;
+      e.lg = lg; e.rank = order.indexOf(t) + 1; e.of = teams.length;
+      e.pct = lg > 0 ? (m.inv ? -(e.val / lg - 1) : e.val / lg - 1) : 0;
+      e.total = e.vals.reduce((a, v) => a + v, 0);
+      e.spct = e.pct * g / (g + 3) * (m.td ? e.total / (e.total + 4) : 1);   // shrunk: a short sample, or only a handful of touchdowns, counts for less
+      e.hit = m.td ? e.vals.filter(v => v >= 1).length : e.vals.filter(v => m.inv ? v < lg : v > lg).length;
+      e.thin = g < 4 || (m.td && e.total < 4);
+      const l3 = e.vals.slice(-3), l3a = l3.reduce((a, v) => a + v, 0) / Math.max(1, l3.length);
+      e.trend = g >= 5 && e.val > 0 ? (l3a / e.val - 1) * (m.inv ? -1 : 1) : 0;
+    });
+  });
+  _scCtx = {a: DATA.playerGame, b: DATA.gameTeamStats, val: out};
+  return out;
+}
+const scPct = v => (v >= 0 ? '+' : '') + Math.round(v * 100) + '%';
+function scLine(m, e, def){
+  const unit = m.unit, val = fmt(e.val, m.dp);
+  const ev = m.td ? (e.pct >= 0 ? `in ${e.hit} of ${e.vals.length} games ${m.evTd}` : `${e.vals.length - e.hit} of ${e.vals.length} games ${m.evNone}`)
+    : m.inv ? (e.pct >= 0 ? `fewer sacks than the league average in ${e.hit} of ${e.vals.length} games` : `more sacks than the league average in ${e.vals.length - e.hit} of ${e.vals.length} games`)
+    : (e.pct >= 0 ? `above the league average in ${e.hit} of ${e.vals.length} games` : `below the league average in ${e.vals.length - e.hit} of ${e.vals.length} games`);
+  const tr = Math.abs(e.trend) >= 0.2 ? ` &middot; ${(e.trend > 0 ? 'worse' : 'better')} lately (last 3 games ${scPct(e.trend)} vs season)` : '';
+  return `<b>${val}</b> ${unit} a game, #${e.rank} of ${e.of} (${scPct(e.pct)} vs league) &middot; ${ev}${e.thin ? ' <span class="sc-thin">small sample</span>' : ''}${tr}`;
+}
+// The things a defense is worst / best at: one headline per family, with the other members attached.
+function scSpots(def){
+  const C = scCtx(), D = C.def[def]; if(!D) return {soft: [], tough: []};
+  const fams = {};
+  C.metrics.forEach(m => { const e = D.m[m.id]; (fams[m.fam] = fams[m.fam] || []).push({m, e}); });
+  const build = dir => Object.keys(fams).map(f => {
+    const list = fams[f].slice().sort((a, b) => dir * (b.e.spct - a.e.spct));
+    const best = list[0];
+    const ok = dir > 0 ? (best.e.spct >= 0.08 && best.e.rank <= 12) : (best.e.spct <= -0.08 && best.e.rank >= best.e.of - 11);
+    if(!ok) return null;
+    const extra = list.slice(1).filter(x => dir > 0 ? (x.e.spct >= 0.08 && x.e.rank <= 10) : (x.e.spct <= -0.08 && x.e.rank >= x.e.of - 9));
+    return {fam: f, m: best.m, e: best.e, extra, score: Math.abs(best.e.spct)};
+  }).filter(Boolean).sort((a, b) => b.score - a.score);
+  return {soft: build(1).slice(0, 3), tough: build(-1).slice(0, 2)};
+}
+// Does he hold the other team's top receivers down? Receivers who normally get 40+ yards, what they got against this defense.
+function scTopReceivers(def){
+  const rows = dfReceiversFaced(def).filter(r => r.avg >= 40);
+  if(rows.length < 3) return null;
+  const a = rows.reduce((s, r) => s + r.avg, 0), g = rows.reduce((s, r) => s + r.got, 0);
+  return {ratio: a > 0 ? g / a : 1, n: rows.length};
+}
+function scShadow(def){
+  const map = dfShutdownMap();
+  return Object.values(map).filter(e => e.Team === def && e.heldCount >= 1).sort((a, b) => b.heldCount - a.heldCount || b.plays - a.plays)[0] || null;
+}
+function scOffense(off){
+  const rows = (DATA.playerGame || []).filter(r => r.Team === off && BP_STATS[r.Position]);
+  const wks = new Set(rows.map(r => num(r.Week)));
+  if(!wks.size) return null;
+  const tot = k => rows.reduce((a, r) => a + num(r[k]), 0);
+  const pa = tot('Pass Attempts'), ra = tot('Rush Attempts'), tgt = tot('Targets');
+  const league = (() => { const a = (DATA.playerGame || []).filter(r => BP_STATS[r.Position]); const p = a.reduce((s, r) => s + num(r['Pass Attempts']), 0), q = a.reduce((s, r) => s + num(r['Rush Attempts']), 0); return p / Math.max(1, p + q); })();
+  const by = {}; rows.forEach(r => { const o = (by[r.Player] = by[r.Player] || {p: r.Player, pos: r.Position, tgt: 0, ra: 0, rec: 0, ry: 0}); o.tgt += num(r.Targets); o.ra += num(r['Rush Attempts']); o.rec += num(r['Receiving Yards']); o.pos = r.Position; });
+  const ps = Object.values(by);
+  const recv = ps.filter(p => p.pos !== 'QB').sort((a, b) => b.tgt - a.tgt).slice(0, 2).map(p => {
+    const rz = (DATA.redzone || []).find(r => r.Player === p.p && r.Team === off);
+    return {name: p.p, pos: p.pos, share: tgt ? p.tgt / tgt : 0, rz: rz ? num(rz['RZ Target Share']) : null};
+  });
+  const rb = ps.filter(p => p.pos === 'RB').sort((a, b) => b.ra - a.ra)[0];
+  const rbrz = rb ? (DATA.redzone || []).find(r => r.Player === rb.p && r.Team === off) : null;
+  const co = (DATA.coaching || []).find(r => r.Team === off);
+  const pts = (DATA.gameTeamStats || []).filter(r => r.Team === off && r['Final Score'] !== '' && r['Final Score'] !== undefined).map(r => num(r['Final Score']));
+  return {g: wks.size, passRate: pa / Math.max(1, pa + ra), league, recv, rb: rb ? {name: rb.p, share: ra ? rb.ra / ra : 0, rz: rbrz ? num(rbrz['RZ Rush Share']) : null} : null,
+    neutral: co && co['Neutral Pass Rate'] !== '' ? num(co['Neutral Pass Rate']) : null, proe: co && co['PROE Proxy'] !== '' ? num(co['PROE Proxy']) : null, ppg: pts.length ? pts.reduce((a, v) => a + v, 0) / pts.length : null};
+}
+// Who benefits: for each soft spot, the players it points at, with his own number, the book line and the anytime-TD chance.
+const SC_PLAN = {run: [['RB', 1, 'Rush Yards']], pass: [['QB', 1, 'Pass Yards'], ['WR', 2, 'Receiving Yards']], wr: [['WR', 3, 'Receiving Yards']], te: [['TE', 1, 'Receiving Yards']], rb: [['RB', 1, 'Receiving Yards']], rush: []};
+function scPlayers(off, def, spreadText, ouText, fams){
+  const spr = bpSpreadFor(off, spreadText) || 0;
+  const tdMap = {}; tdPlayerRows(off, def, spreadText, ouText).forEach(p => { tdMap[p.player] = p; });
+  const roster = bpTeamPlayers(off, 'starters');
+  const plan = []; (fams.length ? fams : ['run', 'pass', 'te']).forEach(f => (SC_PLAN[f] || []).forEach(x => plan.push({fam: f, x})));
+  const seen = new Set(), out = [];
+  plan.forEach(({fam, x: [pos, n, stat]}) => {
+    roster.filter(p => p.Position === pos).slice(0, n).forEach(p => {
+      const k = p.Player + '|' + stat; if(seen.has(k)) return; seen.add(k);
+      const games = p.games.slice().sort((a, b) => num(a.Week) - num(b.Week));
+      if(games.length < BP_MIN_PLAYER_GAMES) return;
+      const vals = games.map(r => getStatValue(r, stat)), avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+      if(avg <= 0) return;
+      const l3 = vals.slice(-3), l3a = l3.reduce((a, v) => a + v, 0) / l3.length;
+      const defRows = bpDefenseSamples(def, pos, 'starters', off);
+      let pj = null;
+      if(defRows.length >= BP_MIN_DEF_SAMPLES){
+        const allowed = defRows.reduce((a, r) => a + getStatValue(r, stat), 0) / defRows.length;
+        const defGames = new Set((DATA.playerGame || []).filter(r => r.Opponent === def).map(r => r.Week)).size;
+        pj = bpProject(vals, l3a, allowed, bpLeagueAvg(pos, stat, 'starters'), defGames, stat, spr);
+      }
+      const proj = pj ? pj.proj : avg * 0.6 + l3a * 0.4;
+      const bk = propHasData() ? propMainFor(p.Player, stat) : null;
+      out.push({fam, player: p.Player, pos, slot: p.slot, stat, avg, proj, lift: avg ? proj / avg - 1 : 0, bk, td: tdMap[p.Player] || null, g: vals.length});
+    });
+  });
+  // Anytime-TD candidates on this side the model likes most, even if not in a soft spot above.
+  Object.values(tdMap).sort((a, b) => b.prob - a.prob).slice(0, 2).forEach(t => {
+    if(out.some(o => o.player === t.player)) return;
+    out.push({fam: 'td', player: t.player, pos: t.position, slot: t.position, stat: null, avg: 0, proj: 0, lift: 0, bk: null, td: t, g: t.g});
+  });
+  return out.slice(0, 8);
+}
+function scPlayerRowHtml(r){
+  const stat = r.stat ? `${TN_NAME[r.stat]}: <b>${fmt(r.proj, 0)}</b> <span style="color:var(--chalk-dim);">proj, avg ${fmt(r.avg, 0)} (${scPct(r.lift)})</span>` : '<span style="color:var(--chalk-dim);">--</span>';
+  let book = '<span style="color:var(--chalk-dim);">--</span>';
+  if(r.bk){
+    const gap = r.proj - r.bk.line, side = Math.abs(gap) / r.bk.line >= 0.08 ? (gap > 0 ? 'over' : 'under') : '';
+    const px = side === 'over' ? r.bk.bo : side === 'under' ? r.bk.bu : null;
+    book = `o/u <b>${r.bk.line}</b>${side ? ` <span style="color:${side === 'over' ? 'var(--mint)' : 'var(--red)'};font-weight:700;">${side.toUpperCase()}</span>${px ? ' ' + propAmerican(px.dec) + ' ' + (PROP_BOOK_SHORT[px.book] || px.book) : ''}` : ' <span style="color:var(--chalk-dim);">close</span>'}`;
+  }
+  let td = '<span style="color:var(--chalk-dim);">--</span>';
+  if(r.td){
+    const b = tdBookPrice(r.player), ev = b ? r.td.prob * b.dec - 1 : null;
+    td = `<b>${Math.round(r.td.prob * 100)}%</b>${b ? ` <span style="color:var(--chalk-dim);">book ${propAmerican(b.dec)} ${PROP_BOOK_SHORT[b.book] || b.book}</span> <span style="color:${ev >= 0.05 ? 'var(--mint)' : ev < 0 ? 'var(--red)' : 'var(--chalk-dim)'};font-weight:700;">${ev >= 0 ? '+' : ''}${Math.round(ev * 100)}% EV</span>` : ` <span style="color:var(--chalk-dim);">fair ${r.td.odds}</span>`}`;
+  }
+  const why = r.fam === 'td' ? 'likely scorer' : (SC_FAM[r.fam] || '');
+  return `<tr><td><span class="player-preview-pos">${r.slot}</span> <b>${r.player}</b></td><td style="color:var(--chalk-dim);">${why}</td><td>${stat}</td><td>${book}</td><td>${td}</td></tr>`;
+}
+// One side of a game: this offense against that defense.
+function scCardHtml(off, def, sp, ou, opts){
+  opts = opts || {};
+  const C = scCtx(), D = C.def[def];
+  if(!D) return `<div class="panel"><div class="panel-title">${teamName(off)} vs ${teamName(def)}</div><div class="empty">${teamName(def)} have not played a game with data yet.</div></div>`;
+  const sp_ = scSpots(def), tr = scTopReceivers(def), sh = scShadow(def);
+  const soft = sp_.soft.map(s => `<li class="sc-soft"><b>${s.m.soft.charAt(0).toUpperCase() + s.m.soft.slice(1)}.</b> ${scLine(s.m, s.e, def)}${s.extra.map(x => `<div class="sc-also">Also: ${x.m.soft} &mdash; ${fmt(x.e.val, x.m.dp)} ${x.m.unit}/g, #${x.e.rank}${x.e.thin ? ' (small sample)' : ''}</div>`).join('')}</li>`).join('');
+  const tough = sp_.tough.map(s => `<li class="sc-tough"><b>${s.m.tough.charAt(0).toUpperCase() + s.m.tough.slice(1)}.</b> ${scLine(s.m, s.e, def)}</li>`).join('');
+  let recv = '';
+  if(tr && tr.ratio <= 0.85) recv = `<li class="sc-tough"><b>Holds the top receiver down.</b> Receivers who normally get 40+ yards got <b>${Math.round(tr.ratio * 100)}%</b> of their usual yards against ${def} (${tr.n} receivers).${sh ? ` Most credited: <b>${sh.Defender}</b> (${sh.plays} plays against receivers, ${sh.heldCount} of them held under 75% of normal).` : ''}</li>`;
+  else if(tr && tr.ratio >= 1.15) recv = `<li class="sc-soft"><b>Top receivers eat.</b> Receivers who normally get 40+ yards got <b>${Math.round(tr.ratio * 100)}%</b> of their usual yards against ${def} (${tr.n} receivers).</li>`;
+  const o = scOffense(off);
+  const sprN = bpSpreadFor(off, sp), tot = parseFloat(ou);
+  const script = isFinite(tot) && String(sp || '').trim() ? `${off} ${sprN <= 0 ? 'favored by ' + Math.abs(sprN) : 'underdog by ' + sprN}, total ${tot}: implied about <b>${fmt(tot / 2 - sprN / 2, 1)}</b> points. ${sprN <= -3 ? 'Favorites lean on the run, so rushing props get a small bump.' : sprN >= 3 ? 'Underdogs throw more, so passing props get a small bump.' : 'Close to even, so no big script lean.'}` : 'No spread/total posted yet, so no game-script read.';
+  const offTxt = o ? `${off} throw on <b>${Math.round(o.passRate * 100)}%</b> of plays (league ${Math.round(o.league * 100)}%)${o.neutral !== null ? `, ${Math.round(o.neutral * 100)}% when the game is close` : ''}${o.ppg !== null ? ` &middot; ${fmt(o.ppg, 1)} points a game` : ''}.` +
+    (o.recv.length ? ' ' + o.recv.map(r => `<b>${r.name}</b> (${r.pos}) gets ${Math.round(r.share * 100)}% of the targets${r.rz !== null ? ` and ${Math.round(r.rz * 100)}% of red-zone targets` : ''}`).join('; ') + '.' : '') +
+    (o.rb ? ` <b>${o.rb.name}</b> has ${Math.round(o.rb.share * 100)}% of the carries${o.rb.rz !== null ? ` and ${Math.round(o.rb.rz * 100)}% in the red zone` : ''}.` : '') : 'No data on this offense yet.';
+  // Injuries that change the picture.
+  const C2 = tdCtx(), T = C2.tm[off];
+  const offOut = (DATA.injuries || []).filter(r => r.Team === off && /out|doubtful|questionable/i.test(r.Status || '')).map(r => {
+    const P = C2.ply[off + '|' + r.Player]; if(!P || !T) return null;
+    const sh = Math.max(T.tgt ? P.tgt / T.tgt : 0, T.ra ? P.ra / T.ra : 0);
+    return sh >= 0.1 ? {n: r.Player, s: r.Status, sh} : null;
+  }).filter(Boolean).sort((a, b) => b.sh - a.sh).slice(0, 3);
+  const defOut = (DATA.defenseRoster || []).filter(r => r.Team === def && r.Availability && r.Availability !== 'Full' && num(r['Last Game Snap Pct']) >= 0.5).slice(0, 4);
+  const watch = [];
+  if(offOut.length) watch.push(`<li><b>${off} injuries:</b> ${offOut.map(x => `${x.n} (${x.s}, ${Math.round(x.sh * 100)}% of the team's targets or carries)`).join('; ')}. His volume moves to teammates.</li>`);
+  if(defOut.length) watch.push(`<li><b>${def} starters hurt:</b> ${defOut.map(x => `${x.Player} (${x.Position}, ${x.Availability})`).join('; ')}.</li>`);
+  const fams = sp_.soft.map(s => s.fam);
+  const players = scPlayers(off, def, sp, ou, fams);
+  return `<div class="panel sc-card">
+    <div class="panel-title">${teamName(off)} attack ${teamName(def)}</div>
+    <div class="sc-grid">
+      <div><div class="sc-h">Where ${def} is soft</div><ul class="sc-ul">${soft || '<li class="sc-flat">No clear weakness yet. This defense is close to the league average everywhere.</li>'}</ul>
+        <div class="sc-h">What ${def} take away</div><ul class="sc-ul">${tough}${recv}${!tough && !recv ? '<li class="sc-flat">No clear strength yet.</li>' : ''}</ul></div>
+      <div><div class="sc-h">How ${off} attack</div><div class="sc-p">${offTxt}</div>
+        <div class="sc-h">Game script</div><div class="sc-p">${script}</div>
+        ${watch.length ? `<div class="sc-h">Watch</div><ul class="sc-ul sc-watch">${watch.join('')}</ul>` : ''}</div>
+    </div>
+    <div class="sc-h" style="margin-top:12px;">${fams.length ? 'Players it points at' : 'Main players to weigh (no soft spot to attack)'}</div>
+    ${players.length ? `<div class="table-scroll"><table class="sc-pt"><thead><tr><th>Player</th><th>Why</th><th>Projection</th><th>Book line</th><th>Anytime TD</th></tr></thead><tbody>${players.map(scPlayerRowHtml).join('')}</tbody></table></div>
+    <div class="line-note">Projection = his season and recent form, scaled by how ${def} treat his position and the game script. OVER / UNDER shows only when it sits 8% or more from the book line. TD chance is the Anytime TD model. EV is what $1 earns at the book price if the chance is right.</div>` : '<div class="empty" style="padding:8px 0;">No starters with enough games yet.</div>'}
+  </div>`;
+}
+const scState = {view: 'game', gid: null, def: null};
+function scTags(def){
+  const s = scSpots(def);
+  return {soft: s.soft.map(x => x.m.soft), tough: s.tough.map(x => x.m.tough)};
+}
+function scLeagueHtml(){
+  const C = scCtx(); if(!C.teams.length) return '<div class="empty">No games logged yet.</div>';
+  if(!scState.def || !C.def[scState.def]) scState.def = C.teams.slice().sort()[0];
+  return `<div class="panel"><div class="panel-title">All 32 defenses</div>
+    <div class="panel-note">Each cell is the defense's rank at that thing (1 = gives up the most, the softest) with the per-game number under it. Green = soft, red = tough. Sacks flip it: few sacks counts as soft. Click a column to sort, click a team to read its report.</div>
+    <div id="sc-league"></div></div>
+    <div id="sc-def-card"></div>`;
+}
+function scMountLeague(){
+  const C = scCtx(); const host = $('#sc-league'); if(!host) return;
+  const rows = C.teams.map(t => { const D = C.def[t], r = {Team: t, g: D.g}; C.metrics.forEach(m => { r[m.id] = D.m[m.id].rank; }); const tg = scTags(t); r.tags = tg; return r; });
+  const cols = [{key: 'Team', label: 'Defense', render: v => `<b class="sc-team" data-team="${v}" style="cursor:pointer;">${teamName(v)}</b>`}, {key: 'g', label: 'G', numeric: true}]
+    .concat(C.metrics.map(m => ({key: m.id, label: m.unit, numeric: true, render: (v, row) => { const e = C.def[row.Team].m[m.id]; return `<span class="heat" style="${heatColor(v, e.of)}padding:2px 6px;border-radius:4px;display:inline-block;min-width:44px;text-align:center;" title="${fmt(e.val, m.dp)} ${m.unit} a game vs league ${fmt(e.lg, m.dp)}${e.thin ? ' (small sample)' : ''}">#${v}<br><small style="opacity:.8;">${fmt(e.val, m.dp)}</small></span>`; }})))
+    .concat([{key: 'tagsTxt', label: 'In a sentence', render: (v, row) => `<span style="color:var(--mint);">${row.tags.soft.slice(0, 2).join(', ') || ''}</span>${row.tags.soft.length && row.tags.tough.length ? '<br>' : ''}<span style="color:var(--red);">${row.tags.tough.slice(0, 1).join(', ')}</span>`}]);
+  rows.forEach(r => { r.tagsTxt = r.tags.soft.join(' ') + r.tags.tough.join(' '); });
+  buildTable(host, cols, rows, {defaultSort: 'run', defaultDir: 'asc', onRender: el => {
+    $$('.sc-team', el).forEach(b => b.addEventListener('click', () => { scState.def = b.dataset.team; scShowDef(); $('#sc-def-card').scrollIntoView({behavior: 'smooth', block: 'start'}); }));
+  }});
+  scShowDef();
+}
+function scShowDef(){
+  const el = $('#sc-def-card'); if(!el) return;
+  const def = scState.def, C = scCtx();
+  const opts = C.teams.slice().sort().map(t => `<option value="${t}" ${t === def ? 'selected' : ''}>${teamName(t)}</option>`).join('');
+  // Against whoever they play next, if known; otherwise a general read.
+  const g = (DATA.week2 || []).find(r => r.Team === def);
+  const off = g ? g.Opponent : null;
+  const pair = g ? (DATA.week2 || []).find(r => r['Game ID'] === g['Game ID'] && r.Team === off) : null;
+  const sp = g ? (g.Spread || (pair && pair.Spread) || '') : '', ou = g ? (g['Over/Under'] || (pair && pair['Over/Under']) || '') : '';
+  el.innerHTML = `<div class="panel" style="margin-bottom:0;"><div class="controls"><label class="ctl-label">Defense <select id="sc-def-sel">${opts}</select></label>
+      <span class="panel-note" style="margin:0;">${off ? `Next up: ${teamName(off)} (week ${g.Week}). The report below is ${off}'s offense against ${def}.` : 'No upcoming game loaded for this team.'}</span></div></div>` +
+    (off ? scCardHtml(off, def, sp, ou) : scGeneralCard(def));
+  $('#sc-def-sel').addEventListener('change', e => { scState.def = e.target.value; scShowDef(); });
+}
+function scGeneralCard(def){
+  const s = scSpots(def), C = scCtx();
+  const li = (cls, x) => `<li class="${cls}"><b>${(cls === 'sc-soft' ? x.m.soft : x.m.tough).replace(/^./, c => c.toUpperCase())}.</b> ${scLine(x.m, x.e, def)}</li>`;
+  return `<div class="panel sc-card"><div class="panel-title">${teamName(def)} defense</div><div class="sc-grid"><div><div class="sc-h">Soft</div><ul class="sc-ul">${s.soft.map(x => li('sc-soft', x)).join('') || '<li class="sc-flat">Nothing clear.</li>'}</ul></div>
+    <div><div class="sc-h">Tough</div><ul class="sc-ul">${s.tough.map(x => li('sc-tough', x)).join('') || '<li class="sc-flat">Nothing clear.</li>'}</ul></div></div></div>`;
+}
+function scGames(){
+  const g = new Map();
+  (DATA.week2 || []).forEach(r => { const id = r['Game ID']; if(!id) return; if(!g.has(id)) g.set(id, {gid: id, date: r.Date, sides: {}}); g.get(id).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r; });
+  return [...g.values()].filter(x => x.sides.home && x.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date)).map(x => ({gid: x.gid, date: x.date, win: bpWindow(x.date), away: x.sides.away.Team, home: x.sides.home.Team,
+    week: x.sides.away.Week, spread: x.sides.away.Spread || x.sides.home.Spread || '', ou: x.sides.away['Over/Under'] || x.sides.home['Over/Under'] || ''}));
+}
+function scSlateAngles(games){
+  const items = [];
+  games.forEach(g => [[g.away, g.home], [g.home, g.away]].forEach(([off, def]) => scSpots(def).soft.forEach(s => items.push({off, def, s, g}))));
+  items.sort((a, b) => b.s.score - a.s.score);
+  return items.slice(0, 8);
+}
+function renderScout(){
+  return `<div class="panel" style="padding-bottom:6px;"><div class="panel-title">Defense Report</div>
+    <div class="panel-note">What each defense gives up and takes away, in plain words, and the players on the other side who benefit. Rank 1 = softest in the league. Early in the season these are about 5-7 games, so each note shows its sample and flags the thin ones.</div>
+    <div class="controls"><div class="pill-group" id="sc-view"><span class="pill ${scState.view === 'game' ? 'active' : ''}" data-v="game">By game</span><span class="pill ${scState.view === 'league' ? 'active' : ''}" data-v="league">All defenses</span></div></div></div>
+    <div id="sc-body"></div>`;
+}
+function scDrawBody(){
+  const body = $('#sc-body'); if(!body) return;
+  if(scState.view === 'league'){ body.innerHTML = scLeagueHtml(); scMountLeague(); return; }
+  const games = scGames();
+  if(!games.length){ body.innerHTML = '<div class="panel"><div class="empty">No upcoming games loaded yet. Use "All defenses" to browse every team.</div></div>'; return; }
+  if(!scState.gid || !games.some(g => g.gid === scState.gid)){
+    const now = Date.now() - 5 * 3600 * 1000; scState.gid = (games.find(g => new Date(g.date).getTime() > now) || games[0]).gid;
+  }
+  const g = games.find(x => x.gid === scState.gid);
+  const angles = scSlateAngles(games);
+  body.innerHTML = `<div class="panel"><div class="sc-games">${games.map(x => `<button class="sc-g${x.gid === g.gid ? ' on' : ''}" data-gid="${x.gid}">${x.away} <i>@</i> ${x.home}<small>${x.win.day ? x.win.day.slice(0, 3) : ''} ${x.win.time.replace(' ET', '')}</small></button>`).join('')}</div></div>
+    <div class="panel sc-hd"><div class="panel-title" style="margin-bottom:2px;">${teamName(g.away)} <span class="at">@</span> ${teamName(g.home)}</div><div class="panel-note" style="margin:0;">${g.win.day || ''} ${g.win.time}${g.spread ? ' &middot; ' + g.spread : ''}${g.ou ? ' &middot; o/u ' + g.ou : ''}</div></div>
+    ${scCardHtml(g.away, g.home, g.spread, g.ou)}${scCardHtml(g.home, g.away, g.spread, g.ou)}
+    <div class="panel"><div class="panel-title">Biggest mismatches on the board</div><div class="panel-note">The softest spots across every game, ranked by how far from the league average they are (shrunk for small samples). Click one to jump to that game.</div>
+      <ul class="sc-ul">${angles.map(a => `<li class="sc-soft sc-jump" data-gid="${a.g.gid}" style="cursor:pointer;"><b>${a.off} vs ${a.def}:</b> ${a.def} ${a.s.m.soft} &mdash; ${fmt(a.s.e.val, a.s.m.dp)} ${a.s.m.unit}/g, #${a.s.e.rank} of ${a.s.e.of}${a.s.e.thin ? ' <span class="sc-thin">small sample</span>' : ''}</li>`).join('')}</ul></div>`;
+}
+function mountScout(){
+  $$('#sc-view .pill').forEach(p => p.addEventListener('click', () => { scState.view = p.dataset.v; $$('#sc-view .pill').forEach(x => x.classList.toggle('active', x === p)); scDrawBody(); }));
+  const body = $('#sc-body');
+  body.addEventListener('click', e => {
+    const b = e.target.closest('.sc-g, .sc-jump'); if(!b || !b.dataset.gid) return;
+    scState.gid = b.dataset.gid; scDrawBody(); window.scrollTo(0, 0);
+  });
+  scDrawBody();
+}
+
 const renderers = {
+  scout: {render: renderScout, mount: mountScout},
   tonight: {render: renderTonight, mount: mountTonight},
   board: {render: renderBoard, mount: mountBoard},
   home: {render: renderHome, mount: mountHome},
