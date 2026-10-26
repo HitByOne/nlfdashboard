@@ -810,6 +810,33 @@
   body.layout-tonight .sc-g{border-radius:999px;border:none;background:var(--t-card);box-shadow:var(--t-shadow);font-family:var(--t-font);font-weight:600;}
   body.layout-tonight .sc-g.on{background:var(--t-accent);color:var(--t-on-accent);}
   body.layout-tonight .sc-ul li{background:var(--t-card);}
+  .subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}
+  .subtab{background:var(--panel);border:1px solid var(--panel-border);color:var(--chalk-dim);border-radius:8px;padding:7px 14px;font-family:var(--cond);font-size:15px;font-weight:600;cursor:pointer;}
+  .subtab:hover{color:var(--chalk);border-color:var(--hash);}
+  .subtab.active{color:#0B0F19;background:var(--gold);border-color:var(--gold);}
+  .info-help{position:relative;cursor:help;display:inline-flex;align-items:center;gap:8px;outline:none;}
+  .info-help.icon-only{margin-left:8px;vertical-align:middle;}
+  .cv-i{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--chalk-dim);color:var(--chalk-dim);font-family:var(--mono);font-size:11px;font-style:italic;}
+  .cv-tip{display:none;position:absolute;left:0;top:calc(100% + 8px);z-index:50;width:min(560px,86vw);background:var(--field-deep);border:1px solid var(--gold);border-radius:10px;padding:12px 14px;
+    font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--chalk-dim);font-weight:400;box-shadow:0 10px 30px rgba(0,0,0,.6);white-space:normal;text-transform:none;letter-spacing:0;text-align:left;}
+  .cv-tip b{color:var(--chalk);} .cv-tip.flip{left:auto;right:0;}
+  .info-help:hover .cv-tip,.info-help:focus .cv-tip,.info-help.show .cv-tip{display:block;}
+  body.layout-tonight .cv-tip{background:var(--t-card2);border:1px solid var(--t-faint);backdrop-filter:blur(24px);color:var(--t-dim);font-family:var(--t-font);}
+  body.layout-tonight[data-theme="dark"] .cv-tip{background:rgba(22,24,36,.96);}
+  body.layout-tonight[data-theme="light"] .cv-tip{background:#fff;}
+  body.layout-tonight .cv-i{border-color:var(--t-dim);color:var(--t-dim);font-family:var(--t-font);}
+  .sc-pick{border-left:4px solid var(--gold);padding:6px 0 6px 14px;margin:2px 0 16px;}
+  .sc-pick-t{font-size:26px;font-weight:700;color:var(--chalk);line-height:1.1;}
+  .sc-pick-s{font-size:14px;color:var(--chalk-dim);margin-top:4px;} .sc-pick-s b{color:var(--chalk);}
+  .sc-why{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--chalk-dim);line-height:1.5;}
+  .sc-plans{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .sc-plan{border:1px solid var(--panel-border);border-radius:10px;padding:14px 16px;} .sc-plan.win{border-color:var(--gold);}
+  .sc-plan-h{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+  .sc-keys{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;}
+  .sc-keys b{color:var(--chalk);} .sc-keys li::marker{color:var(--gold);font-weight:700;}
+  @media (max-width:900px){ .sc-plans{grid-template-columns:1fr;} }
+  body.layout-tonight .sc-plan{border:none;background:var(--t-card);box-shadow:var(--t-shadow);} body.layout-tonight .sc-pick{border-left-color:var(--t-accent-1);}
+  body.layout-tonight .sc-plan.win{box-shadow:0 0 0 2px var(--t-accent-1),var(--t-shadow);} body.layout-tonight .sc-plan-h{color:var(--t-accent-1);}
 </style>
 </head>
 <body>
@@ -833,50 +860,7 @@
 
 <div class="wrap">
   <div class="main-layout">
-    <nav class="tabs" id="tabs">
-      <button data-tab="board" class="active">Game Board</button>
-      <button data-tab="picks">Best Picks</button>
-      <button data-tab="propprices">Prop Prices</button>
-      <button data-tab="anytimetd">Anytime TD</button>
-      <button data-tab="scout">Defense Report</button>
-      <button data-tab="booklines">Book Lines</button>
-      <button data-tab="mypicks">My Tickets</button>
-      <button data-tab="friends">Friends</button>
-      <button data-tab="players">Players</button>
-      <button data-tab="backtest">How the Model Does</button>
-      <button type="button" class="nav-more-btn" id="nav-more-btn" aria-expanded="false">More tools &#9662;</button>
-      <div class="nav-more" id="nav-more" hidden>
-        <button data-tab="overview">Season Overview</button>
-        <button data-tab="home">This Week (simple home)</button>
-        <button data-tab="week2">Games This Week</button>
-
-        <div class="tab-group-label">Games</div>
-        <button data-tab="live">Live Matchups</button>
-        <button data-tab="matchup">Matchup Explorer</button>
-
-        <div class="tab-group-label">Team Data</div>
-        <button data-tab="teams">Team Summary</button>
-        <button data-tab="teamweek">Team Game Log</button>
-        <button data-tab="power">Power Rankings</button>
-        <button data-tab="epa">EPA / Efficiency</button>
-        <button data-tab="coaching">Coaching Tendencies</button>
-        <button data-tab="lines">Line Play</button>
-        <button data-tab="field">Defense Field</button>
-        <button data-tab="film">Film Room</button>
-        <button data-tab="sos">Strength of Schedule</button>
-        <button data-tab="defense">Defense vs Position</button>
-
-        <div class="tab-group-label">Player Data</div>
-        <button data-tab="streaks">Streaks</button>
-        <button data-tab="milestones">Milestone Watch</button>
-        <button data-tab="injuries">Injury Report</button>
-
-        <div class="tab-group-label">More Picks Tools</div>
-        <button data-tab="restload">Schedule Load</button>
-        <button data-tab="predictions">Predictions</button>
-        <button data-tab="mikes">Mike's Template</button>
-      </div>
-    </nav>
+    <nav class="tabs" id="tabs"></nav>
 
     <div id="content"><div class="empty" style="padding:60px 20px;">Loading latest stats&hellip;</div></div>
   </div>
@@ -9222,8 +9206,24 @@ function mountBoard(){
 // player is lined up as  "he gets"  vs  "this defense allows to his position"  vs  the book's line, with a call (OVER / UNDER / PASS).
 // The choice is remembered; ?layout=gameday or ?layout=classic in the address opens one directly.
 const LAYOUT_KEY = 'nfl_dashboard_layout', THEME_KEY = 'nfl_dashboard_theme';
-const TN_NAV = [['tonight', 'Gameday'], ['board', 'Game Board'], ['scout', 'Defense Report'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['picks', 'Best Picks'], ['players', 'Players'], ['backtest', 'Record']];
-let CLASSIC_NAV_HTML = null, CLASSIC_TAB = 'board';
+// One menu item per job; the ones with several views get a row of buttons on top (TAB_GROUPS).
+const NAV_LAYOUTS = {
+  classic: [['board', 'Game Board'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players'], ['teamsg', 'Teams'], ['liveg', 'Live'], ['mineg', 'My Picks'], ['backtest', 'Record']],
+  tonight: [['tonight', 'Gameday'], ['board', 'Game Board'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players']],
+};
+const TN_MORE = [['teamsg', 'Teams'], ['liveg', 'Live'], ['mineg', 'My Picks'], ['backtest', 'Record']];
+const TAB_GROUPS = {
+  propsg:   [['picks', 'Best Picks'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['booklines', 'Book Lines'], ['predictions', 'Predictions']],
+  defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
+  playersg: [['players', 'Game Logs'], ['streaks', 'Streaks'], ['milestones', 'Milestone Watch'], ['injuries', 'Injury Report']],
+  teamsg:   [['teams', 'Summary'], ['power', 'Power Rankings'], ['epa', 'EPA / Efficiency'], ['coaching', 'Coaching Tendencies'], ['sos', 'Strength of Schedule'], ['restload', 'Schedule Load'], ['teamweek', 'Game Log']],
+  liveg:    [['live', 'Live Matchups'], ['week2', 'Games This Week']],
+  mineg:    [['mypicks', 'My Tickets'], ['friends', 'Friends']],
+};
+// Screens that were folded into others: anything that still links to them lands somewhere sensible.
+const TAB_REDIRECT = {home: 'board', overview: 'board', mikes: 'propsg'};
+const SUBTAB_KEY = 'nfl_dashboard_subtab_';
+let CLASSIC_TAB = 'board';
 function getTheme(){
   const q = new URLSearchParams(location.search).get('theme');
   if(q === 'light' || q === 'dark') return q;
@@ -9243,23 +9243,13 @@ function getLayout(){
   let v = null; try { v = localStorage.getItem(LAYOUT_KEY); } catch(e){}
   return v === 'tonight' ? 'tonight' : 'classic';
 }
-function tnMoreOptions(){
-  const src = CLASSIC_NAV_HTML; if(!src) return '';
-  const box = document.createElement('div'); box.innerHTML = src;
-  const shown = new Set(TN_NAV.filter(x => renderers[x[0]]).map(x => x[0]));
-  const seen = new Set(), out = [];
-  box.querySelectorAll('button[data-tab]').forEach(b => { const t = b.dataset.tab; if(shown.has(t) || seen.has(t)) return; seen.add(t); out.push(`<option value="${t}">${b.textContent.trim()}</option>`); });
-  return out.join('');
-}
 function applyLayout(name, firstTab){
   if(name !== 'tonight') name = 'classic';
   try { localStorage.setItem(LAYOUT_KEY, name); } catch(e){}
   document.body.classList.toggle('layout-tonight', name === 'tonight');
   const nav = $('#tabs');
-  if(name === 'tonight'){
-    nav.innerHTML = TN_NAV.filter(x => renderers[x[0]]).map(([id, label]) => `<button data-tab="${id}">${label}</button>`).join('') +
-      `<select id="tn-more" title="Every other screen"><option value="">More&hellip;</option>${tnMoreOptions()}</select>`;
-  } else { nav.innerHTML = CLASSIC_NAV_HTML; }
+  nav.innerHTML = NAV_LAYOUTS[name].map(([id, label]) => `<button data-tab="${id}">${label}</button>`).join('') +
+    (name === 'tonight' ? `<select id="tn-more" title="The rest of the screens"><option value="">More&hellip;</option>${TN_MORE.map(([id, l]) => `<option value="${id}">${l}</option>`).join('')}</select>` : '');
   $$('#layout-pick .lp button').forEach(b => b.classList.toggle('on', b.dataset.layout === name));
   applyTheme(getTheme());
   showTab(firstTab || (name === 'tonight' ? 'tonight' : CLASSIC_TAB));
@@ -9567,7 +9557,7 @@ function scOffense(off){
     neutral: co && co['Neutral Pass Rate'] !== '' ? num(co['Neutral Pass Rate']) : null, proe: co && co['PROE Proxy'] !== '' ? num(co['PROE Proxy']) : null, ppg: pts.length ? pts.reduce((a, v) => a + v, 0) / pts.length : null};
 }
 // Who benefits: for each soft spot, the players it points at, with his own number, the book line and the anytime-TD chance.
-const SC_PLAN = {run: [['RB', 1, 'Rush Yards']], pass: [['QB', 1, 'Pass Yards'], ['WR', 2, 'Receiving Yards']], wr: [['WR', 3, 'Receiving Yards']], te: [['TE', 1, 'Receiving Yards']], rb: [['RB', 1, 'Receiving Yards']], rush: []};
+const SC_PLAN = {run: [['RB', 1, 'Rush Yards']], pass: [['QB', 1, 'Pass Yards'], ['WR', 2, 'Receiving Yards']], wr: [['WR', 3, 'Receiving Yards']], te: [['TE', 1, 'Receiving Yards']], rb: [['RB', 1, 'Receiving Yards']], rush: [['QB', 1, 'Pass Yards'], ['WR', 1, 'Receiving Yards']]};
 function scPlayers(off, def, spreadText, ouText, fams){
   const spr = bpSpreadFor(off, spreadText) || 0;
   const tdMap = {}; tdPlayerRows(off, def, spreadText, ouText).forEach(p => { tdMap[p.player] = p; });
@@ -9710,7 +9700,8 @@ function scGames(){
   const g = new Map();
   (DATA.week2 || []).forEach(r => { const id = r['Game ID']; if(!id) return; if(!g.has(id)) g.set(id, {gid: id, date: r.Date, sides: {}}); g.get(id).sides[r['Home/Away'] === 'Home' ? 'home' : 'away'] = r; });
   return [...g.values()].filter(x => x.sides.home && x.sides.away).sort((a, b) => new Date(a.date) - new Date(b.date)).map(x => ({gid: x.gid, date: x.date, win: bpWindow(x.date), away: x.sides.away.Team, home: x.sides.home.Team,
-    week: x.sides.away.Week, spread: x.sides.away.Spread || x.sides.home.Spread || '', ou: x.sides.away['Over/Under'] || x.sides.home['Over/Under'] || ''}));
+    week: x.sides.away.Week, spread: x.sides.away.Spread || x.sides.home.Spread || '', ou: x.sides.away['Over/Under'] || x.sides.home['Over/Under'] || '',
+    mlAway: x.sides.away['Team Moneyline'], mlHome: x.sides.home['Team Moneyline']}));
 }
 function scSlateAngles(games){
   const items = [];
@@ -9718,6 +9709,107 @@ function scSlateAngles(games){
   items.sort((a, b) => b.s.score - a.s.score);
   return items.slice(0, 8);
 }
+// ---- Game Plan: who should win, and what each side has to do (with which players) ----
+// The pick comes from the Game Board model (EPA ratings pulled toward the market). The "keys" are built from the same matchup
+// notes as the cards below: attack the soft spots with the players who benefit, contain the other side's best weapon, and the
+// game-script / ball-security / pass-rush angle. A key only appears when the numbers support it.
+function scTeamRate(team, cols){
+  const rows = (DATA.gameTeamStats || []).filter(r => r['Final Score'] !== '' && r['Final Score'] !== undefined);
+  const per = t => { const rr = rows.filter(r => r.Team === t); return rr.length ? rr.reduce((a, r) => a + cols.reduce((x, c) => x + num(r[c]), 0), 0) / rr.length : null; };
+  const teams = [...new Set(rows.map(r => r.Team))];
+  const all = teams.map(per).filter(v => v !== null);
+  return {v: per(team), lg: all.length ? all.reduce((a, v) => a + v, 0) / all.length : null};
+}
+function scPlayerBit(r){
+  const parts = [`<b>${r.player}</b> (${r.pos})`];
+  if(r.stat) parts.push(`${fmt(r.proj, 0)} ${TN_NAME[r.stat].toLowerCase()} projected, avg ${fmt(r.avg, 0)}`);
+  if(r.td) parts.push(`${Math.round(r.td.prob * 100)}% to score`);
+  return parts[0] + (parts.length > 1 ? ' &mdash; ' + parts.slice(1).join(', ') : '');
+}
+function scKeys(T, O, sp, ou){
+  const C = scCtx(), keys = [];
+  const soft = scSpots(O).soft;
+  const rows = scPlayers(T, O, sp, ou, soft.map(s => s.fam));
+  soft.slice(0, 2).forEach((s, i) => {
+    const who = rows.filter(r => r.fam === s.fam).slice(0, 2);
+    const h = {run: `Attack ${O} on the ground`, pass: `Attack ${O} through the air`, wr: `Attack ${O} with the wide receivers`, te: `Attack ${O} with the tight end`, rb: `Attack ${O} with the backs in the passing game`, rush: `Give the quarterback time against ${O}`}[s.fam] || `Attack ${O}`;
+    const cap = s.m.soft.charAt(0).toUpperCase() + s.m.soft.slice(1);
+    const num_ = s.m.id === 'sacks' ? `only ${fmt(s.e.val, 1)} sacks a game, #${s.e.rank} fewest of ${s.e.of}` : `${fmt(s.e.val, s.m.dp)} ${s.m.unit} a game, #${s.e.rank} of ${s.e.of}`;
+    keys.push({h, t: `${cap}: ${num_}${s.e.thin ? ' (small sample)' : ''}.` + (who.length ? ' Lean on ' + who.map(scPlayerBit).join('; ') + '.' : '')});
+  });
+  if(!soft.length){
+    const top = rows.filter(r => r.stat).sort((a, b) => b.avg - a.avg)[0];
+    keys.push({h: 'Win on efficiency', t: `${O} have no clear weakness, so ${T} have to win by executing.` + (top ? ` Their most reliable producer is ${scPlayerBit(top)}.` : '')});
+  }
+  // Contain the other side's best weapon, and say whether this defense is built to do it.
+  const oo = scOffense(O);
+  if(oo){
+    const cands = [];
+    if(oo.recv[0]) cands.push({kind: oo.recv[0].pos === 'TE' ? 'te' : 'wr', name: oo.recv[0].name, share: oo.recv[0].share, what: 'targets', rz: oo.recv[0].rz});
+    if(oo.rb) cands.push({kind: 'run', name: oo.rb.name, share: oo.rb.share, what: 'carries', rz: oo.rb.rz});
+    cands.sort((a, b) => b.share - a.share);
+    const w = cands[0];
+    if(w){
+      const mid = {wr: 'wr', te: 'te', run: 'run'}[w.kind], e = C.def[T] && C.def[T].m[mid];
+      const own = e ? (e.spct <= -0.08 ? ` ${T} are built for it (${fmt(e.val, 0)} ${SC_M.find(m => m.id === mid).unit} a game allowed, #${e.rank} of ${e.of}).` : e.spct >= 0.08 ? ` Careful: ${T} are soft here (#${e.rank} of ${e.of}), so this is where ${O} will attack.` : ` ${T} are about average here.`) : '';
+      keys.push({h: `Contain ${w.name}`, t: `${O}'s offense runs through ${w.name} (${Math.round(w.share * 100)}% of the ${w.what}${w.rz !== null ? `, ${Math.round(w.rz * 100)}% in the red zone` : ''}).${own}`});
+    }
+  }
+  // Script / pass rush / ball security.
+  const spr = bpSpreadFor(T, sp), bits = [];
+  if(String(sp || '').trim()){
+    if(spr <= -3) bits.push(`Favored by ${Math.abs(spr)}: take the lead and lean on the run to shorten the game.`);
+    else if(spr >= 3) bits.push(`Underdog by ${spr}: needs to throw to keep up, so the quarterback has to stay upright and avoid mistakes.`);
+    else bits.push('Near a pick-em: turnovers and red-zone finishes decide it.');
+  }
+  const rush = C.def[O] && C.def[O].m.sacks;
+  if(rush && rush.spct <= -0.1) bits.push(`${O} get to the quarterback (${fmt(rush.val, 1)} sacks a game, #${rush.of - rush.rank + 1} in the league).`);
+  const sk = scTeamRate(T, ['Sacks Taken']);
+  if(sk.v !== null && sk.lg && sk.v >= sk.lg * 1.25) bits.push(`${T} have taken ${fmt(sk.v, 1)} sacks a game (league ${fmt(sk.lg, 1)}).`);
+  const gv = scTeamRate(T, ['Interceptions Thrown', 'Fumbles Lost']);
+  if(gv.v !== null && gv.lg && gv.v >= gv.lg + 0.3) bits.push(`Protect the ball: ${T} give it away ${fmt(gv.v, 1)} times a game (league ${fmt(gv.lg, 1)}).`);
+  if(bits.length) keys.push({h: 'Control the game', t: bits.join(' ')});
+  return keys;
+}
+function scGamePlanHtml(g){
+  const {away, home, spread, ou} = g;
+  const m = gbModel(away, home, spread, ou, g.mlAway, g.mlHome);
+  let pick = m.pick, prob = m.pickProb, byPts = m.ourMargin !== null && m.ourMargin !== undefined ? Math.abs(m.ourMargin) : null, basis = '';
+  if(!pick){
+    const a = tdTeamEnv(tdCtx(), away, home, spread, ou), h = tdTeamEnv(tdCtx(), home, away, spread, ou);
+    pick = h.pts >= a.pts ? home : away; byPts = Math.abs(h.pts - a.pts); basis = 'Based on scoring form only (no ratings or market yet).';
+  }
+  const loser = pick === home ? away : home;
+  const mk = m.mktMargin !== null && m.mktMargin !== undefined ? (m.mktMargin >= 0 ? `${home} by ${fmt(m.mktMargin, 1)}` : `${away} by ${fmt(-m.mktMargin, 1)}`) : 'no line yet';
+  const mod = m.modelMargin !== undefined ? (m.modelMargin >= 0 ? `${home} by ${fmt(m.modelMargin, 1)}` : `${away} by ${fmt(-m.modelMargin, 1)}`) : null;
+  const best = (m.bets || []).slice().sort((x, y) => y.ev - x.ev)[0];
+  const why = [];
+  if(m.rat){
+    const w = pick === home ? m.rat.home : m.rat.away, l = pick === home ? m.rat.away : m.rat.home;
+    const R = gbRatings();
+    why.push(`${pick}'s offense is ${w.off >= 0 ? '+' : ''}${fmt(w.off, 1)} points a game vs average and their defense ${w.def >= 0 ? '+' : ''}${fmt(w.def, 1)}; ${loser}'s are ${l.off >= 0 ? '+' : ''}${fmt(l.off, 1)} and ${l.def >= 0 ? '+' : ''}${fmt(l.def, 1)}.`);
+    if(R && R.ranks){
+      const rk = (k, t) => R.ranks[k].m[t];
+      const pw = rk('offPass', pick), lp = rk('defPass', loser), rw = rk('offRush', pick), lr = rk('defRush', loser);
+      if(pw && lp) why.push(`Pass game: ${pick} offense #${pw} vs ${loser} defense #${lp} (by EPA, of ${R.ranks.offPass.n}).`);
+      if(rw && lr) why.push(`Run game: ${pick} offense #${rw} vs ${loser} defense #${lr}.`);
+    }
+  }
+  const card = (T, O, win) => {
+    const keys = scKeys(T, O, spread, ou);
+    return `<div class="sc-plan${win ? ' win' : ''}"><div class="sc-plan-h">${win ? `How ${teamName(T)} win it` : `How ${teamName(T)} steal it`}</div>
+      <ol class="sc-keys">${keys.map(k => `<li><b>${k.h}.</b> ${k.t}</li>`).join('') || '<li>Not enough data on this matchup yet.</li>'}</ol></div>`;
+  };
+  return `<div class="panel sc-planwrap"><div class="panel-title">Game Plan</div>
+    <div class="panel-note">The pick is the Game Board model: each team's offense and defense EPA ratings turned into points, then pulled toward the market (30% model by default) because a few games is thin next to a betting line. The win chance shifts the market's own probability by what that adjustment is worth. The keys below are built from the matchup notes: attack the defense's soft spots with the players who benefit, contain the other side's best weapon, and the script / pass-rush / ball-security angle. Early in the season treat it as a guide, not a lock.</div>
+    <div class="sc-pick"><div class="sc-pick-t">${teamName(pick)} to win</div>
+      <div class="sc-pick-s">${prob !== undefined && prob !== null ? `<b>${Math.round(prob * 100)}%</b> win chance &middot; ` : ''}${byPts !== null ? `by about <b>${fmt(byPts, 1)}</b>` : ''} &middot; market: ${mk}${mod ? ` &middot; ratings alone: ${mod}` : ''}</div>
+      ${basis ? `<div class="sc-pick-s">${basis}</div>` : ''}
+      ${best ? `<div class="sc-pick-s">Best number against the book: <b>${best.label}</b> (grade ${best.grade}, ${best.ev >= 0 ? '+' : ''}${Math.round(best.ev * 100)}% EV)</div>` : ''}
+      ${why.length ? `<ul class="sc-why">${why.map(w => `<li>${w}</li>`).join('')}</ul>` : ''}</div>
+    <div class="sc-plans">${card(pick, loser, true)}${card(loser, pick, false)}</div></div>`;
+}
+
 function renderScout(){
   return `<div class="panel" style="padding-bottom:6px;"><div class="panel-title">Defense Report</div>
     <div class="panel-note">What each defense gives up and takes away, in plain words, and the players on the other side who benefit. Rank 1 = softest in the league. Early in the season these are about 5-7 games, so each note shows its sample and flags the thin ones.</div>
@@ -9735,7 +9827,8 @@ function scDrawBody(){
   const g = games.find(x => x.gid === scState.gid);
   const angles = scSlateAngles(games);
   body.innerHTML = `<div class="panel"><div class="sc-games">${games.map(x => `<button class="sc-g${x.gid === g.gid ? ' on' : ''}" data-gid="${x.gid}">${x.away} <i>@</i> ${x.home}<small>${x.win.day ? x.win.day.slice(0, 3) : ''} ${x.win.time.replace(' ET', '')}</small></button>`).join('')}</div></div>
-    <div class="panel sc-hd"><div class="panel-title" style="margin-bottom:2px;">${teamName(g.away)} <span class="at">@</span> ${teamName(g.home)}</div><div class="panel-note" style="margin:0;">${g.win.day || ''} ${g.win.time}${g.spread ? ' &middot; ' + g.spread : ''}${g.ou ? ' &middot; o/u ' + g.ou : ''}</div></div>
+    <div class="panel sc-hd"><div class="panel-title" style="margin-bottom:2px;">${teamName(g.away)} <span class="at">@</span> ${teamName(g.home)}</div><div class="panel-note" id="sc-gh" style="margin:0;">${g.win.day || ''} ${g.win.time}${g.spread ? ' &middot; ' + g.spread : ''}${g.ou ? ' &middot; o/u ' + g.ou : ''}</div></div>
+    ${scGamePlanHtml(g)}
     ${scCardHtml(g.away, g.home, g.spread, g.ou)}${scCardHtml(g.home, g.away, g.spread, g.ou)}
     <div class="panel"><div class="panel-title">Biggest mismatches on the board</div><div class="panel-note">The softest spots across every game, ranked by how far from the league average they are (shrunk for small samples). Click one to jump to that game.</div>
       <ul class="sc-ul">${angles.map(a => `<li class="sc-soft sc-jump" data-gid="${a.g.gid}" style="cursor:pointer;"><b>${a.off} vs ${a.def}:</b> ${a.def} ${a.s.m.soft} &mdash; ${fmt(a.s.e.val, a.s.m.dp)} ${a.s.m.unit}/g, #${a.s.e.rank} of ${a.s.e.of}${a.s.e.thin ? ' <span class="sc-thin">small sample</span>' : ''}</li>`).join('')}</ul></div>`;
@@ -9750,6 +9843,44 @@ function mountScout(){
   scDrawBody();
 }
 
+// ---- Explanations as an (i) on the title ----
+// Every panel's explanation paragraph (the grey note right under its title) is folded into the title: hover the title (or tap it on a
+// touch screen) to read it. Notes with an id or controls inside are live status lines and stay visible, and so do titles that get rewritten.
+function infoizeNotes(root){
+  $$('.panel-title + .panel-note', root).forEach(note => {
+    if(note.id || note.querySelector('button,select,input,textarea') || !note.textContent.trim()) return;
+    const title = note.previousElementSibling;
+    if(!title || title.id || title.querySelector('.info-help')) return;
+    const help = document.createElement('span');
+    help.className = 'info-help'; help.tabIndex = 0;
+    const interactive = title.querySelector('button,select,input,a');
+    if(!interactive){ while(title.firstChild) help.appendChild(title.firstChild); }
+    else help.classList.add('icon-only');
+    help.insertAdjacentHTML('beforeend', '<span class="cv-i">i</span>');
+    const tip = document.createElement('span');
+    tip.className = 'cv-tip'; tip.setAttribute('role', 'tooltip');
+    while(note.firstChild) tip.appendChild(note.firstChild);
+    help.appendChild(tip);
+    title.appendChild(help);
+    note.remove();
+  });
+}
+(function(){
+  let t = null;
+  const run = () => { t = null; const c = document.getElementById('content'); if(c) infoizeNotes(c); };
+  document.addEventListener('DOMContentLoaded', () => {
+    const c = document.getElementById('content');
+    if(c){ new MutationObserver(() => { if(!t) t = setTimeout(run, 30); }).observe(c, {childList: true, subtree: true}); run(); }
+  });
+  const place = h => { const tip = h.querySelector('.cv-tip'); if(!tip) return; tip.classList.remove('flip');
+    const r = h.getBoundingClientRect(); if(r.left + Math.min(560, window.innerWidth * 0.86) > window.innerWidth - 8) tip.classList.add('flip'); };
+  document.addEventListener('mouseover', e => { const h = e.target.closest && e.target.closest('.info-help'); if(h) place(h); });
+  document.addEventListener('click', e => {
+    const h = e.target.closest && e.target.closest('.info-help');
+    $$('.info-help.show').forEach(x => { if(x !== h){ x.classList.remove('show'); x.blur(); } });
+    if(h && !e.target.closest('.cv-tip')){ place(h); h.classList.toggle('show'); if(!h.classList.contains('show')) h.blur(); }
+  });
+})();
 const renderers = {
   scout: {render: renderScout, mount: mountScout},
   tonight: {render: renderTonight, mount: mountTonight},
@@ -9786,12 +9917,25 @@ const renderers = {
 };
 function showTab(tab){
   if(window.__liveNowTimer){ clearInterval(window.__liveNowTimer); window.__liveNowTimer = null; }
-  $$('#tabs button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  { const sel = $('#tn-more'); if(sel) sel.value = $('#tabs button[data-tab="' + tab + '"]') ? '' : tab; }
-  const inMore = $('#nav-more button[data-tab="' + tab + '"]');
-  if(inMore && $('#nav-more').hidden){ $('#nav-more').hidden = false; const mb = $('#nav-more-btn'); mb.setAttribute('aria-expanded','true'); mb.innerHTML = 'Fewer tools &#9652;'; }
-  const r = renderers[tab];
-  $('#content').innerHTML = r.render();
+  if(TAB_REDIRECT[tab]) tab = TAB_REDIRECT[tab];
+  const group = TAB_GROUPS[tab] ? tab : Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].some(x => x[0] === tab));
+  let sub = null;
+  if(group){
+    const subs = TAB_GROUPS[group].map(x => x[0]);
+    if(TAB_GROUPS[tab]){ let saved = null; try { saved = localStorage.getItem(SUBTAB_KEY + group); } catch(e){} sub = subs.includes(saved) ? saved : subs[0]; }
+    else sub = tab;
+    try { localStorage.setItem(SUBTAB_KEY + group, sub); } catch(e){}
+  }
+  const top = group || tab;
+  $$('#tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === top));
+  { const sel = $('#tn-more'); if(sel) sel.value = $('#tabs button[data-tab="' + top + '"]') ? '' : top; }
+  const r = renderers[sub || tab];
+  if(group){
+    $('#content').innerHTML = `<div class="subtabs">${TAB_GROUPS[group].map(([id, label]) => `<button type="button" class="subtab${id === sub ? ' active' : ''}" data-sub="${id}">${label}</button>`).join('')}</div>` + r.render();
+    $$('#content .subtabs .subtab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.sub)));
+  } else {
+    $('#content').innerHTML = r.render();
+  }
   r.mount();
 }
 async function loadCSV(path){
@@ -9973,11 +10117,8 @@ async function init(){
     : (DATA.playerGame && DATA.playerGame.length ? Math.max(...DATA.playerGame.map(r=>num_(r.Week))) : null);
   PREVIEW_WEEK = DATA.week2 && DATA.week2.length ? num_(DATA.week2[0].Week) : (LATEST_RESULTS_WEEK ? LATEST_RESULTS_WEEK + 1 : null);
 
-  CLASSIC_NAV_HTML = $('#tabs').innerHTML;
   $('#tabs').addEventListener('click', e => {
     const b = e.target.closest('button[data-tab]'); if(b){ showTab(b.dataset.tab); return; }
-    const mb = e.target.closest('#nav-more-btn');
-    if(mb){ const m = $('#nav-more'); m.hidden = !m.hidden; mb.setAttribute('aria-expanded', String(!m.hidden)); mb.innerHTML = m.hidden ? 'More tools &#9662;' : 'Fewer tools &#9652;'; }
   });
   $('#tabs').addEventListener('change', e => { if(e.target.id === 'tn-more' && e.target.value) showTab(e.target.value); });
   $$('#layout-pick .lp button').forEach(b => b.addEventListener('click', () => applyLayout(b.dataset.layout)));
