@@ -659,6 +659,7 @@ Jalen Nailor,LV,WR,Receiving TD,11,50,39
 Carson Wentz,MIN,QB,Rush TD,11,50,39
 Josh Oliver,MIN,TE,Receiving TD,11,50,39
 Malik Nabers,NYG,WR,Receiving TD,11,50,39
+Ben Sims,SEA,TE,Receptions,11,50,39
 Ted Hurst III,TB,WR,Receptions,11,50,39
 Cade Otton,TB,TE,Receiving TD,11,50,39
 Sean Tucker,TB,RB,Rush TD,11,50,39
@@ -847,6 +848,7 @@ Dareke Young,LV,WR,Receptions,6,50,44
 Davis Allen,LAR,TE,Receiving TD,6,50,44
 Jared Wayne,MIA,WR,Receptions,6,50,44
 Tai Felton,MIN,WR,Receptions,6,50,44
+Devin Culp,MIN,TE,Receptions,6,50,44
 Braxton Berrios,NYG,WR,Receiving TD,6,50,44
 Kene Nwangwu,NYJ,RB,Receptions,6,50,44
 Rico Dowdle,PIT,RB,Receiving TD,6,50,44
@@ -1588,7 +1590,9 @@ Elijah Moore,PHI,WR,Rush Yards,95,1000,905
 Brian Thomas Jr.,JAX,WR,Receiving Yards,2094,3000,906
 Blake Whiteheart,CLE,TE,Receiving Yards,94,1000,906
 Deven Thompkins,LV,WR,Rush Yards,94,1000,906
+Devin Culp,MIN,TE,Receiving Yards,94,1000,906
 Jonah Coleman,DEN,RB,Rush Yards,93,1000,907
+Ben Sims,SEA,TE,Receiving Yards,93,1000,907
 D.J. Montgomery,IND,WR,Receiving Yards,92,1000,908
 Chris Godwin Jr.,TB,WR,Rush Yards,92,1000,908
 Justin Jefferson,MIN,WR,Pass Yards,91,1000,909
@@ -1758,8 +1762,8 @@ Tyler Warren,IND,TE,Receiving Yards,1030,2000,970
 Trevor Etienne,CAR,RB,Receiving Yards,30,1000,970
 Darren Waller,CAR,TE,Rush Yards,30,1000,970
 Kene Nwangwu,NYJ,RB,Receiving Yards,30,1000,970
-Zay Jones,ARI,WR,Pass Yards,29,1000,971
 Reggie Virgil,ARI,WR,Receiving Yards,29,1000,971
+Zay Jones,ARI,WR,Pass Yards,29,1000,971
 Isaiah Bond,CLE,WR,Rush Yards,29,1000,971
 Mark Redman,GB,TE,Receiving Yards,29,1000,971
 Anthony Gould,IND,WR,Receiving Yards,29,1000,971
