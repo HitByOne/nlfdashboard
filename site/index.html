@@ -804,6 +804,27 @@
   .sc-games{display:flex;flex-wrap:wrap;gap:6px;}
   .sc-g{background:transparent;border:1px solid var(--panel-border);border-radius:8px;color:var(--chalk-dim);font-family:var(--mono);font-size:13px;padding:7px 11px;cursor:pointer;display:flex;gap:6px;align-items:baseline;}
   .sc-g i{font-style:normal;opacity:.6;} .sc-g small{font-size:11px;opacity:.7;}
+  .po{--po-pink:#ff3fa4;--po-cyan:#35d6ff;--po-gold:#ffc83a;--po-purple:#9b7bff;}
+  .po-head{display:grid;grid-template-columns:1fr minmax(0,1.6fr) 1fr;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel);}
+  .po-n{font-weight:800;font-size:clamp(15px,2.6vw,26px);letter-spacing:.02em;} .po-r{font-family:var(--mono);font-size:12px;color:var(--gold);} .po-right{text-align:right;}
+  .po-mid{text-align:center;} .po-kick{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--gold);}
+  .po-hero{font-weight:900;font-size:clamp(16px,3.2vw,30px);line-height:1.1;margin:4px 0;} .po-hero i{font-style:normal;font-size:.6em;opacity:.7;margin:0 4px;}
+  .po-lines{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);} .po-sub{margin:10px 2px;color:var(--chalk-dim);font-size:14px;text-align:center;}
+  .po-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;} .po-box{border:1.5px solid var(--panel-border);border-radius:12px;padding:12px 14px;background:var(--panel);}
+  .po-pink{border-color:var(--po-pink);} .po-purple{border-color:var(--po-purple);} .po-cyan{border-color:var(--po-cyan);}
+  .po-bh{font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;} .po-bh small{font-weight:400;text-transform:none;letter-spacing:0;color:var(--chalk-dim);margin-left:6px;font-size:12px;}
+  .po-pink .po-bh{color:var(--po-pink);} .po-purple .po-bh{color:var(--po-purple);} .po-cyan .po-bh{color:var(--po-cyan);}
+  .po-t{width:100%;border-collapse:collapse;} .po-t th,.po-t td{padding:6px 4px;border-bottom:1px solid var(--panel-border);font-size:13px;} .po-t th{text-align:left;font-weight:600;} .po-t td,.po-t thead th:not(:first-child){text-align:right;white-space:nowrap;}
+  .po-t small{opacity:.7;font-size:11px;} .po-g{color:var(--mint);} .po-bad{color:var(--red);} .po-na{opacity:.4;}
+  .po-bar{margin:0 0 12px;} .po-bl{text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
+  .po-bt{display:grid;grid-template-columns:56px 1fr 56px;gap:8px;align-items:center;font-family:var(--mono);font-size:13px;} .po-bt span:last-child{text-align:right;} .po-win{font-weight:800;color:var(--chalk);}
+  .po-bt span{color:var(--chalk-dim);} .po-track{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;} .po-track i{display:block;opacity:.35;} .po-track i.on{opacity:1;}
+  .po-a{background:var(--po-cyan);} .po-h{background:var(--po-gold);}
+  .po-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;} .po-col{border:1px solid var(--panel-border);border-radius:10px;padding:8px 10px;}
+  .po-ct{font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--po-cyan);margin-bottom:4px;}
+  .po-cv{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;} .po-cv small{display:block;font-size:11px;color:var(--chalk-dim);} .po-cv b{font-size:22px;} .po-cv em{font-style:normal;font-family:var(--mono);font-size:12px;margin-left:5px;color:var(--gold);} .po-cv>span{color:var(--po-pink);font-weight:800;} .po-cv>div:last-child{text-align:right;}
+  .po-foot{margin-top:12px;} .po-note{font-size:12px;color:var(--chalk-dim);margin-top:8px;}
+  @media(max-width:760px){.po-grid{grid-template-columns:1fr;}.po-head{grid-template-columns:1fr;text-align:center;}.po-right{text-align:center;}}
   .sc-g:hover{color:var(--chalk);} .sc-g.on{background:var(--gold);color:#0B0F19;border-color:var(--gold);font-weight:700;}
   .sc-jump:hover{background:rgba(255,255,255,0.07) !important;}
   @media (max-width:900px){ .sc-grid{grid-template-columns:1fr;} }
@@ -9225,22 +9246,22 @@ function mountBoard(){
 const LAYOUT_KEY = 'nfl_dashboard_layout', THEME_KEY = 'nfl_dashboard_theme';
 // One menu item per job; the ones with several views get a row of buttons on top (TAB_GROUPS).
 const NAV_LAYOUTS = {
-  classic: [['board', 'Game Board'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players'], ['teamsg', 'Teams'], ['liveg', 'Live'], ['mineg', 'My Picks'], ['backtest', 'Record']],
-  tonight: [['tonight', 'Gameday'], ['board', 'Game Board'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players']],
+  classic: [['gamesg', 'Games'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players'], ['teamsg', 'Teams'], ['mineg', 'My Picks']],
+  tonight: [['tonight', 'Gameday'], ['gamesg', 'Games'], ['propsg', 'Props'], ['defg', 'Defense'], ['playersg', 'Players']],
 };
-const TN_MORE = [['teamsg', 'Teams'], ['liveg', 'Live'], ['mineg', 'My Picks'], ['backtest', 'Record']];
+const TN_MORE = [['teamsg', 'Teams'], ['mineg', 'My Picks']];
 const TAB_GROUPS = {
   propsg:   [['picks', 'Best Picks'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['booklines', 'Book Lines'], ['predictions', 'Predictions']],
+  gamesg:   [['board', 'Game Board'], ['plan', 'Game Plan'], ['poster', 'Matchup Poster'], ['live', 'Live Matchups'], ['week2', 'Games This Week']],
   defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
   playersg: [['players', 'Game Logs'], ['streaks', 'Streaks'], ['milestones', 'Milestone Watch'], ['injuries', 'Injury Report']],
   teamsg:   [['teams', 'Summary'], ['power', 'Power Rankings'], ['epa', 'EPA / Efficiency'], ['coaching', 'Coaching Tendencies'], ['sos', 'Strength of Schedule'], ['restload', 'Schedule Load'], ['teamweek', 'Game Log']],
-  liveg:    [['live', 'Live Matchups'], ['week2', 'Games This Week']],
-  mineg:    [['mypicks', 'My Tickets'], ['friends', 'Friends']],
+  mineg:    [['mypicks', 'My Tickets'], ['friends', 'Friends'], ['backtest', 'Model Record']],
 };
 // Screens that were folded into others: anything that still links to them lands somewhere sensible.
-const TAB_REDIRECT = {home: 'board', overview: 'board', mikes: 'propsg'};
+const TAB_REDIRECT = {home: 'board', overview: 'board', mikes: 'propsg', liveg: 'live'};
 const SUBTAB_KEY = 'nfl_dashboard_subtab_';
-let CLASSIC_TAB = 'board';
+let CLASSIC_TAB = 'gamesg';
 function getTheme(){
   const q = new URLSearchParams(location.search).get('theme');
   if(q === 'light' || q === 'dark') return q;
@@ -9721,6 +9742,134 @@ function scGames(){
     week: x.sides.away.Week, spread: x.sides.away.Spread || x.sides.home.Spread || '', ou: x.sides.away['Over/Under'] || x.sides.home['Over/Under'] || '',
     mlAway: x.sides.away['Team Moneyline'], mlHome: x.sides.home['Team Moneyline']}));
 }
+// ---- Matchup Poster: one game on one screen, in the style of the broadcast-graphic posts ----
+// Free data only: season tape with league ranks, strength-vs-weakness collisions (run game, pass game, protection), the
+// backs, and a headline that is picked from the biggest mismatch. Coverage shells (Cover 3 / Cover 2, man vs zone) need charting data we do not have.
+const poState = {gid: null};
+function poMetrics(){
+  const gts = (DATA.gameTeamStats || []).filter(r => r['Final Score'] !== '' && r['Final Score'] !== undefined);
+  const M = {};
+  const T = t => M[t] = M[t] || {};
+  const by = {}; gts.forEach(r => (by[r.Team] = by[r.Team] || []).push(r));
+  Object.keys(by).forEach(t => {
+    const rr = by[t], n = rr.length, s = k => rr.reduce((a, r) => a + num(r[k]), 0), m = T(t);
+    m.gp = n; m.w = rr.filter(r => num(r['Final Score']) > num(r['Opponent Score'])).length; m.l = rr.filter(r => num(r['Final Score']) < num(r['Opponent Score'])).length;
+    m.tie = n - m.w - m.l; m.ppg = s('Final Score') / n; m.papg = s('Opponent Score') / n;
+    m.sackG = s('Sacks Taken') / n; m.third = s('Third Down Attempts') ? s('Third Down Conversions') / s('Third Down Attempts') : null;
+    m.giveG = (s('Interceptions Thrown') + s('Fumbles Lost')) / n;
+  });
+  (DATA.epa || []).forEach(r => {
+    const m = T(r.Team), o = r.Side === 'Offense';
+    const v = k => r[k] === '' || r[k] === undefined ? null : parseFloat(r[k]);
+    if(o){ m.passEO = v('Pass EPA/Play'); m.rushEO = v('Rush EPA/Play'); m.sucO = v('Success Rate'); m.epaO = v('EPA/Play'); }
+    else { m.passED = v('Pass EPA/Play'); m.rushED = v('Rush EPA/Play'); m.sucD = v('Success Rate'); m.epaD = v('EPA/Play'); }
+  });
+  (DATA.teamSummary || []).forEach(r => {
+    const m = T(r.Team), gp = num(r['Games Played']) || 1;
+    m.ypcO = num(r['Rush Attempts']) ? num(r['Rush Yards']) / num(r['Rush Attempts']) : null;
+    m.ypcD = num(r['Rush Attempts Allowed']) ? num(r['Rush Yards Allowed']) / num(r['Rush Attempts Allowed']) : null;
+    m.rushAG = num(r['Rush Attempts']) / gp; m.rushYG = num(r['Rush Yards']) / gp; m.rushYAG = num(r['Rush Yards Allowed']) / gp;
+    m.passYG = num(r['Pass Yards']) / gp; m.passYAG = num(r['Pass Yards Allowed']) / gp;
+    m.tdG = num(r['Total TD Made']) / gp; m.tdAG = num(r['Total TD Allowed']) / gp;
+  });
+  return M;
+}
+// rank 1 = best in the league. dir 'hi' = bigger is better.
+function poRank(M, key, t, dir){
+  const list = Object.keys(M).filter(k => M[k][key] !== null && M[k][key] !== undefined && isFinite(M[k][key])).sort((a, b) => dir === 'hi' ? M[b][key] - M[a][key] : M[a][key] - M[b][key]);
+  const i = list.indexOf(t); return i < 0 ? null : {r: i + 1, n: list.length};
+}
+function poCell(M, key, t, dir, f){
+  const v = M[t] && M[t][key]; if(v === null || v === undefined || !isFinite(v)) return '<span class="po-na">--</span>';
+  const r = poRank(M, key, t, dir), cls = !r ? '' : r.r <= 10 ? 'po-g' : r.r > r.n - 10 ? 'po-bad' : '';
+  return `<span class="${cls}"><b>${f(v)}</b>${r ? ` <small>#${r.r}</small>` : ''}</span>`;
+}
+const poF1 = v => v.toFixed(1), poF2 = v => v.toFixed(2), poPct = v => (v * 100).toFixed(1) + '%', poEpa = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+function poRows(){
+  // [label, key, dir, formatter, side note]
+  return [
+    ['Points scored / game', 'ppg', 'hi', poF1], ['Points allowed / game', 'papg', 'lo', poF1],
+    ['Pass offense (EPA/play)', 'passEO', 'hi', poEpa], ['Run offense (EPA/play)', 'rushEO', 'hi', poEpa],
+    ['Pass defense (EPA allowed)', 'passED', 'lo', poEpa], ['Run defense (EPA allowed)', 'rushED', 'lo', poEpa],
+    ['Offense success rate', 'sucO', 'hi', poPct], ['Defense success rate allowed', 'sucD', 'lo', poPct],
+    ['Yards per carry', 'ypcO', 'hi', poF2], ['Yards per carry allowed', 'ypcD', 'lo', poF2],
+    ['Sacks taken / game', 'sackG', 'lo', poF1], ['Third-down conversion', 'third', 'hi', poPct], ['Giveaways / game', 'giveG', 'lo', poF1]
+  ];
+}
+// Strength-vs-weakness collisions, scored by how far apart the two ranks are.
+function poCollisions(M, away, home){
+  const list = [];
+  const add = (off, def, name, offKey, offDir, defKey, defDir, fo, fd, offLab, defLab) => {
+    const a = poRank(M, offKey, off, offDir), b = poRank(M, defKey, def, defDir);
+    if(!a || !b) return;
+    list.push({off, def, name, a, b, ov: M[off][offKey], dv: M[def][defKey], fo, fd, offLab, defLab, gap: (b.n - b.r + 1 - a.r) });
+  };
+  [[away, home], [home, away]].forEach(([o, d]) => {
+    add(o, d, 'Run game', 'ypcO', 'hi', 'ypcD', 'lo', poF2, poF2, 'yards per carry', 'allowed per carry');
+    add(o, d, 'Run efficiency', 'rushEO', 'hi', 'rushED', 'lo', poEpa, poEpa, 'run EPA/play', 'run EPA allowed');
+    add(o, d, 'Pass game', 'passEO', 'hi', 'passED', 'lo', poEpa, poEpa, 'pass EPA/play', 'pass EPA allowed');
+  });
+  return list;
+}
+function poBackLine(team, opp){
+  const rows = (DATA.playerGame || []).filter(r => r.Team === team && num(r['Rush Attempts']) > 0 && /RB|FB/.test(r.Position || 'RB'));
+  const by = {};
+  rows.forEach(r => { const o = by[r.Player] = by[r.Player] || {att: 0, yds: 0, g: 0}; o.att += num(r['Rush Attempts']); o.yds += num(r['Rush Yards']); o.g++; });
+  return Object.entries(by).filter(([, o]) => o.att >= 8).sort((a, b) => b[1].att - a[1].att).slice(0, 3).map(([p, o]) => `<b>${p}</b> ${o.att} carries, ${(o.yds / o.att).toFixed(2)} a carry (${o.g} g)`);
+}
+function poHtml(g){
+  const M = poMetrics(), {away, home} = g;
+  if(!M[away] || !M[home]) return '<div class="panel"><div class="empty">Not enough games loaded for these teams yet.</div></div>';
+  const rec = t => `${M[t].w}-${M[t].l}${M[t].tie ? '-' + M[t].tie : ''}`;
+  const model = gbModel(away, home, g.spread, g.ou, g.mlAway, g.mlHome);
+  const hs = g.spread ? bpSpreadFor(home, g.spread) : null;
+  const mkt = hs === null ? 'no line yet' : hs === 0 ? 'PK' : (hs < 0 ? `${home} ${hs}` : `${away} ${-hs}`);
+  const ours = model.pick ? `${model.pick} by ${Math.abs(model.ourMargin).toFixed(1)}` : '--';
+  const col = poCollisions(M, away, home).sort((a, b) => b.gap - a.gap);
+  const hero = col[0] && col[0].gap >= 8 ? col[0] : null;
+  const heroTxt = hero ? `${hero.off} ${hero.name.toUpperCase()} <i>vs</i> ${hero.def} DEFENSE` : `${away} <i>@</i> ${home}`;
+  const heroSub = hero ? `${hero.off}'s ${hero.offLab} ranks #${hero.a.r} of ${hero.a.n}; ${hero.def} is #${hero.b.r} of ${hero.b.n} ${hero.defLab}. That is the biggest mismatch on the field.` : 'No lopsided matchup on the field: every unit-vs-unit comparison is within a few spots of each other.';
+  const tape = poRows().map(([lab, k, dir, f]) => `<tr><th>${lab}</th><td>${poCell(M, k, away, dir, f)}</td><td>${poCell(M, k, home, dir, f)}</td></tr>`).join('');
+  const bars = ['ppg:hi:Points per game', 'papg:lo:Points allowed', 'sucO:hi:Offense success', 'sucD:lo:Defense success allowed', 'ypcO:hi:Yards per carry', 'passEO:hi:Pass EPA/play'].map(s => {
+    const [k, dir, lab] = s.split(':'), a = M[away][k], h = M[home][k];
+    if(a === null || a === undefined || h === null || h === undefined) return '';
+    const good = dir === 'hi' ? a >= h : a <= h, tot = Math.abs(a) + Math.abs(h) || 1;
+    const favor = (dir === 'hi' ? a - h : h - a) / tot, w = Math.max(10, Math.min(90, 50 + favor * 80));
+    const f = ['sucO', 'sucD'].includes(k) ? poPct : k === 'passEO' ? poEpa : k === 'ypcO' ? poF2 : poF1;
+    return `<div class="po-bar"><div class="po-bl">${lab}</div><div class="po-bt"><span class="${good ? 'po-win' : ''}">${f(a)}</span><div class="po-track"><i class="po-a${good ? ' on' : ''}" style="width:${w}%"></i><i class="po-h${good ? '' : ' on'}" style="width:${100 - w}%"></i></div><span class="${good ? '' : 'po-win'}">${f(h)}</span></div></div>`;
+  }).join('');
+  const colHtml = col.slice(0, 6).map(c => `<div class="po-col"><div class="po-ct">${c.off} ${c.name}</div>
+    <div class="po-cv"><div><small>${c.off} ${c.offLab}</small><b>${c.fo(c.ov)}</b><em>#${c.a.r}</em></div><span>vs</span><div><small>${c.def} ${c.defLab}</small><b>${c.fd(c.dv)}</b><em>#${c.b.r}</em></div></div></div>`).join('');
+  const bl = (t, o) => { const b = poBackLine(t, o); return b.length ? `<li><b>${t}:</b> ${b.join(' &middot; ')}</li>` : ''; };
+  return `<div class="po" data-no-enhance>
+    <div class="po-head"><div class="po-tm"><div class="po-n">${teamName(away).toUpperCase()}</div><div class="po-r">${rec(away)} &middot; AWAY</div></div>
+      <div class="po-mid"><div class="po-kick">${g.win && g.win.day ? g.win.day.toUpperCase() : ''} ${g.win && g.win.label && g.win.label !== g.win.day ? '&middot; ' + g.win.label : ''}</div><div class="po-hero">${heroTxt}</div>
+        <div class="po-lines">MARKET ${mkt} &middot; O/U ${g.ou || '--'} &middot; OUR NUMBER ${ours}</div></div>
+      <div class="po-tm po-right"><div class="po-n">${teamName(home).toUpperCase()}</div><div class="po-r">${rec(home)} &middot; HOME</div></div></div>
+    ${heroSub ? `<div class="po-sub">${heroSub}</div>` : ''}
+    <div class="po-grid">
+      <div class="po-box po-pink"><div class="po-bh">Season tape <small>rank: 1 = best in the NFL &middot; green top 10, red bottom 10</small></div>
+        <table class="po-t"><thead><tr><th></th><th>${away}</th><th>${home}</th></tr></thead><tbody>${tape}</tbody></table></div>
+      <div class="po-box po-purple"><div class="po-bh">Tale of the tape <small>brighter bar = the edge</small></div>${bars}</div>
+    </div>
+    <div class="po-box po-cyan" style="margin-top:12px;"><div class="po-bh">Collisions <small>strength vs weakness, biggest gap first</small></div><div class="po-cols">${colHtml}</div></div>
+    <div class="po-foot"><ul class="sc-ul">${bl(away, home)}${bl(home, away)}</ul>
+      <div class="po-note">Built from box-score and EPA data the pipeline already pulls. Coverage shells (Cover 3 vs Cover 2, man vs zone, middle open/closed) and run concepts (inside zone, gap) come from play-by-play charting, which this app does not have, so they are not shown.</div></div></div>`;
+}
+function renderPoster(){ return `<div id="po-body"></div>`; }
+function poDraw(){
+  const body = $('#po-body'); if(!body) return;
+  const games = scGames();
+  if(!games.length){ body.innerHTML = '<div class="panel"><div class="empty">No upcoming games loaded yet.</div></div>'; return; }
+  if(!poState.gid || !games.some(g => g.gid === poState.gid)){ const now = Date.now() - 5 * 3600 * 1000; poState.gid = (games.find(g => new Date(g.date).getTime() > now) || games[0]).gid; }
+  const g = games.find(x => x.gid === poState.gid);
+  body.innerHTML = `<div class="panel"><div class="sc-games">${games.map(x => `<button class="sc-g${x.gid === g.gid ? ' on' : ''}" data-gid="${x.gid}">${x.away} <i>@</i> ${x.home}<small>${x.win.day ? x.win.day.slice(0, 3) : ''}</small></button>`).join('')}</div></div>${poHtml(g)}`;
+}
+function mountPoster(){
+  const body = $('#po-body');
+  body.addEventListener('click', e => { const b = e.target.closest('.sc-g'); if(!b || !b.dataset.gid) return; poState.gid = b.dataset.gid; poDraw(); });
+  poDraw();
+}
 function scSlateAngles(games){
   const items = [];
   games.forEach(g => [[g.away, g.home], [g.home, g.away]].forEach(([off, def]) => scSpots(def).soft.forEach(s => items.push({off, def, s, g}))));
@@ -9972,16 +10121,20 @@ function stBlockHtml(T, D, rows){
 }
 
 function renderScout(){
+  scState.view = 'league';
   return `<div class="panel" style="padding-bottom:6px;"><div class="panel-title">Defense Report</div>
-    <div class="panel-note">What each defense gives up and takes away, in plain words, and the players on the other side who benefit. Rank 1 = softest in the league. Early in the season these are about 5-7 games, so each note shows its sample and flags the thin ones.</div>
-    <div class="controls"><div class="pill-group" id="sc-view"><span class="pill ${scState.view === 'game' ? 'active' : ''}" data-v="game">By game</span><span class="pill ${scState.view === 'league' ? 'active' : ''}" data-v="league">All defenses</span></div></div></div>
+    <div class="panel-note">What every defense gives up and takes away, in plain words, ranked across the league. Rank 1 = softest. Early in the season these are about 5-7 games, so each note shows its sample and flags the thin ones. For one game at a time, use Games &gt; Game Plan.</div></div>
     <div id="sc-body"></div>`;
+}
+function renderPlan(){
+  scState.view = 'game';
+  return `<div id="sc-body"></div>`;
 }
 function scDrawBody(){
   const body = $('#sc-body'); if(!body) return;
   if(scState.view === 'league'){ body.innerHTML = scLeagueHtml(); scMountLeague(); return; }
   const games = scGames();
-  if(!games.length){ body.innerHTML = '<div class="panel"><div class="empty">No upcoming games loaded yet. Use "All defenses" to browse every team.</div></div>'; return; }
+  if(!games.length){ body.innerHTML = '<div class="panel"><div class="empty">No upcoming games loaded yet.</div></div>'; return; }
   if(!scState.gid || !games.some(g => g.gid === scState.gid)){
     const now = Date.now() - 5 * 3600 * 1000; scState.gid = (games.find(g => new Date(g.date).getTime() > now) || games[0]).gid;
   }
@@ -9995,7 +10148,6 @@ function scDrawBody(){
       <ul class="sc-ul">${angles.map(a => `<li class="sc-soft sc-jump" data-gid="${a.g.gid}" style="cursor:pointer;"><b>${a.off} vs ${a.def}:</b> ${a.def} ${a.s.m.soft} &mdash; ${fmt(a.s.e.val, a.s.m.dp)} ${a.s.m.unit}/g, #${a.s.e.rank} of ${a.s.e.of}${a.s.e.thin ? ' <span class="sc-thin">small sample</span>' : ''}</li>`).join('')}</ul></div>`;
 }
 function mountScout(){
-  $$('#sc-view .pill').forEach(p => p.addEventListener('click', () => { scState.view = p.dataset.v; $$('#sc-view .pill').forEach(x => x.classList.toggle('active', x === p)); scDrawBody(); }));
   const body = $('#sc-body');
   body.addEventListener('click', e => {
     const b = e.target.closest('.sc-g, .sc-jump'); if(!b || !b.dataset.gid) return;
@@ -10044,6 +10196,8 @@ function infoizeNotes(root){
 })();
 const renderers = {
   scout: {render: renderScout, mount: mountScout},
+  plan: {render: renderPlan, mount: mountScout},
+  poster: {render: renderPoster, mount: mountPoster},
   tonight: {render: renderTonight, mount: mountTonight},
   board: {render: renderBoard, mount: mountBoard},
   home: {render: renderHome, mount: mountHome},
@@ -10290,7 +10444,7 @@ async function init(){
   });
   renderHero();
   renderTicker();
-  CLASSIC_TAB = 'board';
+  CLASSIC_TAB = 'gamesg';
   applyLayout(getLayout(), acctReadInvite() ? 'friends' : null);
 }
 init();
