@@ -832,6 +832,13 @@
   .sl-ul li:first-child{border-top:none;} .sl-t{font-family:var(--mono);font-size:11px;color:var(--chalk-dim);margin-left:4px;}
   .sl-v{position:absolute;right:0;top:7px;font-weight:800;color:var(--mint);font-family:var(--mono);font-size:13px;text-align:right;} .sl-s{font-size:12px;color:var(--chalk-dim);margin-top:2px;}
   @media(max-width:700px){.sl-cols{grid-template-columns:1fr;}}
+  .dl-top{padding-bottom:12px;} .dl-name{font-weight:800;font-size:clamp(18px,3vw,28px);} .dl-name span{font-weight:400;color:var(--chalk-dim);font-size:.6em;margin-left:6px;}
+  .dl-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px;} .dl-sc{border:1px solid var(--panel-border);border-radius:10px;padding:8px 10px;} .dl-sc small{display:block;color:var(--chalk-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .dl-sc b{font-size:24px;} .dl-sc span{font-size:12px;color:var(--chalk-dim);margin-left:4px;} .dl-sc em{display:block;font-style:normal;font-size:12px;font-family:var(--mono);}
+  .dl-grid{display:grid;grid-template-columns:1fr;gap:12px;} .dl-grid.two{grid-template-columns:repeat(2,minmax(0,1fr));} @media(max-width:1000px){.dl-grid.two{grid-template-columns:1fr;}}
+  .dl-card{border:1.5px solid var(--gold);border-radius:12px;padding:10px 12px;background:var(--panel);} .dl-h{font-weight:800;font-size:18px;margin-bottom:6px;} .dl-h small{font-weight:400;color:var(--chalk-dim);font-size:12px;margin-left:6px;}
+  .dl-t th,.dl-t td{padding:5px 6px;} .dl-t thead th{background:var(--panel-border);} .dl-hi{background:rgba(40,160,150,.28);padding:2px 8px;border-radius:4px;} .dl-bye td{color:var(--chalk-dim);font-style:italic;}
+  .dl-take{margin-top:8px;border:1px solid var(--gold);border-radius:10px;padding:8px 10px;font-size:13px;} .dl-take span{font-style:italic;font-weight:800;color:var(--gold);margin-right:6px;}
   .sc-g:hover{color:var(--chalk);} .sc-g.on{background:var(--gold);color:#0B0F19;border-color:var(--gold);font-weight:700;}
   .sc-jump:hover{background:rgba(255,255,255,0.07) !important;}
   @media (max-width:900px){ .sc-grid{grid-template-columns:1fr;} }
@@ -9292,7 +9299,7 @@ const TN_MORE = [['teamsg', 'Teams'], ['mineg', 'My Picks']];
 const TAB_GROUPS = {
   propsg:   [['picks', 'Best Picks'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['booklines', 'Book Lines'], ['predictions', 'Predictions']],
   gamesg:   [['board', 'Game Board'], ['slate', 'Slate Summary'], ['plan', 'Game Plan'], ['poster', 'Matchup Poster'], ['live', 'Live Matchups'], ['week2', 'Games This Week']],
-  defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
+  defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['dlog', 'Defense Log'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
   playersg: [['players', 'Game Logs'], ['streaks', 'Streaks'], ['milestones', 'Milestone Watch'], ['injuries', 'Injury Report']],
   teamsg:   [['teams', 'Summary'], ['power', 'Power Rankings'], ['epa', 'EPA / Efficiency'], ['coaching', 'Coaching Tendencies'], ['sos', 'Strength of Schedule'], ['restload', 'Schedule Load'], ['teamweek', 'Game Log']],
   mineg:    [['mypicks', 'My Tickets'], ['friends', 'Friends'], ['backtest', 'Model Record']],
@@ -9994,6 +10001,95 @@ function mountSlate(){
   tdSnapshot(); planSnapshot();
   slDraw();
 }
+// ---- Defense Log: what every kind of player did against one defense, game by game, positions side by side ----
+const dlState = {team: '', pos: 'ALL'};
+const DL_POS = {
+  QB: {title: 'Quarterbacks', unit: 'pass yds', game: r => num(r['Pass Yards']), pick: rows => rows.filter(r => num(r['Pass Attempts']) >= 3).sort((a, b) => num(b['Pass Attempts']) - num(a['Pass Attempts'])), per: 'QB',
+       head: ['Opposing QB', 'Comp / Att', 'Pass yds', 'TD / INT'], cells: r => [r.Player, `${num(r['Pass Completions'])} / ${num(r['Pass Attempts'])}`, num(r['Pass Yards']), `${num(r['Pass TD'])} / ${num(r.Interceptions)}`], key: r => num(r['Pass Yards'])},
+  RB: {title: 'Running backs', unit: 'rush yds', game: r => num(r['Rush Yards']), pick: rows => rows.filter(r => num(r['Rush Attempts']) >= 4).sort((a, b) => num(b['Rush Attempts']) - num(a['Rush Attempts'])).slice(0, 2), per: 'RB',
+       head: ['Opposing RB', 'Carries', 'Rush yds', 'Rec yds', 'TD'], cells: r => [r.Player, num(r['Rush Attempts']), num(r['Rush Yards']), num(r['Receiving Yards']), num(r['Rush TD']) + num(r['Receiving TD'])], key: r => num(r['Rush Yards'])},
+  WR: {title: 'Wide receivers', unit: 'rec yds', game: r => num(r['Receiving Yards']), pick: rows => rows.filter(r => num(r.Targets) >= 2).sort((a, b) => num(b['Receiving Yards']) - num(a['Receiving Yards'])).slice(0, 3), per: 'WR',
+       head: ['Opposing WR', 'Rec / Tgt', 'Rec yds', 'TD'], cells: r => [r.Player, `${num(r.Receptions)} / ${num(r.Targets)}`, num(r['Receiving Yards']), num(r['Receiving TD'])], key: r => num(r['Receiving Yards'])},
+  TE: {title: 'Tight ends', unit: 'rec yds', game: r => num(r['Receiving Yards']), pick: rows => rows.filter(r => num(r.Targets) >= 2).sort((a, b) => num(b['Receiving Yards']) - num(a['Receiving Yards'])).slice(0, 2), per: 'TE',
+       head: ['Opposing TE', 'Rec / Tgt', 'Rec yds', 'TD'], cells: r => [r.Player, `${num(r.Receptions)} / ${num(r.Targets)}`, num(r['Receiving Yards']), num(r['Receiving TD'])], key: r => num(r['Receiving Yards'])},
+};
+// Per defense and position: total yards the position gathered in each game, so we can rank defenses and find the league's typical game.
+function dlLeague(){
+  if(dlLeague._src === DATA.playerGame) return dlLeague._v;
+  const byDef = {}, weeksMax = Math.max(0, ...(DATA.playerGame || []).map(r => num(r.Week)));
+  (DATA.playerGame || []).forEach(r => {
+    if(!DL_POS[r.Position]) return;
+    const d = byDef[r.Opponent] = byDef[r.Opponent] || {}; const k = r.Position + '|' + r.Week;
+    d[k] = (d[k] || 0) + DL_POS[r.Position].game(r);
+  });
+  const avg = {}, all = {};
+  Object.keys(byDef).forEach(t => Object.keys(DL_POS).forEach(p => {
+    const v = Object.keys(byDef[t]).filter(k => k.startsWith(p + '|')).map(k => byDef[t][k]);
+    if(v.length){ avg[p + '|' + t] = v.reduce((a, x) => a + x, 0) / v.length; (all[p] = all[p] || []).push(...v); }
+  }));
+  const lg = {}, rank = {};
+  Object.keys(DL_POS).forEach(p => {
+    lg[p] = all[p] ? all[p].reduce((a, x) => a + x, 0) / all[p].length : 0;
+    const list = Object.keys(byDef).filter(t => avg[p + '|' + t] !== undefined).sort((a, b) => avg[p + '|' + a] - avg[p + '|' + b]);
+    list.forEach((t, i) => { rank[p + '|' + t] = {r: i + 1, n: list.length}; });
+  });
+  dlLeague._src = DATA.playerGame; dlLeague._v = {byDef, avg, lg, rank, weeksMax};
+  return dlLeague._v;
+}
+function dlCardHtml(team, pos){
+  const P = DL_POS[pos], L = dlLeague();
+  const rows = (DATA.playerGame || []).filter(r => r.Opponent === team && r.Position === pos);
+  const weeks = [...new Set((DATA.playerGame || []).filter(r => r.Opponent === team).map(r => num(r.Week)))].sort((a, b) => a - b);
+  if(!weeks.length) return `<div class="dl-card"><div class="dl-h">${P.title}</div><div class="empty">No games yet.</div></div>`;
+  const lastWk = Math.max(L.weeksMax, ...weeks); // weeks every team has played so far; a missing week in between is a bye
+  let body = '', totals = [];
+  for(let w = 1; w <= lastWk; w++){
+    if(!weeks.includes(w)){ body += `<tr class="dl-bye"><td>${w}</td><td colspan="${P.head.length + 1}">Bye week</td></tr>`; continue; }
+    const wr = rows.filter(r => num(r.Week) === w), shown = P.pick(wr);
+    const tot = wr.reduce((a, r) => a + P.game(r), 0); totals.push({w, tot, top: wr.slice().sort((a, b) => P.key(b) - P.key(a))[0]});
+    const opp = (DATA.playerGame || []).find(r => r.Opponent === team && num(r.Week) === w);
+    if(!shown.length){ body += `<tr><td>${w}</td><td>${opp ? opp.Team : ''}</td><td colspan="${P.head.length}" style="color:var(--chalk-dim)">no ${pos} with a real role</td></tr>`; continue; }
+    shown.forEach((r, i) => {
+      const c = P.cells(r);
+      body += `<tr><td>${i ? '' : w}</td><td>${i ? '' : r.Team}</td>${c.map((x, j) => `<td class="${j === 0 ? '' : 'num'}">${j === 2 ? `<b class="dl-hi">${x}</b>` : x}</td>`).join('')}</tr>`;
+    });
+  }
+  const av = L.avg[pos + '|' + team], rk = L.rank[pos + '|' + team], thr = Math.round(L.lg[pos]);
+  const over = totals.filter(t => t.tot >= thr).length, hi = totals.slice().sort((a, b) => b.tot - a.tot)[0];
+  const takeaway = totals.length ? `Opposing ${P.per}s have put up ${thr}+ ${P.unit} in <b>${over} of ${totals.length}</b> games (a typical game across the league is ${thr}), with a high of <b>${hi.tot}</b> in Week ${hi.w}${hi.top ? ` (${hi.top.Team}, led by ${hi.top.Player})` : ''}. ${teamName(team)} allow <b>${fmt(av, 0)}</b> a game, <b>#${rk.r}</b> fewest of ${rk.n}.` : '';
+  return `<div class="dl-card"><div class="dl-h">${P.title} <small>${P.unit} allowed</small></div>
+    <div class="table-scroll"><table class="dl-t"><thead><tr><th>Wk</th><th>Vs</th>${P.head.map((h, i) => `<th class="${i ? 'num' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
+    <div class="dl-take"><span>Key takeaway</span> ${takeaway}</div></div>`;
+}
+function dlStripHtml(team){
+  const L = dlLeague();
+  return `<div class="dl-strip">${Object.keys(DL_POS).map(p => { const rk = L.rank[p + '|' + team], av = L.avg[p + '|' + team]; if(!rk) return ''; const tone = rk.r <= 10 ? 'var(--red)' : rk.r > rk.n - 10 ? 'var(--mint)' : 'var(--chalk)';
+    return `<div class="dl-sc"><small>${DL_POS[p].title}</small><b>${fmt(av, 0)}</b><span>${DL_POS[p].unit} a game</span><em style="color:${tone}">${rk.r <= 10 ? 'tough' : rk.r > rk.n - 10 ? 'soft' : 'middle'} &middot; #${rk.r} fewest allowed</em></div>`; }).join('')}</div>`;
+}
+function renderDefLog(){
+  return `<div class="panel"><div class="panel-title">Defense Log</div>
+    <div class="panel-note">Pick a defense and see, game by game, what every kind of opposing player did against it: quarterbacks, running backs, wide receivers and tight ends side by side. The takeaway under each table counts the games at or above a typical league game and ranks the defense (1 = fewest allowed). On the strip, green is a soft spot (a good one to attack) and red is a tough one.</div>
+    <div class="controls"><select id="dl-team"></select><div class="pill-group" id="dl-pos"><span class="pill active" data-p="ALL">All positions</span>${Object.keys(DL_POS).map(p => `<span class="pill" data-p="${p}">${p}</span>`).join('')}</div></div></div>
+    <div id="dl-body"></div>`;
+}
+function dlDraw(){
+  const team = dlState.team, body = $('#dl-body'); if(!body) return;
+  const nxt = scGames().find(g => g.away === team || g.home === team), opp = nxt ? (nxt.away === team ? nxt.home : nxt.away) : '';
+  const ps = dlState.pos === 'ALL' ? Object.keys(DL_POS) : [dlState.pos];
+  body.innerHTML = `<div class="panel dl-top"><div class="dl-name">${teamName(team)} <span>defense</span></div>${opp ? `<div class="sc-meta" style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Next: ${nxt.away === team ? '@' : 'vs'} ${teamName(opp)}</div>` : ''}${dlStripHtml(team)}</div>
+    <div class="dl-grid ${ps.length > 1 ? 'two' : ''}">${ps.map(p => dlCardHtml(team, p)).join('')}</div>`;
+  $$('#dl-pos .pill').forEach(x => x.classList.toggle('active', x.dataset.p === dlState.pos));
+}
+function mountDefLog(){
+  const teams = [...new Set((DATA.playerGame || []).map(r => r.Opponent).filter(Boolean))].sort();
+  const sel = $('#dl-team');
+  sel.innerHTML = teams.map(t => `<option value="${t}">${teamName(t)}</option>`).join('');
+  if(!dlState.team || !teams.includes(dlState.team)){ const g = scGames()[0]; dlState.team = g && teams.includes(g.home) ? g.home : teams[0]; }
+  sel.value = dlState.team;
+  sel.addEventListener('change', () => { dlState.team = sel.value; dlDraw(); });
+  $('#dl-pos').addEventListener('click', e => { const p = e.target.closest('.pill'); if(!p) return; dlState.pos = p.dataset.p; dlDraw(); });
+  dlDraw();
+}
 function scSlateAngles(games){
   const items = [];
   games.forEach(g => [[g.away, g.home], [g.home, g.away]].forEach(([off, def]) => scSpots(def).soft.forEach(s => items.push({off, def, s, g}))));
@@ -10435,6 +10531,7 @@ const renderers = {
   plan: {render: renderPlan, mount: mountScout},
   poster: {render: renderPoster, mount: mountPoster},
   slate: {render: renderSlate, mount: mountSlate},
+  dlog: {render: renderDefLog, mount: mountDefLog},
   tonight: {render: renderTonight, mount: mountTonight},
   board: {render: renderBoard, mount: mountBoard},
   home: {render: renderHome, mount: mountHome},
