@@ -48,7 +48,7 @@ FLOORS = {
     "Receiving Yards": [15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100],
     "Receptions": [2, 3, 4, 5, 6, 7, 8],
 }
-STATS = {"QB": ["Pass Yards", "Pass + Rush Yards"], "RB": ["Rush Yards", "Receiving Yards", "Receptions"],
+STATS = {"QB": ["Pass Yards"], "RB": ["Rush Yards", "Receiving Yards", "Receptions"],
          "WR": ["Receiving Yards", "Receptions"], "TE": ["Receiving Yards", "Receptions"]}
 SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1}
 PLAYER_MIN_RATE, DEF_MIN_RATE, MIN_PLAYER_GAMES, MIN_DEF_SAMPLES = 0.75, 0.60, 2, 3
@@ -74,15 +74,21 @@ def starters_as_of(hist):
     return out
 
 
-def project(vals, l3, allowed, league, def_games):
+CAL = {'Pass Yards': 0.96, 'Rush Yards': 0.92, 'Receiving Yards': 0.88, 'Receptions': 0.92, 'Pass + Rush Yards': 0.96}
+SD_MIN = {'Pass Yards': 0.33, 'Rush Yards': 0.45, 'Receiving Yards': 0.50, 'Receptions': 0.45, 'Pass + Rush Yards': 0.33}
+
+
+def project(vals, l3, allowed, league, def_games, stat=''):
     avg = sum(vals) / len(vals)
     baseline = avg * 0.6 + l3 * 0.4
     raw = allowed / league if league > 0 else 1.0
     raw = max(0.6, min(1.6, raw))
     matchup = 1 + (raw - 1) * min(1.0, def_games / 6)
-    proj = baseline * matchup
-    sd = max(pd.Series(vals).std(ddof=1) if len(vals) > 1 else 0.0, 0.30 * proj)
-    sd = 0.30 * proj if pd.isna(sd) else max(sd, 0.30 * proj)
+    # Calibrated against graded picks: the raw number ran high (see the dashboard's BP_CAL).
+    proj = baseline * matchup * CAL.get(stat, 0.93)
+    floor_sd = SD_MIN.get(stat, 0.40) * proj
+    sd = max(pd.Series(vals).std(ddof=1) if len(vals) > 1 else 0.0, floor_sd)
+    sd = floor_sd if pd.isna(sd) else sd
     return {"proj": proj, "base": baseline, "lo": max(0.0, proj - 0.67 * sd), "hi": proj + 0.67 * sd,
             "line": round(proj * 2) / 2}
 
@@ -158,7 +164,7 @@ def main():
                             if pr >= PLAYER_MIN_RATE and dr >= DEF_MIN_RATE:
                                 found = {"floor": f, "pr": pr, "dr": dr}
                     allowed = float(dsub[stat].mean()) if len(dsub) else league[(pos, stat)]
-                    pj = project(vals, l3avg, allowed, league[(pos, stat)], def_games.get(d, 0))
+                    pj = project(vals, l3avg, allowed, league[(pos, stat)], def_games.get(d, 0), stat)
                     result = float(act[stat])
                     if found:
                         entry = {"Model": "best_picks", "Week": W, "Player": player, "Slot": slot, "Position": pos, "Team": team,
