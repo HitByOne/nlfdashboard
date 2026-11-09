@@ -5415,6 +5415,7 @@ function renderPicks(){
       definition.
     </div>
     <div id="bp-record"></div>
+    <div id="bp-projcard"></div>
   </div>`;
 }
 
@@ -5440,7 +5441,32 @@ function playerGameLogHtml(player, position){
   `;
 }
 
+// ---- Projection report card: every saved projection graded against what the player actually did ----
+function bpProjCardHtml(){
+  const rows = Object.values(bpHistGet()).filter(e => typeof e.finalActual === 'number' && typeof e.proj === 'number' && e.finalStat === e.stat);
+  const bt = (DATA.backtest || []).filter(r => r.Model === 'best_picks' && r.Actual !== '' && r.Projection !== '');
+  const head = `<div class="panel-title" style="margin-top:18px;">Projection report card</div>
+    <div class="panel-note">How close the projection (the number, not the floor) was to what the player really did. <b>Avg miss</b> is the typical gap in yards or catches. <b>Over projection</b> should sit near 50%: far below means the projections run high, far above means they run low. <b>In range</b> is how often the result landed inside the shown range, which is built to catch about half. <b>Live</b> rows are the picks this page showed before kickoff and graded afterwards; <b>replay</b> rows rebuild weeks 3 onward from the backtest file.</div>`;
+  const sum = (list, P, A, L, LO, HI) => {
+    if(!list.length) return null;
+    const n = list.length, miss = list.reduce((a, r) => a + Math.abs(A(r) - P(r)), 0) / n, bias = list.reduce((a, r) => a + (A(r) - P(r)), 0) / n;
+    const over = list.filter(r => A(r) > L(r)).length / n, inr = list.filter(r => A(r) >= LO(r) && A(r) <= HI(r)).length / n;
+    return {n, miss, bias, over, inr};
+  };
+  const live = s => sum(rows.filter(r => !s || r.stat === s), r => r.proj, r => r.finalActual, r => r.line, r => r.lo, r => r.hi);
+  const rep = s => sum(bt.filter(r => !s || r.Stat === s), r => num(r.Projection), r => num(r.Actual), r => num(r.Line), r => num(r.Lo), r => num(r.Hi));
+  const stats = ['Pass Yards', 'Rush Yards', 'Receiving Yards', 'Receptions'];
+  const line = (lab, kind, t) => !t ? '' : `<tr><td>${lab}</td><td>${kind}</td><td class="num">${t.n}</td><td class="num">${fmt(t.miss, t.miss < 10 ? 1 : 0)}</td><td class="num">${t.bias >= 0 ? '+' : ''}${fmt(t.bias, 1)}</td>
+    <td class="num" style="color:${Math.abs(t.over - 0.5) <= 0.08 ? 'var(--mint)' : 'var(--gold)'};">${Math.round(t.over * 100)}%</td><td class="num">${Math.round(t.inr * 100)}%</td></tr>`;
+  const body = [line('All stats', 'live', live('')), ...stats.map(s => line(s, 'live', live(s))), line('All stats', 'replay', rep('')), ...stats.map(s => line(s, 'replay', rep(s)))].join('');
+  if(!body) return head + '<div class="empty">Nothing graded yet.</div>';
+  const wk = [...new Set(rows.map(r => r.week))].sort((a, b) => num(b) - num(a));
+  const byWeek = wk.length ? `<div class="panel-note" style="margin-top:8px;">Live, by week: ${wk.map(w => { const t = sum(rows.filter(r => r.week === w), r => r.proj, r => r.finalActual, r => r.line, r => r.lo, r => r.hi); return `Week ${w}: ${t.n} picks, avg miss ${fmt(t.miss, 1)}, ${Math.round(t.over * 100)}% over`; }).join(' &middot; ')}</div>` : '';
+  return head + `<div class="table-scroll"><table><thead><tr><th>Stat</th><th>Source</th><th class="num">Picks</th><th class="num">Avg miss</th><th class="num">Bias</th><th class="num">Over projection</th><th class="num">In range</th></tr></thead><tbody>${body}</tbody></table></div>${byWeek}
+    <div class="panel-note" style="margin-top:6px;">Bias is actual minus projected, so a negative number means the projection was too high. Projections were recalibrated on Nov 8: replay rows before that date used the old, higher numbers until the backtest is re-run.</div>`;
+}
 function mountPicks(){
+  { const pc = $('#bp-projcard'); if(pc) pc.innerHTML = bpProjCardHtml(); }
   const container = $('#picks-list'), topEl = $('#picks-top');
   const expandedPicks = new Set();   // keyed by "player|team", persists across re-renders
   let posFilter = '';
@@ -9964,7 +9990,7 @@ function tdRecordHtml(){
 }
 function mountSlate(){
   $('#sl-day').addEventListener('click', e => { const p = e.target.closest('.pill'); if(!p) return; slState.day = p.dataset.d; slDraw(); });
-  tdSnapshot();
+  tdSnapshot(); planSnapshot();
   slDraw();
 }
 function scSlateAngles(games){
@@ -10227,17 +10253,85 @@ function renderPlan(){
   scState.view = 'game';
   return `<div id="sc-body"></div>`;
 }
+// ---- Game Plan by week: each plan is saved before kickoff, then graded against the final score ----
+const PLAN_KEY = 'nfl_dashboard_gameplan_history';
+function planHistGet(){ try { return JSON.parse(localStorage.getItem(PLAN_KEY) || '{}'); } catch(e){ return {}; } }
+function planHistSave(h){ try { localStorage.setItem(PLAN_KEY, JSON.stringify(h)); } catch(e){} }
+function scPlanPick(g){
+  const m = gbModel(g.away, g.home, g.spread, g.ou, g.mlAway, g.mlHome);
+  let pick = m.pick, prob = m.pickProb, byPts = m.ourMargin !== null && m.ourMargin !== undefined ? Math.abs(m.ourMargin) : null;
+  if(!pick){
+    const a = tdTeamEnv(tdCtx(), g.away, g.home, g.spread, g.ou), h = tdTeamEnv(tdCtx(), g.home, g.away, g.spread, g.ou);
+    pick = h.pts >= a.pts ? g.home : g.away; byPts = Math.abs(h.pts - a.pts); prob = null;
+  }
+  return {pick, prob: prob === undefined ? null : prob, byPts};
+}
+function planSnapshot(games){
+  try {
+    const h = planHistGet(); let changed = false; const now = Date.now();
+    (games || scGames()).forEach(g => {
+      if(new Date(g.date).getTime() <= now) return;
+      const k = `${g.week}|${g.gid}`; if(h[k]) return;
+      const p = scPlanPick(g);
+      h[k] = {week: String(g.week), gid: g.gid, away: g.away, home: g.home, date: g.date, pick: p.pick, prob: p.prob, byPts: p.byPts, spread: g.spread || '', html: scGamePlanHtml(g), saved: now};
+      changed = true;
+    });
+    if(changed) planHistSave(h);
+  } catch(e){}
+}
+// Final score for a game, from the daily play-by-play file when it has the week, otherwise ESPN's live board for the current week.
+function planResult(week, away, home){
+  const r = (DATA.gameTeamStats || []).find(x => String(x.Week) === String(week) && x.Team === away && x.Opponent === home && x['Final Score'] !== '');
+  if(r) return {a: num(r['Final Score']), h: num(r['Opponent Score'])};
+  if(typeof LIVE_PICKS !== 'undefined' && LIVE_PICKS.games && String(LIVE_PICKS.week) === String(week)){
+    const g = LIVE_PICKS.games.get(home);
+    if(g && g.state === 'post' && g.opp === away) return {a: num(g.oppScore), h: num(g.score)};
+  }
+  return null;
+}
+function planGrade(e){
+  const r = planResult(e.week, e.away, e.home); if(!r) return {status: 'OPEN'};
+  if(r.a === r.h) return {status: 'TIE', r};
+  const winner = r.h > r.a ? e.home : e.away;
+  return {status: winner === e.pick ? 'HIT' : 'MISS', r, winner};
+}
+function planWeeks(){ return [...new Set(Object.values(planHistGet()).map(e => e.week))].sort((a, b) => num(b) - num(a)); }
+function planRecordText(list){
+  const gs = list.map(planGrade), h = gs.filter(g => g.status === 'HIT').length, m = gs.filter(g => g.status === 'MISS').length;
+  return {h, m, text: h + m ? `${h}-${m} (${Math.round(100 * h / (h + m))}%)` : 'no finished games yet'};
+}
+function planPillsHtml(){
+  const cur = bpCurWeek(), weeks = planWeeks().filter(w => w !== cur), all = Object.values(planHistGet());
+  const rec = planRecordText(all);
+  return `<div class="panel"><div class="controls" style="margin:0;"><div class="pill-group" id="sc-weeks">
+    <span class="pill ${!scState.planWeek ? 'active' : ''}" data-w="">${cur ? 'Week ' + cur + ' (this slate)' : 'This slate'}</span>
+    ${weeks.map(w => `<span class="pill ${scState.planWeek === w ? 'active' : ''}" data-w="${w}">Week ${w}</span>`).join('')}</div></div>
+    <div class="sc-meta" style="margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Saved plans so far: <b style="color:var(--chalk);">${rec.text}</b> on picking the winner. Plans are saved before kickoff on this device, starting with the first time you open this tab or the Slate Summary.</div></div>`;
+}
+function planWeekHtml(week){
+  const list = Object.values(planHistGet()).filter(e => e.week === week).sort((a, b) => new Date(a.date) - new Date(b.date));
+  if(!list.length) return '<div class="panel"><div class="empty">No saved plans for this week.</div></div>';
+  const rec = planRecordText(list);
+  return `<div class="panel"><div class="panel-title">Week ${week} plans</div><div class="panel-note" style="margin:0;">Winner pick record for the week: <b>${rec.text}</b>. Tap a game to read the plan as it was saved before kickoff.</div></div>` + list.map(e => {
+    const g = planGrade(e);
+    const chip = g.status === 'HIT' ? '<b style="color:var(--mint)">RIGHT</b>' : g.status === 'MISS' ? '<b style="color:var(--red)">WRONG</b>' : g.status === 'TIE' ? '<b>TIE</b>' : '<span style="color:var(--chalk-dim)">not final yet</span>';
+    const sc = g.r ? ` &middot; final ${e.away} ${g.r.a}, ${e.home} ${g.r.h}` : '';
+    return `<div class="panel"><details><summary style="cursor:pointer;"><b>${e.away} @ ${e.home}</b> &middot; ${teamName(e.pick)} to win${e.prob !== null && e.prob !== undefined ? ' (' + Math.round(e.prob * 100) + '%)' : ''}${e.byPts !== null && e.byPts !== undefined ? ' by ' + fmt(e.byPts, 1) : ''} &middot; ${chip}${sc}</summary><div style="margin-top:10px;">${e.html}</div></details></div>`;
+  }).join('');
+}
 function scDrawBody(){
   const body = $('#sc-body'); if(!body) return;
   if(scState.view === 'league'){ body.innerHTML = scLeagueHtml(); scMountLeague(); return; }
   const games = scGames();
-  if(!games.length){ body.innerHTML = '<div class="panel"><div class="empty">No upcoming games loaded yet.</div></div>'; return; }
+  planSnapshot(games);
+  if(scState.planWeek && scState.planWeek !== bpCurWeek()){ body.innerHTML = planPillsHtml() + planWeekHtml(scState.planWeek); return; }
+  if(!games.length){ body.innerHTML = planPillsHtml() + '<div class="panel"><div class="empty">No upcoming games loaded yet.</div></div>'; return; }
   if(!scState.gid || !games.some(g => g.gid === scState.gid)){
     const now = Date.now() - 5 * 3600 * 1000; scState.gid = (games.find(g => new Date(g.date).getTime() > now) || games[0]).gid;
   }
   const g = games.find(x => x.gid === scState.gid);
   const angles = scSlateAngles(games);
-  body.innerHTML = `<div class="panel"><div class="sc-games">${games.map(x => `<button class="sc-g${x.gid === g.gid ? ' on' : ''}" data-gid="${x.gid}">${x.away} <i>@</i> ${x.home}<small>${x.win.day ? x.win.day.slice(0, 3) : ''} ${x.win.time.replace(' ET', '')}</small></button>`).join('')}</div></div>
+  body.innerHTML = planPillsHtml() + `<div class="panel"><div class="sc-games">${games.map(x => `<button class="sc-g${x.gid === g.gid ? ' on' : ''}" data-gid="${x.gid}">${x.away} <i>@</i> ${x.home}<small>${x.win.day ? x.win.day.slice(0, 3) : ''} ${x.win.time.replace(' ET', '')}</small></button>`).join('')}</div></div>
     <div class="panel sc-hd"><div class="panel-title" style="margin-bottom:2px;">${teamName(g.away)} <span class="at">@</span> ${teamName(g.home)}</div><div class="panel-note" id="sc-gh" style="margin:0;">${g.win.day || ''} ${g.win.time}${g.spread ? ' &middot; ' + g.spread : ''}${g.ou ? ' &middot; o/u ' + g.ou : ''}</div></div>
     ${scGamePlanHtml(g)}
     ${scCardHtml(g.away, g.home, g.spread, g.ou)}${scCardHtml(g.home, g.away, g.spread, g.ou)}
@@ -10247,6 +10341,7 @@ function scDrawBody(){
 function mountScout(){
   const body = $('#sc-body');
   body.addEventListener('click', e => {
+    const wk = e.target.closest('#sc-weeks .pill'); if(wk){ scState.planWeek = wk.dataset.w; scDrawBody(); return; }
     const b = e.target.closest('.sc-g, .sc-jump'); if(!b || !b.dataset.gid) return;
     scState.gid = b.dataset.gid; scDrawBody(); window.scrollTo(0, 0);
   });
