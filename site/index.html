@@ -825,6 +825,7 @@
   .po-cv{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;} .po-cv small{display:block;font-size:11px;color:var(--chalk-dim);} .po-cv b{font-size:22px;} .po-cv em{font-style:normal;font-family:var(--mono);font-size:12px;margin-left:5px;color:var(--gold);} .po-cv>span{color:var(--po-pink);font-weight:800;} .po-cv>div:last-child{text-align:right;}
   .po-foot{margin-top:12px;} .po-note{font-size:12px;color:var(--chalk-dim);margin-top:8px;}
   @media(max-width:760px){.po-grid{grid-template-columns:1fr;}.po-head{grid-template-columns:1fr;text-align:center;}.po-right{text-align:center;}}
+  .sc-res{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;} .sc-chip{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--panel-border);color:var(--chalk-dim);} .sc-chip.ok{border-color:var(--mint);color:var(--mint);} .sc-chip.bad{border-color:var(--red);color:var(--red);} .sc-chip.live{border-color:var(--gold);color:var(--gold);}
   .sl-meta{font-family:var(--mono);font-size:12px;color:var(--chalk-dim);margin-bottom:8px;}
   .sl-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;} .sl-h{font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--gold);margin-bottom:6px;}
   .sl-ul{list-style:none;margin:0;padding:0;} .sl-ul li{padding:7px 0;border-top:1px solid var(--panel-border);position:relative;padding-right:92px;}
@@ -10016,6 +10017,35 @@ function scPlayerBit(r){
   if(r.td) parts.push(`${Math.round(r.td.prob * 100)}% to score`);
   return parts[0] + (parts.length > 1 ? ' &mdash; ' + parts.slice(1).join(', ') : '');
 }
+// ---- Results on the players a plan points at ----
+// "Lean on" players are graded against the projection shown (did he beat it?), "contain" players against his own season average
+// (was he held under it?), and touchdown-only candidates on whether they scored. Players who did not play are voided.
+function scAvgFor(player, team, stat){
+  const rows = (DATA.playerGame || []).filter(r => r.Player === player && r.Team === team);
+  return rows.length ? rows.reduce((a, r) => a + getStatValue(r, stat), 0) / rows.length : 0;
+}
+function scTgt(r, team, role){ return r.stat ? {player: r.player, team, stat: r.stat, proj: r.proj, avg: r.avg, role} : {player: r.player, team, stat: null, prob: r.td ? r.td.prob : null, role: 'td'}; }
+function scTgtGrade(p, week){
+  const stat = p.stat || 'Any TD', thr = !p.stat ? 1 : p.role === 'contain' ? p.avg : p.proj;
+  if(!(thr > 0)) return null;
+  const g = gradeMyPick({player: p.player, team: p.team, stat, week, threshold: thr, direction: p.role === 'contain' ? 'under' : undefined});
+  return g ? {...g, stat, thr} : null;
+}
+function scChipHtml(p, week){
+  const g = scTgtGrade(p, week); if(!g || g.status === 'PENDING') return '';
+  const nm = `<b>${p.player}</b>`;
+  if(g.status === 'DNP') return `<span class="sc-chip dnp">${nm} did not play (voided)</span>`;
+  const unit = p.stat ? (BP_STAT_SHORT[p.stat] || p.stat) : 'TD', a = g.actual === null || g.actual === undefined ? '' : fmt(g.actual, 0);
+  if(g.status === 'LIVE') return `<span class="sc-chip live">${nm} ${a} ${unit} so far</span>`;
+  const ok = g.status === 'HIT';
+  const note = p.role === 'td' ? (ok ? 'scored' : 'no TD') : p.role === 'contain' ? `${ok ? 'held under' : 'got over'} his ${fmt(p.avg, 0)} avg` : `${ok ? 'beat' : 'missed'} ${fmt(p.proj, 0)} projection`;
+  return `<span class="sc-chip ${ok ? 'ok' : 'bad'}">${ok ? '&#10003;' : '&#10007;'} ${nm} ${a} ${unit} &middot; ${note}</span>`;
+}
+function scKeyResultsHtml(players, week){
+  if(!week || !players || !players.length) return '';
+  const h = players.map(p => scChipHtml(p, week)).filter(Boolean).join('');
+  return h ? `<div class="sc-res">${h}</div>` : '';
+}
 function scKeys(T, O, sp, ou){
   const C = scCtx(), keys = [];
   const soft = scSpots(O).soft;
@@ -10025,11 +10055,11 @@ function scKeys(T, O, sp, ou){
     const h = {run: `Attack ${O} on the ground`, pass: `Attack ${O} through the air`, wr: `Attack ${O} with the wide receivers`, te: `Attack ${O} with the tight end`, rb: `Attack ${O} with the backs in the passing game`, rush: `Give the quarterback time against ${O}`}[s.fam] || `Attack ${O}`;
     const cap = s.m.soft.charAt(0).toUpperCase() + s.m.soft.slice(1);
     const num_ = s.m.id === 'sacks' ? `only ${fmt(s.e.val, 1)} sacks a game, #${s.e.rank} fewest of ${s.e.of}` : `${fmt(s.e.val, s.m.dp)} ${s.m.unit} a game, #${s.e.rank} of ${s.e.of}`;
-    keys.push({h, t: `${cap}: ${num_}${s.e.thin ? ' (small sample)' : ''}.` + (who.length ? ' Lean on ' + who.map(scPlayerBit).join('; ') + '.' : '')});
+    keys.push({h, t: `${cap}: ${num_}${s.e.thin ? ' (small sample)' : ''}.` + (who.length ? ' Lean on ' + who.map(scPlayerBit).join('; ') + '.' : ''), players: who.map(r => scTgt(r, T, 'lean'))});
   });
   if(!soft.length){
     const top = rows.filter(r => r.stat).sort((a, b) => b.avg - a.avg)[0];
-    keys.push({h: 'Win on efficiency', t: `${O} have no clear weakness, so ${T} have to win by executing.` + (top ? ` Their most reliable producer is ${scPlayerBit(top)}.` : '')});
+    keys.push({h: 'Win on efficiency', t: `${O} have no clear weakness, so ${T} have to win by executing.` + (top ? ` Their most reliable producer is ${scPlayerBit(top)}.` : ''), players: top ? [scTgt(top, T, 'lean')] : []});
   }
   // Contain the other side's best weapon, and say whether this defense is built to do it.
   const oo = scOffense(O);
@@ -10042,7 +10072,7 @@ function scKeys(T, O, sp, ou){
     if(w){
       const mid = {wr: 'wr', te: 'te', run: 'run'}[w.kind], e = C.def[T] && C.def[T].m[mid];
       const own = e ? (e.spct <= -0.08 ? ` ${T} are built for it (${fmt(e.val, 0)} ${SC_M.find(m => m.id === mid).unit} a game allowed, #${e.rank} of ${e.of}).` : e.spct >= 0.08 ? ` Careful: ${T} are soft here (#${e.rank} of ${e.of}), so this is where ${O} will attack.` : ` ${T} are about average here.`) : '';
-      keys.push({h: `Contain ${w.name}`, t: `${O}'s offense runs through ${w.name} (${Math.round(w.share * 100)}% of the ${w.what}${w.rz !== null ? `, ${Math.round(w.rz * 100)}% in the red zone` : ''}).${own}`});
+      keys.push({h: `Contain ${w.name}`, t: `${O}'s offense runs through ${w.name} (${Math.round(w.share * 100)}% of the ${w.what}${w.rz !== null ? `, ${Math.round(w.rz * 100)}% in the red zone` : ''}).${own}`, players: [{player: w.name, team: O, stat: w.kind === 'run' ? 'Rush Yards' : 'Receiving Yards', avg: scAvgFor(w.name, O, w.kind === 'run' ? 'Rush Yards' : 'Receiving Yards'), role: 'contain'}]});
     }
   }
   // Scheme fit: how this offense and its key players have done against defenses of this style.
@@ -10067,8 +10097,9 @@ function scKeys(T, O, sp, ou){
   if(bits.length) keys.push({h: 'Control the game', t: bits.join(' ')});
   return keys;
 }
-function scGamePlanHtml(g){
+function scGamePlanHtml(g, noRes){
   const {away, home, spread, ou} = g;
+  const resWeek = noRes ? null : g.week;
   const m = gbModel(away, home, spread, ou, g.mlAway, g.mlHome);
   let pick = m.pick, prob = m.pickProb, byPts = m.ourMargin !== null && m.ourMargin !== undefined ? Math.abs(m.ourMargin) : null, basis = '';
   if(!pick){
@@ -10094,7 +10125,7 @@ function scGamePlanHtml(g){
   const card = (T, O, win) => {
     const keys = scKeys(T, O, spread, ou);
     return `<div class="sc-plan${win ? ' win' : ''}"><div class="sc-plan-h">${win ? `How ${teamName(T)} win it` : `How ${teamName(T)} steal it`}</div>
-      <ol class="sc-keys">${keys.map(k => `<li><b>${k.h}.</b> ${k.t}</li>`).join('') || '<li>Not enough data on this matchup yet.</li>'}</ol></div>`;
+      <ol class="sc-keys">${keys.map(k => `<li><b>${k.h}.</b> ${k.t}${scKeyResultsHtml(k.players, resWeek)}</li>`).join('') || '<li>Not enough data on this matchup yet.</li>'}</ol></div>`;
   };
   return `<div class="panel sc-planwrap"><div class="panel-title">Game Plan</div>
     <div class="panel-note">The pick is the Game Board model: each team's offense and defense EPA ratings turned into points, then pulled toward the market (30% model by default) because a few games is thin next to a betting line. The win chance shifts the market's own probability by what that adjustment is worth. The keys below are built from the matchup notes: attack the defense's soft spots with the players who benefit, contain the other side's best weapon, and the script / pass-rush / ball-security angle. Early in the season treat it as a guide, not a lock.</div>
@@ -10273,7 +10304,9 @@ function planSnapshot(games){
       if(new Date(g.date).getTime() <= now) return;
       const k = `${g.week}|${g.gid}`; if(h[k]) return;
       const p = scPlanPick(g);
-      h[k] = {week: String(g.week), gid: g.gid, away: g.away, home: g.home, date: g.date, pick: p.pick, prob: p.prob, byPts: p.byPts, spread: g.spread || '', html: scGamePlanHtml(g), saved: now};
+      const lo = p.pick === g.home ? g.away : g.home;
+      h[k] = {week: String(g.week), gid: g.gid, away: g.away, home: g.home, date: g.date, pick: p.pick, prob: p.prob, byPts: p.byPts, spread: g.spread || '', html: scGamePlanHtml(g, true), saved: now,
+        res: [[p.pick, lo], [lo, p.pick]].map(([T, O]) => ({team: T, keys: scKeys(T, O, g.spread, g.ou).filter(x => x.players && x.players.length).map(x => ({h: x.h, players: x.players}))}))};
       changed = true;
     });
     if(changed) planHistSave(h);
@@ -10306,7 +10339,18 @@ function planPillsHtml(){
   return `<div class="panel"><div class="controls" style="margin:0;"><div class="pill-group" id="sc-weeks">
     <span class="pill ${!scState.planWeek ? 'active' : ''}" data-w="">${cur ? 'Week ' + cur + ' (this slate)' : 'This slate'}</span>
     ${weeks.map(w => `<span class="pill ${scState.planWeek === w ? 'active' : ''}" data-w="${w}">Week ${w}</span>`).join('')}</div></div>
-    <div class="sc-meta" style="margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Saved plans so far: <b style="color:var(--chalk);">${rec.text}</b> on picking the winner. Plans are saved before kickoff on this device, starting with the first time you open this tab or the Slate Summary.</div></div>`;
+    <div class="sc-meta" style="margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Saved plans so far: <b style="color:var(--chalk);">${rec.text}</b> on picking the winner. ${planPlayerRecord(all) ? '<br>Players the plans pointed at: <b style="color:var(--chalk);">' + planPlayerRecord(all) + '</b>.' : ''}<br>Plans are saved before kickoff on this device, starting with the first time you open this tab or the Slate Summary.</div></div>`;
+}
+function planResBlock(e){
+  if(!e.res) return '';
+  const rows = e.res.map(s => s.keys.map(k => { const c = scKeyResultsHtml(k.players, e.week); return c ? `<li><b>${s.team}: ${k.h}</b>${c}</li>` : ''; }).join('')).join('');
+  return rows ? `<div class="sc-plan" style="margin-top:10px;"><div class="sc-plan-h">Results on the players the plan pointed at</div><ul class="sc-keys" style="list-style:none;padding-left:0;">${rows}</ul></div>` : '';
+}
+function planPlayerRecord(list){
+  const t = {lean: [0, 0], contain: [0, 0], td: [0, 0]};
+  list.forEach(e => (e.res || []).forEach(s => s.keys.forEach(k => k.players.forEach(p => { const g = scTgtGrade(p, e.week); if(!g) return; if(g.status === 'HIT') t[p.role][0]++; else if(g.status === 'MISS') t[p.role][1]++; }))));
+  const f = ([h, m], lab) => h + m ? `${lab} ${h}-${m}` : '';
+  return [f(t.lean, 'beat projection'), f(t.contain, 'held under average'), f(t.td, 'TD candidates scored')].filter(Boolean).join(' &middot; ');
 }
 function planWeekHtml(week){
   const list = Object.values(planHistGet()).filter(e => e.week === week).sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -10316,7 +10360,7 @@ function planWeekHtml(week){
     const g = planGrade(e);
     const chip = g.status === 'HIT' ? '<b style="color:var(--mint)">RIGHT</b>' : g.status === 'MISS' ? '<b style="color:var(--red)">WRONG</b>' : g.status === 'TIE' ? '<b>TIE</b>' : '<span style="color:var(--chalk-dim)">not final yet</span>';
     const sc = g.r ? ` &middot; final ${e.away} ${g.r.a}, ${e.home} ${g.r.h}` : '';
-    return `<div class="panel"><details><summary style="cursor:pointer;"><b>${e.away} @ ${e.home}</b> &middot; ${teamName(e.pick)} to win${e.prob !== null && e.prob !== undefined ? ' (' + Math.round(e.prob * 100) + '%)' : ''}${e.byPts !== null && e.byPts !== undefined ? ' by ' + fmt(e.byPts, 1) : ''} &middot; ${chip}${sc}</summary><div style="margin-top:10px;">${e.html}</div></details></div>`;
+    return `<div class="panel"><details><summary style="cursor:pointer;"><b>${e.away} @ ${e.home}</b> &middot; ${teamName(e.pick)} to win${e.prob !== null && e.prob !== undefined ? ' (' + Math.round(e.prob * 100) + '%)' : ''}${e.byPts !== null && e.byPts !== undefined ? ' by ' + fmt(e.byPts, 1) : ''} &middot; ${chip}${sc}</summary><div style="margin-top:10px;">${e.html}${planResBlock(e)}</div></details></div>`;
   }).join('');
 }
 function scDrawBody(){
