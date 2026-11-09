@@ -838,6 +838,7 @@
   .dl-grid{display:grid;grid-template-columns:1fr;gap:12px;} .dl-grid.two{grid-template-columns:repeat(2,minmax(0,1fr));} @media(max-width:1000px){.dl-grid.two{grid-template-columns:1fr;}}
   .dl-card{border:1.5px solid var(--gold);border-radius:12px;padding:10px 12px;background:var(--panel);} .dl-h{font-weight:800;font-size:18px;margin-bottom:6px;} .dl-h small{font-weight:400;color:var(--chalk-dim);font-size:12px;margin-left:6px;}
   .dl-t th,.dl-t td{padding:5px 6px;} .dl-t thead th{background:var(--panel-border);} .dl-hi{background:rgba(40,160,150,.28);padding:2px 8px;border-radius:4px;} .dl-bye td{color:var(--chalk-dim);font-style:italic;}
+  .dl-vs{margin-top:8px;font-size:13px;color:var(--chalk-dim);} .dl-vs span{font-weight:800;color:var(--gold);} .dl-vs b{color:var(--chalk);}
   .dl-take{margin-top:8px;border:1px solid var(--gold);border-radius:10px;padding:8px 10px;font-size:13px;} .dl-take span{font-style:italic;font-weight:800;color:var(--gold);margin-right:6px;}
   .sc-g:hover{color:var(--chalk);} .sc-g.on{background:var(--gold);color:#0B0F19;border-color:var(--gold);font-weight:700;}
   .sc-jump:hover{background:rgba(255,255,255,0.07) !important;}
@@ -3611,7 +3612,7 @@ function renderMatchup(){
   <div class="mu-main">
   <div class="panel">
     <div class="panel-title">Matchup Explorer</div>
-    <div class="panel-note">Pick an offense, a defense, and a position, or click a game in this week's schedule on the right. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
+    <div class="panel-note"><b>All</b> shows the defense against every position at once (quarterbacks, running backs, wide receivers, tight ends), game by game, with the offense's own average beside it. Pick one position for the full tables. Pick an offense, a defense, and a position, or click a game in this week's schedule on the right. Left table is that offense's players game-by-game. Right table is every other team's player at that position who has played against the selected defense (excludes the offense's own team, so a past matchup between these two teams isn't double-counted).</div>
     <div class="controls">
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">OFFENSE</label>
       <select id="mu-off">${teams.map(t=>`<option value="${t}" ${t===defaultOff?'selected':''}>${teamName(t)}</option>`).join('')}</select>
@@ -3619,10 +3620,12 @@ function renderMatchup(){
       <label style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">DEFENSE</label>
       <select id="mu-def">${teams.map(t=>`<option value="${t}" ${t===defaultDef?'selected':''}>${teamName(t)}</option>`).join('')}</select>
       <div class="pill-group" id="mu-pos-pills">
-        ${MATCHUP_POSITIONS.map((p,i)=>`<span class="pill ${i===0?'active':''}" data-pos="${p}">${p}</span>`).join('')}
+        <span class="pill active" data-pos="ALL" title="Every position for this defense, side by side">All</span>
+        ${MATCHUP_POSITIONS.map(p=>`<span class="pill" data-pos="${p}">${p}</span>`).join('')}
       </div>
       ${starterPillHtml('mu-starters')}
     </div>
+    <div id="mu-all"></div>
     <div id="mu-rank"></div>
     <div id="mu-faced"></div>
     <div class="line-note" id="mu-rank-note" style="margin:0 0 14px;"></div>
@@ -3832,7 +3835,7 @@ const MATCHUP_COLS = {
 };
 
 function mountMatchup(){
-  let pos = MATCHUP_POSITIONS[0];
+  let pos = 'ALL';
 
   // Buttons live inside tables that get rebuilt on every sort, so this is
   // passed to buildTable as onRender and re-wired after each render.
@@ -3856,6 +3859,20 @@ function mountMatchup(){
   function apply(){
     const off = $('#mu-off').value;
     const def = $('#mu-def').value;
+    // "All" blends in the Defense Log: every position for this defense, game by game, with the offense's own number beside it.
+    const allMode = pos === 'ALL';
+    ['#mu-rank', '#mu-faced', '#mu-rank-note'].forEach(q => { const el = $(q); if(el) el.style.display = allMode ? 'none' : ''; });
+    const grid = $('.mu-grid'); if(grid) grid.style.display = allMode ? 'none' : '';
+    const allEl = $('#mu-all');
+    if(allMode){
+      const order = ['QB', 'RB', 'WR', 'TE'];
+      allEl.innerHTML = `<div class="dl-name">${teamName(def)} <span>defense, against every position</span></div>${dlStripHtml(def)}
+        <div class="dl-grid" style="margin-top:12px;">${order.map(p => dlCardHtml(def, p, off)).join('')}</div>
+        <div class="line-note" style="margin-top:10px;">Pick QB, RB, TE or WR above for that position's full game-by-game tables with the offense side by side. Starters-only does not apply to this overview.</div>`;
+      syncSchedule();
+      return;
+    }
+    allEl.innerHTML = '';
     const statCols = MATCHUP_COLS[pos];
 
     // Each row is one player's one game -- saving it keeps that stat line
@@ -9299,13 +9316,13 @@ const TN_MORE = [['teamsg', 'Teams'], ['mineg', 'My Picks']];
 const TAB_GROUPS = {
   propsg:   [['picks', 'Best Picks'], ['anytimetd', 'Anytime TD'], ['propprices', 'Prop Prices'], ['booklines', 'Book Lines'], ['predictions', 'Predictions']],
   gamesg:   [['board', 'Game Board'], ['slate', 'Slate Summary'], ['plan', 'Game Plan'], ['poster', 'Matchup Poster'], ['live', 'Live Matchups'], ['week2', 'Games This Week']],
-  defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['dlog', 'Defense Log'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
+  defg:     [['scout', 'Defense Report'], ['defense', 'Defense vs Position'], ['matchup', 'Matchup Explorer'], ['field', 'Defense Field'], ['film', 'Film Room'], ['lines', 'Line Play']],
   playersg: [['players', 'Game Logs'], ['streaks', 'Streaks'], ['milestones', 'Milestone Watch'], ['injuries', 'Injury Report']],
   teamsg:   [['teams', 'Summary'], ['power', 'Power Rankings'], ['epa', 'EPA / Efficiency'], ['coaching', 'Coaching Tendencies'], ['sos', 'Strength of Schedule'], ['restload', 'Schedule Load'], ['teamweek', 'Game Log']],
   mineg:    [['mypicks', 'My Tickets'], ['friends', 'Friends'], ['backtest', 'Model Record']],
 };
 // Screens that were folded into others: anything that still links to them lands somewhere sensible.
-const TAB_REDIRECT = {home: 'board', overview: 'board', mikes: 'propsg', liveg: 'live'};
+const TAB_REDIRECT = {home: 'board', overview: 'board', mikes: 'propsg', liveg: 'live', dlog: 'matchup'};
 const SUBTAB_KEY = 'nfl_dashboard_subtab_';
 let CLASSIC_TAB = 'gamesg';
 function getTheme(){
@@ -10002,7 +10019,6 @@ function mountSlate(){
   slDraw();
 }
 // ---- Defense Log: what every kind of player did against one defense, game by game, positions side by side ----
-const dlState = {team: '', pos: 'ALL'};
 const DL_POS = {
   QB: {title: 'Quarterbacks', unit: 'pass yds', game: r => num(r['Pass Yards']), pick: rows => rows.filter(r => num(r['Pass Attempts']) >= 3).sort((a, b) => num(b['Pass Attempts']) - num(a['Pass Attempts'])), per: 'QB',
        head: ['Opposing QB', 'Comp / Att', 'Pass yds', 'TD / INT'], cells: r => [r.Player, `${num(r['Pass Completions'])} / ${num(r['Pass Attempts'])}`, num(r['Pass Yards']), `${num(r['Pass TD'])} / ${num(r.Interceptions)}`], key: r => num(r['Pass Yards'])},
@@ -10036,7 +10052,11 @@ function dlLeague(){
   dlLeague._src = DATA.playerGame; dlLeague._v = {byDef, avg, lg, rank, weeksMax};
   return dlLeague._v;
 }
-function dlCardHtml(team, pos){
+function dlOffAvg(team, pos){
+  const by = {}; (DATA.playerGame || []).filter(r => r.Team === team && r.Position === pos).forEach(r => { by[r.Week] = (by[r.Week] || 0) + DL_POS[pos].game(r); });
+  const v = Object.values(by); return v.length ? v.reduce((a, x) => a + x, 0) / v.length : null;
+}
+function dlCardHtml(team, pos, off){
   const P = DL_POS[pos], L = dlLeague();
   const rows = (DATA.playerGame || []).filter(r => r.Opponent === team && r.Position === pos);
   const weeks = [...new Set((DATA.playerGame || []).filter(r => r.Opponent === team).map(r => num(r.Week)))].sort((a, b) => a - b);
@@ -10057,38 +10077,22 @@ function dlCardHtml(team, pos){
   const av = L.avg[pos + '|' + team], rk = L.rank[pos + '|' + team], thr = Math.round(L.lg[pos]);
   const over = totals.filter(t => t.tot >= thr).length, hi = totals.slice().sort((a, b) => b.tot - a.tot)[0];
   const takeaway = totals.length ? `Opposing ${P.per}s have put up ${thr}+ ${P.unit} in <b>${over} of ${totals.length}</b> games (a typical game across the league is ${thr}), with a high of <b>${hi.tot}</b> in Week ${hi.w}${hi.top ? ` (${hi.top.Team}, led by ${hi.top.Player})` : ''}. ${teamName(team)} allow <b>${fmt(av, 0)}</b> a game, <b>#${rk.r}</b> fewest of ${rk.n}.` : '';
+  let vs = '';
+  if(off){
+    const oa = dlOffAvg(off, pos);
+    if(oa !== null && av !== undefined){
+      const edge = av / Math.max(1, oa) - 1, lean = edge >= 0.08 ? `A soft spot: ${teamName(off)} should clear their usual number` : edge <= -0.08 ? `A tougher spot than usual for ${teamName(off)}` : 'A normal spot';
+      vs = `<div class="dl-vs"><span>${off} ${P.per}s</span> average <b>${fmt(oa, 0)}</b> ${P.unit} a game; ${team} allow <b>${fmt(av, 0)}</b> (league ${thr}). ${lean}.</div>`;
+    }
+  }
   return `<div class="dl-card"><div class="dl-h">${P.title} <small>${P.unit} allowed</small></div>
     <div class="table-scroll"><table class="dl-t"><thead><tr><th>Wk</th><th>Vs</th>${P.head.map((h, i) => `<th class="${i ? 'num' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
-    <div class="dl-take"><span>Key takeaway</span> ${takeaway}</div></div>`;
+    ${vs}<div class="dl-take"><span>Key takeaway</span> ${takeaway}</div></div>`;
 }
 function dlStripHtml(team){
   const L = dlLeague();
   return `<div class="dl-strip">${Object.keys(DL_POS).map(p => { const rk = L.rank[p + '|' + team], av = L.avg[p + '|' + team]; if(!rk) return ''; const tone = rk.r <= 10 ? 'var(--red)' : rk.r > rk.n - 10 ? 'var(--mint)' : 'var(--chalk)';
     return `<div class="dl-sc"><small>${DL_POS[p].title}</small><b>${fmt(av, 0)}</b><span>${DL_POS[p].unit} a game</span><em style="color:${tone}">${rk.r <= 10 ? 'tough' : rk.r > rk.n - 10 ? 'soft' : 'middle'} &middot; #${rk.r} fewest allowed</em></div>`; }).join('')}</div>`;
-}
-function renderDefLog(){
-  return `<div class="panel"><div class="panel-title">Defense Log</div>
-    <div class="panel-note">Pick a defense and see, game by game, what every kind of opposing player did against it: quarterbacks, running backs, wide receivers and tight ends side by side. The takeaway under each table counts the games at or above a typical league game and ranks the defense (1 = fewest allowed). On the strip, green is a soft spot (a good one to attack) and red is a tough one.</div>
-    <div class="controls"><select id="dl-team"></select><div class="pill-group" id="dl-pos"><span class="pill active" data-p="ALL">All positions</span>${Object.keys(DL_POS).map(p => `<span class="pill" data-p="${p}">${p}</span>`).join('')}</div></div></div>
-    <div id="dl-body"></div>`;
-}
-function dlDraw(){
-  const team = dlState.team, body = $('#dl-body'); if(!body) return;
-  const nxt = scGames().find(g => g.away === team || g.home === team), opp = nxt ? (nxt.away === team ? nxt.home : nxt.away) : '';
-  const ps = dlState.pos === 'ALL' ? Object.keys(DL_POS) : [dlState.pos];
-  body.innerHTML = `<div class="panel dl-top"><div class="dl-name">${teamName(team)} <span>defense</span></div>${opp ? `<div class="sc-meta" style="font-family:var(--mono);font-size:12px;color:var(--chalk-dim);">Next: ${nxt.away === team ? '@' : 'vs'} ${teamName(opp)}</div>` : ''}${dlStripHtml(team)}</div>
-    <div class="dl-grid ${ps.length > 1 ? 'two' : ''}">${ps.map(p => dlCardHtml(team, p)).join('')}</div>`;
-  $$('#dl-pos .pill').forEach(x => x.classList.toggle('active', x.dataset.p === dlState.pos));
-}
-function mountDefLog(){
-  const teams = [...new Set((DATA.playerGame || []).map(r => r.Opponent).filter(Boolean))].sort();
-  const sel = $('#dl-team');
-  sel.innerHTML = teams.map(t => `<option value="${t}">${teamName(t)}</option>`).join('');
-  if(!dlState.team || !teams.includes(dlState.team)){ const g = scGames()[0]; dlState.team = g && teams.includes(g.home) ? g.home : teams[0]; }
-  sel.value = dlState.team;
-  sel.addEventListener('change', () => { dlState.team = sel.value; dlDraw(); });
-  $('#dl-pos').addEventListener('click', e => { const p = e.target.closest('.pill'); if(!p) return; dlState.pos = p.dataset.p; dlDraw(); });
-  dlDraw();
 }
 function scSlateAngles(games){
   const items = [];
@@ -10531,7 +10535,6 @@ const renderers = {
   plan: {render: renderPlan, mount: mountScout},
   poster: {render: renderPoster, mount: mountPoster},
   slate: {render: renderSlate, mount: mountSlate},
-  dlog: {render: renderDefLog, mount: mountDefLog},
   tonight: {render: renderTonight, mount: mountTonight},
   board: {render: renderBoard, mount: mountBoard},
   home: {render: renderHome, mount: mountHome},
