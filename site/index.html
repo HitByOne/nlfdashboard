@@ -5105,7 +5105,7 @@ const BP_FLOORS = {
   'Receptions': [2,3,4,5,6,7,8],
 };
 const BP_STATS = {
-  QB: ['Pass Yards','Pass + Rush Yards'], RB: ['Rush Yards','Receiving Yards','Receptions'],
+  QB: ['Pass Yards'], RB: ['Rush Yards','Receiving Yards','Receptions'],
   WR: ['Receiving Yards','Receptions'], TE: ['Receiving Yards','Receptions'],
 };
 const BP_PLAYER_MIN_RATE = 0.75, BP_DEF_MIN_RATE = 0.60, BP_MIN_PLAYER_GAMES = 2, BP_MIN_DEF_SAMPLES = 3;
@@ -5210,6 +5210,8 @@ function bpScriptFactor(stat, spread){
   if(stat === 'Rush Yards') return 1 + Math.max(-0.08, Math.min(0.08, -spread * 0.01));
   return 1 + Math.max(-0.05, Math.min(0.05, spread * 0.006));
 }
+const BP_CAL = {'Pass Yards':0.96, 'Rush Yards':0.92, 'Receiving Yards':0.88, 'Receptions':0.92, 'Pass + Rush Yards':0.96};
+const BP_SD_MIN = {'Pass Yards':0.33, 'Rush Yards':0.45, 'Receiving Yards':0.50, 'Receptions':0.45, 'Pass + Rush Yards':0.33};
 function bpStdev(vals){
   if(vals.length < 2) return 0;
   const m = vals.reduce((a, v) => a + v, 0) / vals.length;
@@ -5225,8 +5227,10 @@ function bpProject(vals, l3avg, allowed, league, defGames, stat, spread){
   raw = Math.max(0.6, Math.min(1.6, raw));
   const matchup = 1 + (raw - 1) * Math.min(1, defGames / 6);
   const script = bpScriptFactor(stat, spread);
-  const proj = baseline * matchup * script;
-  const sd = Math.max(bpStdev(vals), 0.30 * proj);
+  // Calibrated on 631 graded picks (weeks 3-8): the raw number ran high, so the player beat it only 38-45% of the time.
+  // Yardage is right-skewed (a few big games pull the average up), so the typical outcome sits below the average.
+  const proj = baseline * matchup * script * (BP_CAL[stat] || 0.93);
+  const sd = Math.max(bpStdev(vals), (BP_SD_MIN[stat] || 0.40) * proj);
   return {proj, matchup, script, lo: Math.max(0, proj - 0.67 * sd), hi: proj + 0.67 * sd, line: Math.round(proj * 2) / 2};
 }
 
@@ -7456,9 +7460,11 @@ function renderAnytimeTD(){
     </div>
     <div id="td-top"></div>
     <div id="anytime-td-list"></div>
+    <div id="td-record"></div>
   </div>`;
 }
 function mountAnytimeTD(){
+  tdSnapshot(); { const rec = $('#td-record'); if(rec) rec.innerHTML = tdRecordHtml(); }
   const container = $('#anytime-td-list'), topEl = $('#td-top');
   const expanded = new Set();
   let posFilter = '', sortBy = 'prob';
@@ -9918,8 +9924,47 @@ function slDraw(){
       <div class="sl-cols"><div><div class="sl-h">Touchdown</div><ul class="sl-ul">${tdHtml}</ul></div><div><div class="sl-h">Yards</div><ul class="sl-ul">${ydHtml}</ul></div></div></div>`;
   }).join('');
 }
+// ---- TD pick record: the Slate Summary's two likeliest scorers per game, saved before kickoff and graded afterwards ----
+const TD_HIST_KEY = 'nfl_dashboard_tdpicks_history';
+function tdHistGet(){ try { return JSON.parse(localStorage.getItem(TD_HIST_KEY) || '{}'); } catch(e){ return {}; } }
+function tdHistSave(h){ try { localStorage.setItem(TD_HIST_KEY, JSON.stringify(h)); } catch(e){} }
+function tdSnapshot(){
+  try {
+    const week = bpCurWeek(); if(!week) return;
+    const h = tdHistGet(); let changed = false; const now = Date.now();
+    scGames().forEach(g => {
+      if(new Date(g.date).getTime() <= now) return; // only picks made before kickoff count
+      slTdTop(g).forEach(r => {
+        const k = `${week}|${r.team}|${r.player}`;
+        if(h[k]) return;
+        h[k] = {week, player: r.player, team: r.team, opp: r.opponent, pos: r.position || '', prob: r.prob, saved: now}; changed = true;
+      });
+    });
+    if(changed) tdHistSave(h);
+  } catch(e){}
+}
+function tdRecordHtml(){
+  const h = Object.values(tdHistGet());
+  const head = `<div class="panel-title" style="margin-top:18px;">TD pick record</div>
+    <div class="panel-note">Each game's two likeliest scorers (the same picks as the Slate Summary) are saved before kickoff and graded when the game is over. Players who did not play are voided. Compare the hit rate to the average chance the model gave: if they are close, the chances can be trusted. This builds up from the first time you open the Slate Summary or this tab, on this device.</div>`;
+  if(!h.length) return head + '<div class="empty">No saved picks yet. Open the Slate Summary before kickoff to start the record.</div>';
+  const rows = h.map(p => ({...p, g: gradeMyPick({player: p.player, team: p.team, stat: 'Any TD', threshold: 1, week: p.week})}));
+  const st = r => r.g ? r.g.status : 'PENDING';
+  const tally = list => { const hit = list.filter(r => st(r) === 'HIT').length, miss = list.filter(r => st(r) === 'MISS').length; return {hit, miss, open: list.filter(r => !['HIT', 'MISS', 'DNP'].includes(st(r))).length, dnp: list.filter(r => st(r) === 'DNP').length, avg: (hit + miss) ? list.filter(r => ['HIT', 'MISS'].includes(st(r))).reduce((a, r) => a + r.prob, 0) / (hit + miss) : null}; };
+  const line = (lab, t) => `<tr><td>${lab}</td><td>${t.hit}-${t.miss}</td><td><b>${t.hit + t.miss ? Math.round(100 * t.hit / (t.hit + t.miss)) + '%' : '--'}</b></td><td>${t.avg === null ? '--' : Math.round(t.avg * 100) + '%'}</td><td>${t.open}${t.dnp ? ' (+' + t.dnp + ' DNP)' : ''}</td></tr>`;
+  const weeks = [...new Set(rows.map(r => r.week))].sort((a, b) => num(b) - num(a));
+  const buckets = [['50%+', r => r.prob >= 0.5], ['40-49%', r => r.prob >= 0.4 && r.prob < 0.5], ['Under 40%', r => r.prob < 0.4]];
+  const cur = bpCurWeek();
+  const recent = rows.filter(r => r.week === (weeks.includes(cur) ? cur : weeks[0])).sort((a, b) => b.prob - a.prob);
+  const stCell = r => { const s = st(r); return s === 'HIT' ? '<b style="color:var(--mint)">HIT</b>' : s === 'MISS' ? '<b style="color:var(--red)">MISS</b>' : s === 'DNP' ? '<span style="color:var(--chalk-dim)">DNP (voided)</span>' : '<span style="color:var(--chalk-dim)">open</span>'; };
+  return head + `<table class="data-table" style="width:100%;margin-bottom:12px;"><thead><tr><th>Group</th><th>Record</th><th>Hit rate</th><th>Model said</th><th>Open</th></tr></thead><tbody>
+    ${line('All picks', tally(rows))}${weeks.map(w => line('Week ' + w, tally(rows.filter(r => r.week === w)))).join('')}${buckets.map(([l, f]) => line('Chance ' + l, tally(rows.filter(f)))).join('')}</tbody></table>
+    <table class="data-table" style="width:100%;"><thead><tr><th>Week ${weeks.includes(cur) ? cur : weeks[0]} pick</th><th>Game</th><th>Chance</th><th>Result</th></tr></thead><tbody>
+    ${recent.map(r => `<tr><td><b>${r.player}</b> <span style="color:var(--chalk-dim)">${r.team} ${r.pos}</span></td><td>vs ${r.opp}</td><td>${Math.round(r.prob * 100)}%</td><td>${stCell(r)}</td></tr>`).join('')}</tbody></table>`;
+}
 function mountSlate(){
   $('#sl-day').addEventListener('click', e => { const p = e.target.closest('.pill'); if(!p) return; slState.day = p.dataset.d; slDraw(); });
+  tdSnapshot();
   slDraw();
 }
 function scSlateAngles(games){
