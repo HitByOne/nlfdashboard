@@ -33,7 +33,6 @@ Olamide Zaccheaus,ATL,WR,Receptions,196,200,4
 Michael Carter,TEN,RB,Receptions,146,150,4
 Jalen Coker,CAR,WR,Receptions,96,100,4
 Luther Burden III,CHI,WR,Receptions,96,100,4
-Daniel Jones,IND,QB,Pass TD,96,100,4
 Justin Jefferson,MIN,WR,Receiving TD,46,50,4
 Kyle Allen,BUF,QB,Interceptions,21,25,4
 Cooper Rush,TB,QB,Pass Yards,3995,4000,5
@@ -62,7 +61,6 @@ Jordan Addison,MIN,WR,Receptions,193,200,7
 Tyjae Spears,TEN,RB,Receptions,143,150,7
 Jameis Winston,NYG,QB,Interceptions,118,125,7
 Kylen Granson,TEN,TE,Receptions,93,100,7
-Daniel Jones,IND,QB,Interceptions,68,75,7
 Jayden Daniels,WSH,QB,Pass TD,43,50,7
 Austin Ekeler,WSH,RB,Rush TD,43,50,7
 Josh Johnson,ARI,QB,Interceptions,18,25,7
@@ -439,7 +437,6 @@ Ben Skowronek,PIT,WR,Receptions,71,100,29
 Keenan Allen,SF,WR,Receiving TD,71,100,29
 Brian Robinson Jr.,ATL,RB,Rush TD,21,50,29
 Foster Moreau,HOU,TE,Receiving TD,21,50,29
-Daniel Jones,IND,QB,Rush TD,21,50,29
 Aaron Jones Sr.,MIN,RB,Receiving TD,21,50,29
 Noah Fant,NO,TE,Receiving TD,21,50,29
 Chris Olave,NO,WR,Receiving TD,21,50,29
@@ -1105,7 +1102,6 @@ Baker Mayfield,TB,QB,Rush Yards,1663,2000,337
 Jonathan Mingo,DAL,WR,Receiving Yards,663,1000,337
 Craig Reynolds,WSH,RB,Rush Yards,662,1000,338
 Jalen Hurts,PHI,QB,Rush Yards,3661,4000,339
-Daniel Jones,IND,QB,Pass Yards,19657,20000,343
 Geno Smith,NYJ,QB,Rush Yards,1657,2000,343
 Aaron Rodgers,PIT,QB,Rush Yards,3656,4000,344
 Tyler Conklin,DET,TE,Receiving Yards,2656,3000,344
@@ -1245,7 +1241,6 @@ Baker Mayfield,TB,QB,Pass Yards,29447,30000,553
 Colby Parkinson,LAR,TE,Receiving Yards,1447,2000,553
 Noah Gray,KC,TE,Receiving Yards,1445,2000,555
 DeeJay Dallas,MIN,RB,Receiving Yards,443,1000,557
-Daniel Jones,IND,QB,Rush Yards,2441,3000,559
 Eric Saubert,SEA,TE,Receiving Yards,440,1000,560
 Bo Nix,DEN,QB,Pass Yards,9436,10000,564
 Luke Farrell,SF,TE,Receiving Yards,436,1000,564
@@ -1906,7 +1901,6 @@ Jack Strand,ATL,QB,Rush Yards,16,1000,984
 Joe Fagnano,BAL,QB,Rush Yards,16,1000,984
 Joshua Palmer,BUF,WR,Rush Yards,16,1000,984
 Pat Bryant,DEN,WR,Rush Yards,16,1000,984
-Daniel Jones,IND,QB,Receiving Yards,16,1000,984
 Harrison Bryant,IND,TE,Rush Yards,16,1000,984
 Kevin Coleman Jr.,MIA,WR,Rush Yards,16,1000,984
 Efton Chism III,NE,WR,Pass Yards,16,1000,984
