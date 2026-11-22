@@ -118,7 +118,6 @@ TreVeyon Henderson,NE,RB,Receptions,40,50,10
 Calvin Ridley,TEN,WR,Receiving TD,40,50,10
 Joshua Dobbs,DET,QB,Interceptions,15,25,10
 Jake Browning,LAC,QB,Interceptions,15,25,10
-Brandin Cooks,SF,WR,Receptions,739,750,11
 George Kittle,SF,TE,Receptions,639,650,11
 Hunter Henry,NE,TE,Receptions,489,500,11
 James Conner,ARI,RB,Receptions,289,300,11
@@ -166,6 +165,7 @@ Xavier Legette,CAR,WR,Receptions,86,100,14
 Jalen Reagor,MIA,WR,Receptions,86,100,14
 Lamar Jackson,BAL,QB,Rush TD,36,50,14
 Bryce Young,CAR,QB,Interceptions,36,50,14
+Pierre Strong Jr.,GB,RB,Receptions,36,50,14
 Kenneth Walker III,KC,RB,Rush TD,36,50,14
 Jalin Hyatt,NYG,WR,Receptions,36,50,14
 Aaron Rodgers,PIT,QB,Rush TD,36,50,14
@@ -655,7 +655,6 @@ Mike Evans,SF,WR,Receiving TD,111,150,39
 Marcus Mariota,WSH,QB,Pass TD,111,150,39
 Ja'Marr Chase,CIN,WR,Receiving TD,61,100,39
 David Montgomery,HOU,RB,Rush TD,61,100,39
-Brandin Cooks,SF,WR,Receiving TD,61,100,39
 Chimere Dike,TEN,WR,Receptions,61,100,39
 Jeremiyah Love,ARI,RB,Receptions,11,50,39
 Devontez Walker,BAL,WR,Receptions,11,50,39
@@ -1013,7 +1012,6 @@ Jayden Reed,GB,WR,Receiving Yards,1881,2000,119
 Jeremy McNichols,WSH,RB,Rush Yards,880,1000,120
 Austin Ekeler,WSH,RB,Rush Yards,4874,5000,126
 Tyler Huntley,BAL,QB,Rush Yards,871,1000,129
-Brandin Cooks,SF,WR,Receiving Yards,9869,10000,131
 Dare Ogunbowale,HOU,RB,Receiving Yards,866,1000,134
 Nick Westbrook-Ikhine,IND,WR,Receiving Yards,1862,2000,138
 Bijan Robinson,ATL,RB,Rush Yards,4861,5000,139
@@ -1155,6 +1153,7 @@ Ameer Abdullah,JAX,RB,Receiving Yards,1569,2000,431
 Pat Bryant,DEN,WR,Receiving Yards,567,1000,433
 George Kittle,SF,TE,Receiving Yards,8565,9000,435
 Chimere Dike,TEN,WR,Receiving Yards,563,1000,437
+Pierre Strong Jr.,GB,RB,Rush Yards,558,1000,442
 Tyler Shough,NO,QB,Pass Yards,4557,5000,443
 Rhamondre Stevenson,NE,RB,Receiving Yards,1554,2000,446
 Isiah Pacheco,DET,RB,Receiving Yards,554,1000,446
@@ -1308,7 +1307,6 @@ Tank Bigsby,PHI,RB,Rush Yards,1345,2000,655
 Brandon Johnson,PIT,WR,Receiving Yards,344,1000,656
 Michael Pittman Jr.,PIT,WR,Receiving Yards,5343,6000,657
 Gardner Minshew II,ARI,QB,Pass Yards,12341,13000,659
-Brandin Cooks,SF,WR,Rush Yards,341,1000,659
 Quinshon Judkins,CLE,RB,Receiving Yards,340,1000,660
 DeAndre Carter,DET,WR,Receiving Yards,1336,2000,664
 Tylan Wallace,CLE,WR,Receiving Yards,335,1000,665
@@ -1404,6 +1402,7 @@ Durham Smythe,BAL,TE,Receiving Yards,1257,2000,743
 James Conner,ARI,RB,Receiving Yards,2255,3000,745
 Omarion Hampton,LAC,RB,Receiving Yards,255,1000,745
 Dylan Sampson,CLE,RB,Rush Yards,254,1000,746
+Pierre Strong Jr.,GB,RB,Receiving Yards,254,1000,746
 Ryan Miller,NE,WR,Receiving Yards,254,1000,746
 Tyler Higbee,LAR,TE,Receiving Yards,4253,5000,747
 Jordan Mason,MIN,RB,Rush Yards,2252,3000,748
